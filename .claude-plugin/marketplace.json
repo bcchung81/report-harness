@@ -1,0 +1,15 @@
+{
+  "name": "report-harness-marketplace",
+  "owner": {
+    "name": "bcchung81",
+    "url": "https://github.com/bcchung81"
+  },
+  "plugins": [
+    {
+      "name": "kca-report-harness",
+      "source": "./",
+      "description": "KCA 개조식 공공기관 보고서를 5-에이전트 하네스로 생산해 HWPX까지 산출. 파이프라인+생성-검증 하이브리드, 워크플로우 도해 주입 지원.",
+      "version": "1.0.0"
+    }
+  ]
+}

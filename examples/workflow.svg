@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1120" viewBox="0 0 1120 1120" preserveAspectRatio="xMidYMid meet" font-family="-apple-system, 'Segoe UI', 'Noto Sans KR', sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="arb" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#9333ea"/>
+    </marker>
+  </defs>
+
+  <text x="560" y="36" text-anchor="middle" font-size="24" font-weight="700" fill="#1e293b">KCA 보고서 하네스 워크플로우</text>
+  <text x="560" y="62" text-anchor="middle" font-size="15" fill="#64748b">파이프라인 + 생성-검증(Producer-Reviewer) 하이브리드</text>
+
+  <!-- 5개 단계 박스 (y=110, h=76) -->
+  <!-- 기획 -->
+  <rect x="24" y="110" width="176" height="76" rx="12" fill="#eef2ff" stroke="#4353b9" stroke-width="2"/>
+  <text x="112" y="142" text-anchor="middle" font-size="18" font-weight="700" fill="#312e81">기획</text>
+  <text x="112" y="165" text-anchor="middle" font-size="13" fill="#4353b9">planner</text>
+  <!-- 작성 -->
+  <rect x="248" y="110" width="176" height="76" rx="12" fill="#eef2ff" stroke="#4353b9" stroke-width="2"/>
+  <text x="336" y="142" text-anchor="middle" font-size="18" font-weight="700" fill="#312e81">작성</text>
+  <text x="336" y="165" text-anchor="middle" font-size="13" fill="#4353b9">writer</text>
+  <!-- 문체감사 -->
+  <rect x="472" y="110" width="176" height="76" rx="12" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+  <text x="560" y="142" text-anchor="middle" font-size="18" font-weight="700" fill="#155e75">문체 감사</text>
+  <text x="560" y="165" text-anchor="middle" font-size="13" fill="#0891b2">style-auditor</text>
+  <!-- 렌더 -->
+  <rect x="696" y="110" width="176" height="76" rx="12" fill="#eef2ff" stroke="#4353b9" stroke-width="2"/>
+  <text x="784" y="142" text-anchor="middle" font-size="18" font-weight="700" fill="#312e81">렌더</text>
+  <text x="784" y="165" text-anchor="middle" font-size="13" fill="#4353b9">builder</text>
+  <!-- 산출물 QA -->
+  <rect x="920" y="110" width="176" height="76" rx="12" fill="#faf5ff" stroke="#9333ea" stroke-width="2"/>
+  <text x="1008" y="142" text-anchor="middle" font-size="18" font-weight="700" fill="#6b21a8">산출물 QA</text>
+  <text x="1008" y="165" text-anchor="middle" font-size="13" fill="#9333ea">hwpx-qa</text>
+
+  <!-- 순방향 화살표 -->
+  <line x1="200" y1="148" x2="244" y2="148" stroke="#475569" stroke-width="2.5" marker-end="url(#ar)"/>
+  <line x1="424" y1="148" x2="468" y2="148" stroke="#475569" stroke-width="2.5" marker-end="url(#ar)"/>
+  <line x1="648" y1="148" x2="692" y2="148" stroke="#475569" stroke-width="2.5" marker-end="url(#ar)"/>
+  <line x1="872" y1="148" x2="916" y2="148" stroke="#475569" stroke-width="2.5" marker-end="url(#ar)"/>
+
+  <!-- 생성-검증 반려 루프 1: 작성 ⇄ 문체감사 -->
+  <path d="M472,196 C440,244 344,244 336,200" fill="none" stroke="#9333ea" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#arb)"/>
+  <text x="404" y="262" text-anchor="middle" font-size="12.5" font-weight="600" fill="#9333ea">반려 (최대 3회)</text>
+
+  <!-- 생성-검증 반려 루프 2: 렌더 ⇄ 산출물 QA -->
+  <path d="M920,196 C888,244 792,244 784,200" fill="none" stroke="#9333ea" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#arb)"/>
+  <text x="852" y="262" text-anchor="middle" font-size="12.5" font-weight="600" fill="#9333ea">반려 (원인별 라우팅)</text>
+
+  <!-- 하단 요지 -->
+  <text x="560" y="320" text-anchor="middle" font-size="14" fill="#475569">작성자 ≠ 검증자 분리 · 문체/렌더 원인 격리 · _workspace 산출물 보존으로 부분 재실행</text>
+</svg>

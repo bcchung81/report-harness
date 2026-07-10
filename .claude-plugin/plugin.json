@@ -1,0 +1,24 @@
+{
+  "name": "kca-report-harness",
+  "description": "KCA(한국방송통신전파진흥원) 개조식 공공기관 보고서를 5-에이전트 하네스(기획→작성→문체감사→렌더→산출물QA)로 생산하고 최종 HWPX(한컴 한글)까지 산출하는 Claude Code 하네스. 파이프라인 + 생성-검증(Producer-Reviewer) 하이브리드. 워크플로우 도해(SVG→PNG→HWPX 주입) 지원.",
+  "version": "1.0.0",
+  "author": {
+    "name": "bcchung81",
+    "url": "https://github.com/bcchung81"
+  },
+  "homepage": "https://github.com/bcchung81/report-harness",
+  "repository": "https://github.com/bcchung81/report-harness",
+  "license": "Apache-2.0",
+  "keywords": [
+    "harness",
+    "agent-team",
+    "kca",
+    "개조식",
+    "hwpx",
+    "korean-report",
+    "producer-reviewer",
+    "pipeline",
+    "claude-code",
+    "multi-agent"
+  ]
+}
