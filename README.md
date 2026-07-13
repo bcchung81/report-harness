@@ -133,6 +133,28 @@ HWPX만 다시 뽑아    → builder~qa만
 
 ---
 
+## 결정론적 안전망 — 훅 (선택)
+
+하네스는 기본적으로 훅 없이 동작하지만(모델 주도), **HWPX 구조 검증을 결정론적으로 강제**하는 훅을 넣을 수 있다. hwpx-qa 에이전트가 `validate_hwpx.py` 실행을 건너뛰어도, `build_from_template.py`·`inject_image.py`를 부른 Bash 명령이 만든 HWPX는 이 훅이 무조건 검증한다.
+
+`~/.claude/settings.json`의 `hooks.PostToolUse`에 추가(기존 훅과 **병합**):
+
+```json
+{
+  "matcher": "Bash",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "python3 \"/Users/<you>/.claude/kca-harness/hooks/validate_hwpx_hook.py\"",
+      "timeout": 30,
+      "statusMessage": "HWPX 구조 검증"
+    }
+  ]
+}
+```
+
+훅 스크립트는 `hooks/validate_hwpx_hook.py`. 구조 검증 실패 시 `decision:block`으로 모델에 재빌드를 알린다(정상이면 조용히 통과). 이것으로 "QA 에이전트가 건너뛰어도 검증은 무조건 실행"되는 안전망이 완성된다 — 감사에서 지적한 취약 커플링을 훅이 결정론적으로 메운다.
+
 ## 설계 원칙
 
 1. **작성자 ≠ 검증자** — writer와 style-auditor를 다른 에이전트로 강제 분리(자기검증 편향 제거)
