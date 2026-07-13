@@ -178,7 +178,18 @@ def remap_paragraph(p):
     txt = first_text(p)
     key = classify(txt)
     if not key:
-        return False
+        # 마커 없는 문단: 빈 문단은 드롭, 실제 텍스트(붙임 헤딩·구분선 등)는 내용 손실 없이 보존.
+        # 발신정보(< … >)는 참고양식이 제공하므로 본문 것은 제외(중복 방지).
+        # 「붙임 N. …」은 섹션 헤딩(□ 계층), 그 외(구분선 등)는 본문(ㅇ 계층)으로 재지정.
+        stripped = txt.lstrip()
+        if not stripped or stripped.startswith("<"):
+            return False
+        pp, cp = REF["□"] if stripped.startswith("붙임") else REF["ㅇ"]
+        p.set("paraPrIDRef", pp)
+        for run in p.iter(HP + "run"):
+            if run.get("charPrIDRef") is not None:
+                run.set("charPrIDRef", cp)
+        return True
     pp, cp = REF[key]
     p.set("paraPrIDRef", pp)
     for run in p.iter(HP + "run"):
