@@ -74,6 +74,97 @@ def add_table_borderfills(header):
     header = re.sub(r'(<hh:borderFills[^>]*itemCnt=")(\d+)(")',
                     lambda m: m.group(1) + str(int(m.group(2)) + len(defs)) + m.group(3), header, count=1)
     return header, idmap
+
+
+# ── 붙임 헤더 (라벨박스 표) — KCA 실물 보고서 실측 규약 ──────────────────
+# 「붙임 N」 진남색(#2B2D63) 박스(4방 0.5mm, 흰 글자 16pt HY헤드라인M) + 스페이서
+# + 제목 셀(상하선만 0.5mm, 16pt). 1행 3열 표, 폭 5968/565/41626(합 48159).
+ANNEX_BF = {}   # LABEL / SPACER / TITLE -> borderFill id
+ANNEX_CP = {}   # LABEL / TITLE -> charPr id
+ANNEX_PP = {}   # label / title -> paraPr id (main에서 채움)
+_ANNEX_SEQ = [0]
+
+def _annex_bf(bid, kind):
+    S, N = ("SOLID", "0.5 mm"), ("NONE", "0.12 mm")
+    l, r, t, b = {"LABEL": (S, S, S, S), "SPACER": (S, N, N, N), "TITLE": (N, N, S, S)}[kind]
+    fill = ('<hc:fillBrush><hc:winBrush faceColor="#2B2D63" hatchColor="#000000" alpha="0"/></hc:fillBrush>'
+            if kind == "LABEL" else '')
+    return (f'<hh:borderFill id="{bid}" threeD="0" shadow="0" centerLine="NONE" breakCellSeparateLine="0">'
+            '<hh:slash type="NONE" Crooked="0" isCounter="0"/><hh:backSlash type="NONE" Crooked="0" isCounter="0"/>'
+            f'<hh:leftBorder type="{l[0]}" width="{l[1]}" color="#000000"/>'
+            f'<hh:rightBorder type="{r[0]}" width="{r[1]}" color="#000000"/>'
+            f'<hh:topBorder type="{t[0]}" width="{t[1]}" color="#000000"/>'
+            f'<hh:bottomBorder type="{b[0]}" width="{b[1]}" color="#000000"/>'
+            '<hh:diagonal type="SOLID" width="0.1 mm" color="#000000"/>' + fill + '</hh:borderFill>')
+
+def add_annex_styles(header):
+    """붙임 헤더용 borderFill 3종 + charPr 2종(□ charPr 복제, 16pt, 라벨은 흰색) 추가."""
+    global ANNEX_BF, ANNEX_CP
+    ids = [int(x) for x in re.findall(r'<hh:borderFill\b[^>]*\bid="(\d+)"', header)]
+    nid = max(ids) + 1
+    add = ""
+    for kind in ("LABEL", "SPACER", "TITLE"):
+        add += _annex_bf(nid, kind)
+        ANNEX_BF[kind] = str(nid)
+        nid += 1
+    header = header.replace("</hh:borderFills>", add + "</hh:borderFills>", 1)
+    header = re.sub(r'(<hh:borderFills[^>]*itemCnt=")(\d+)(")',
+                    lambda m: m.group(1) + str(int(m.group(2)) + 3) + m.group(3), header, count=1)
+    # charPr: □(HY헤드라인M 15pt=charPr56) 복제 → 16pt, LABEL은 textColor 흰색
+    cids = [int(x) for x in re.findall(r'<hh:charPr\b[^>]*\bid="(\d+)"', header)]
+    cid = max(cids) + 1
+    base = re.search(r'<hh:charPr id="' + REF_CHAR["□"] + r'".*?</hh:charPr>', header, re.S).group(0)
+    cadd = ""
+    for kind, white in (("LABEL", True), ("TITLE", False)):
+        blk = re.sub(r'\bid="' + REF_CHAR["□"] + '"', f'id="{cid}"', base, count=1)
+        blk = re.sub(r'\bheight="\d+"', 'height="1600"', blk, count=1)
+        if white:
+            blk = (re.sub(r'textColor="[^"]*"', 'textColor="#FFFFFF"', blk, count=1)
+                   if 'textColor="' in blk else
+                   blk.replace('<hh:charPr', '<hh:charPr textColor="#FFFFFF"', 1))
+        cadd += blk
+        ANNEX_CP[kind] = str(cid)
+        cid += 1
+    header = header.replace("</hh:charProperties>", cadd + "</hh:charProperties>", 1)
+    header = re.sub(r'(<hh:charProperties[^>]*itemCnt=")(\d+)(")',
+                    lambda m: m.group(1) + str(int(m.group(2)) + 2) + m.group(3), header, count=1)
+    return header
+
+def _xesc(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+def build_annex_header(txt):
+    """「붙임 N. 제목」 텍스트 → 라벨박스 표 문단(XML 문자열, pageBreak=1)."""
+    _ANNEX_SEQ[0] += 1
+    m = re.match(r'(붙임\s*\d+)[.\s]*(.*)', txt.strip())
+    label = m.group(1) if m else txt.strip()
+    title = (m.group(2) if m else "").strip()
+    tid = 2000000000 + _ANNEX_SEQ[0]
+
+    def tc(col, bf, w, pp, cp, text):
+        return (f'<hp:tc name="" header="0" hasMargin="0" protect="0" editable="0" dirty="0" borderFillIDRef="{bf}">'
+                f'<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" '
+                f'linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">'
+                f'<hp:p id="0" paraPrIDRef="{pp}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">'
+                f'<hp:run charPrIDRef="{cp}"><hp:t>{_xesc(text)}</hp:t></hp:run></hp:p></hp:subList>'
+                f'<hp:cellAddr colAddr="{col}" rowAddr="0"/><hp:cellSpan colSpan="1" rowSpan="1"/>'
+                f'<hp:cellSz width="{w}" height="2831"/>'
+                f'<hp:cellMargin left="141" right="141" top="141" bottom="141"/></hp:tc>')
+
+    cells = (tc(0, ANNEX_BF["LABEL"], 5968, ANNEX_PP["label"], ANNEX_CP["LABEL"], label)
+             + tc(1, ANNEX_BF["SPACER"], 565, ANNEX_PP["label"], ANNEX_CP["TITLE"], "")
+             + tc(2, ANNEX_BF["TITLE"], 41626, ANNEX_PP["title"], ANNEX_CP["TITLE"], " " + title))
+    return (f'<hp:p id="0" paraPrIDRef="{ANNEX_PP["wrap"]}" styleIDRef="0" pageBreak="1" columnBreak="0" merged="0">'
+            f'<hp:run charPrIDRef="0">'
+            f'<hp:tbl id="{tid}" zOrder="0" numberingType="TABLE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" '
+            f'lock="0" dropcapstyle="None" pageBreak="CELL" repeatHeader="1" rowCnt="1" colCnt="3" cellSpacing="0" '
+            f'borderFillIDRef="{REF_TABLE_BF}" noAdjust="0">'
+            f'<hp:sz width="48159" widthRelTo="ABSOLUTE" height="2831" heightRelTo="ABSOLUTE" protect="0"/>'
+            f'<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" '
+            f'vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>'
+            f'<hp:outMargin left="0" right="0" top="0" bottom="0"/>'
+            f'<hp:inMargin left="141" right="141" top="141" bottom="141"/>'
+            f'<hp:tr>{cells}</hp:tr></hp:tbl></hp:run></hp:p>')
 REF_TITLE_TEXT = "2026년도 AI·데이터 활용을 위한 맞춤형 교육 계획(안)"
 
 # 계층별 선두 공백(참고양식 실측): □0 · ㅇ1 · -3 · ※1
@@ -87,6 +178,7 @@ SPACING_DEFS = [
     ("-", "73", 300, None, None),        # ㅇ↔- 3pt (참고 '-' paraPr, intent 보존)
     ("※", "86", 300, None, None),        # -↔※ 3pt (참고 본문 ※ paraPr)
     ("표", "38", 0, "CENTER", 0),        # 표/캡션 가운데, hanging 제거(intent 0)
+    ("붙임제", "38", 0, "LEFT", 0),      # 붙임 헤더 제목 셀 내부(왼쪽·intent 0)
 ]
 
 # 런타임 채움 (main에서 설정): 계층 -> (paraPr, charPr), 표 paraPr
@@ -159,6 +251,9 @@ def remap_paragraph(p):
             if pos is not None:
                 pos.set("horzAlign", "CENTER")
             for tc in tbl.iter(HP + "tc"):
+                sl = tc.find(HP + "subList")
+                if sl is not None:
+                    sl.set("vertAlign", "CENTER")   # 셀 텍스트 세로 중앙정렬
                 addr = tc.find(HP + "cellAddr")
                 is_header = addr is not None and addr.get("rowAddr") == "0"
                 col = int(addr.get("colAddr")) if addr is not None else 0
@@ -185,6 +280,8 @@ def remap_paragraph(p):
         if not stripped or stripped.startswith("<"):
             return False
         pp, cp = REF["□"] if stripped.startswith("붙임") else REF["ㅇ"]
+        if stripped.startswith("붙임"):
+            p.set("pageBreak", "1")   # 각 붙임은 새 페이지에서 시작(붙임별 1페이지 배치)
         p.set("paraPrIDRef", pp)
         for run in p.iter(HP + "run"):
             if run.get("charPrIDRef") is not None:
@@ -215,6 +312,11 @@ def extract_body(gen_section_bytes):
     for i, p in enumerate(ps):
         if i == 0:
             continue  # 제목(+secPr) 문단 제외 — secPr은 참고양식 것 사용
+        txt = first_text(p).lstrip()
+        if txt.startswith("붙임") and re.match(r'붙임\s*\d+', txt):
+            # 「붙임 N. 제목」 → 라벨박스 표 헤더(실물 보고서 규약) + 새 페이지
+            out.append(build_annex_header(txt))
+            continue
         if remap_paragraph(p):
             out.append(ET.tostring(p, encoding="unicode"))
     return out
@@ -242,6 +344,8 @@ def main():
     global REF, REF_TABLE_PP, BF
     header, idmap = add_spacing_paraprs(files["Contents/header.xml"].decode("utf-8"))
     header, BF = add_table_borderfills(header)
+    header = add_annex_styles(header)
+    ANNEX_PP.update({"label": idmap["표"], "title": idmap["붙임제"], "wrap": idmap["□"]})
     files["Contents/header.xml"] = header.encode("utf-8")
     REF = {
         "□":   (idmap["□"], REF_CHAR["□"]),
