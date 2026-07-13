@@ -38,8 +38,8 @@ REF_CHAR = {"□": "56", "ㅇ": "21", "-": "21", "※": "49", "캡션": "42"}
 # 표 바깥 좌우 세로선 제거 → 첫 열 left=NONE, 마지막 열 right=NONE, 중간열은 4방 SOLID.
 REF_TABLE_BF = "4"           # 중간열 본문셀(4방 SOLID)
 TBL_HEADER_BF = "25"         # 중간열 헤더셀(4방 SOLID + #FFF7CC 음영)
-TBL_HEADER_CHARPR = "77"     # 12pt KoPub돋움체 Bold
-TBL_BODY_CHARPR = "8"        # 11pt KoPub돋움체 Medium
+TBL_HEADER_CHARPR = "77"     # 기본값(KoPub Bold 12) — 런타임에 맑은고딕12 Bold 신규 charPr로 교체(사용자 지정 '26.7.13)
+TBL_BODY_CHARPR = "8"        # 기본값(KoPub Medium 11) — 런타임에 맑은고딕12 신규 charPr로 교체
 
 # 런타임에 신규 순차 id로 채움: 좌/우 끝열용 borderFill
 BF = {}  # {"HL","HR","BL","BR"} -> borderFill id
@@ -126,6 +126,23 @@ def add_annex_styles(header):
         ANNEX_CP[kind] = str(cid)
         cid += 1
     header = header.replace("</hh:charProperties>", cadd + "</hh:charProperties>", 1)
+    header = re.sub(r'(<hh:charProperties[^>]*itemCnt=")(\d+)(")',
+                    lambda m: m.group(1) + str(int(m.group(2)) + 2) + m.group(3), header, count=1)
+    return header
+
+def add_table_charprs(header):
+    """표 셀 글꼴: 맑은고딕 12pt(※ charPr 복제) — 헤더는 +Bold (사용자 지정 '26.7.13)."""
+    global TBL_HEADER_CHARPR, TBL_BODY_CHARPR
+    cids = [int(x) for x in re.findall(r'<hh:charPr\b[^>]*\bid="(\d+)"', header)]
+    cid = max(cids) + 1
+    base = re.search(r'<hh:charPr id="' + REF_CHAR["※"] + r'".*?</hh:charPr>', header, re.S).group(0)
+    body = re.sub(r'\bid="' + REF_CHAR["※"] + '"', f'id="{cid}"', base, count=1)
+    TBL_BODY_CHARPR = str(cid)
+    cid += 1
+    head = re.sub(r'\bid="' + REF_CHAR["※"] + '"', f'id="{cid}"', base, count=1)
+    head = head.replace("</hh:charPr>", "<hh:bold/></hh:charPr>", 1)
+    TBL_HEADER_CHARPR = str(cid)
+    header = header.replace("</hh:charProperties>", body + head + "</hh:charProperties>", 1)
     header = re.sub(r'(<hh:charProperties[^>]*itemCnt=")(\d+)(")',
                     lambda m: m.group(1) + str(int(m.group(2)) + 2) + m.group(3), header, count=1)
     return header
@@ -313,9 +330,11 @@ def extract_body(gen_section_bytes):
         if i == 0:
             continue  # 제목(+secPr) 문단 제외 — secPr은 참고양식 것 사용
         txt = first_text(p).lstrip()
-        if txt.startswith("붙임") and re.match(r'붙임\s*\d+', txt):
-            # 「붙임 N. 제목」 → 라벨박스 표 헤더(실물 보고서 규약) + 새 페이지
-            out.append(build_annex_header(txt))
+        # 「붙임 N. 제목」 감지 — 평문·리스트(□/ㅇ 마커 부착) 양쪽 허용. 헤더 확정은 'N.' 꼴만
+        core = re.sub(r'^[□○ㅇ\-\s]+', '', txt)
+        if re.match(r'붙임\s*\d+\s*[.．]', core):
+            # → 라벨박스 표 헤더(실물 보고서 규약) + 새 페이지
+            out.append(build_annex_header(core))
             continue
         if remap_paragraph(p):
             out.append(ET.tostring(p, encoding="unicode"))
@@ -345,6 +364,7 @@ def main():
     header, idmap = add_spacing_paraprs(files["Contents/header.xml"].decode("utf-8"))
     header, BF = add_table_borderfills(header)
     header = add_annex_styles(header)
+    header = add_table_charprs(header)   # 표 셀 맑은고딕12(헤더 Bold) — 사용자 지정 '26.7.13
     ANNEX_PP.update({"label": idmap["표"], "title": idmap["붙임제"], "wrap": idmap["□"]})
     files["Contents/header.xml"] = header.encode("utf-8")
     REF = {
