@@ -60,3 +60,59 @@ def compute_widths(col_texts, total, ratios=None):
     widths = [floors[i] + int(rem * weights[i] / wsum) for i in range(n)]
     widths[-1] += total - sum(widths)                   # 반올림 보정(합계 정확 일치)
     return widths
+
+
+_TBL = re.compile(r'<hp:tbl\b[^>]*>.*?</hp:tbl>', re.S)
+_TC = re.compile(r'<hp:tc\b.*?</hp:tc>', re.S)
+_T = re.compile(r'<hp:t>(.*?)</hp:t>', re.S)
+_CELLSZ = re.compile(r'(<hp:cellSz width=")(\d+)(")')
+
+
+def _cell_info(tc_xml):
+    col = int(re.search(r'colAddr="(\d+)"', tc_xml).group(1))
+    row = int(re.search(r'rowAddr="(\d+)"', tc_xml).group(1))
+    span = re.search(r'colSpan="(\d+)" rowSpan="(\d+)"', tc_xml)
+    spanned = span and (int(span.group(1)) > 1 or int(span.group(2)) > 1)
+    width = int(re.search(r'<hp:cellSz width="(\d+)"', tc_xml).group(1))
+    paras = re.findall(r'<hp:p\b.*?</hp:p>', tc_xml, re.S)
+    lines = [''.join(_T.findall(p)) for p in paras] or ['']
+    text = max(lines, key=display_width)        # 다행 셀은 최장 행 기준
+    return col, row, bool(spanned), width, text
+
+
+def redistribute_section(xml, widths_map, start_index=0):
+    """section XML의 조정 후보 표(colCnt≥2·span 없음·첫 행 균등폭)를 재분배.
+    widths_map: {본문 표 순번(0-based, 후보만 계수): [비율…]}.
+    반환: (수정 XML, 조정 표 수, 다음 순번)."""
+    idx = start_index
+    adjusted = 0
+
+    def repl(m):
+        nonlocal idx, adjusted
+        tbl = m.group(0)
+        head = re.match(r'<hp:tbl\b[^>]*>', tbl).group(0)
+        colcnt = int(re.search(r'colCnt="(\d+)"', head).group(1))
+        if colcnt < 2:
+            return tbl
+        cells = [_cell_info(tc) for tc in _TC.findall(tbl)]
+        if not cells or any(c[2] for c in cells):                   # span 있는 표 제외
+            return tbl
+        row0 = sorted(c for c in cells if c[1] == 0)
+        if len(row0) != colcnt or len({c[3] for c in row0}) != 1:   # 첫 행 비균등 → 참고양식
+            return tbl
+        total = sum(c[3] for c in row0)
+        col_texts = [[] for _ in range(colcnt)]
+        for col, row, _, _, text in sorted(cells, key=lambda c: (c[1], c[0])):
+            if col < colcnt:
+                col_texts[col].append(text)
+        new_w = compute_widths(col_texts, total, ratios=widths_map.get(idx))
+        idx += 1
+        adjusted += 1
+
+        def cell_repl(tm):
+            col = int(re.search(r'colAddr="(\d+)"', tm.group(0)).group(1))
+            return _CELLSZ.sub(lambda s: s.group(1) + str(new_w[col]) + s.group(3),
+                               tm.group(0))
+        return _TC.sub(cell_repl, tbl)
+
+    return _TBL.sub(repl, xml), adjusted, idx

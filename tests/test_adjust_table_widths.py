@@ -1,8 +1,60 @@
-import sys, unittest
+import re, sys, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/kca-report-style/scripts"))
-from adjust_table_widths import display_width, compute_widths
+from adjust_table_widths import display_width, compute_widths, redistribute_section
+
+
+def _tc(col, width, text, span=1):
+    return (f'<hp:tc name="" header="0" borderFillIDRef="45">'
+            f'<hp:subList vertAlign="CENTER"><hp:p paraPrIDRef="91" styleIDRef="0">'
+            f'<hp:run charPrIDRef="135"><hp:t>{text}</hp:t></hp:run></hp:p></hp:subList>'
+            f'<hp:cellAddr colAddr="{col}" rowAddr="0" />'
+            f'<hp:cellSpan colSpan="{span}" rowSpan="1" />'
+            f'<hp:cellSz width="{width}" height="1500" />'
+            f'<hp:cellMargin left="141" right="141" top="141" bottom="141" /></hp:tc>')
+
+
+def _tbl(colcnt, cells, total):
+    return (f'<hp:tbl id="1025" rowCnt="1" colCnt="{colcnt}" borderFillIDRef="4">'
+            f'<hp:sz width="{total}" widthRelTo="ABSOLUTE" height="1500" />'
+            f'<hp:tr>{cells}</hp:tr></hp:tbl>')
+
+
+class TestRedistributeSection(unittest.TestCase):
+    def test_uniform_body_table_adjusted(self):
+        xml = _tbl(2, _tc(0, 11000, "가") + _tc(1, 11000, "아주 길고 긴 설명 텍스트"), 22000)
+        out, n, nxt = redistribute_section(xml, {})
+        self.assertEqual(n, 1)
+        self.assertEqual(nxt, 1)
+        ws = [int(x) for x in re.findall(r'<hp:cellSz width="(\d+)"', out)]
+        self.assertEqual(sum(ws), 22000)
+        self.assertGreater(ws[1], ws[0])
+
+    def test_nonuniform_and_spanned_tables_skipped(self):
+        label = _tbl(3, _tc(0, 5968, "붙임 1") + _tc(1, 565, "") + _tc(2, 41626, "제목"), 48159)
+        spanned = _tbl(2, _tc(0, 11000, "가", span=2) + _tc(1, 11000, "나"), 22000)
+        out, n, _ = redistribute_section(label + spanned, {})
+        self.assertEqual(n, 0)
+        self.assertEqual(out, label + spanned)      # 원문 그대로
+
+    def test_widths_map_applies_by_body_table_order(self):
+        t0 = _tbl(2, _tc(0, 11000, "같음") + _tc(1, 11000, "같음"), 22000)
+        label = _tbl(3, _tc(0, 5968, "붙임 1") + _tc(1, 565, "") + _tc(2, 41626, "제목"), 48159)
+        t1 = _tbl(2, _tc(0, 11000, "같음") + _tc(1, 11000, "같음"), 22000)
+        out, n, _ = redistribute_section(t0 + label + t1, {1: [1, 3]})
+        self.assertEqual(n, 2)
+        ws = [int(x) for x in re.findall(r'<hp:cellSz width="(\d+)"', out)]
+        # t0(자동, 내용 동일) 균등 / label 불변 / t1(지시자 1:3) 뒤 열이 넓음
+        self.assertEqual(ws[0], ws[1])
+        self.assertEqual(ws[2:5], [5968, 565, 41626])
+        self.assertGreater(ws[6], ws[5])
+
+    def test_single_col_skipped(self):
+        xml = _tbl(1, _tc(0, 50624, "제목"), 50624)
+        out, n, _ = redistribute_section(xml, {})
+        self.assertEqual(n, 0)
+        self.assertEqual(out, xml)
 
 
 class TestDisplayWidth(unittest.TestCase):
