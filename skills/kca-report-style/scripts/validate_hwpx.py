@@ -14,6 +14,7 @@ id를 쓰면 IDRef가 기본값으로 조용히 폴백돼 간격·정렬·테두
      해당 컬렉션의 존재 id 범위 안인지 (dangling 참조 탐지)
   3) zip 무결성(testzip) + mimetype 무압축(STORED) 여부
   4) 모든 XML 파트 well-formed
+  5) 표 행 폭 합계 == 표 폭 (span 없는 표, 열 폭 재분배 회귀 방어)
 
 사용:
   python3 validate_hwpx.py <파일.hwpx>                 # 검증(비정상 시 exit 1)
@@ -92,6 +93,27 @@ def check_idrefs(section, ranges, errs):
                 break  # 종류별 첫 건만 보고(노이즈 방지)
 
 
+def check_table_widths(section, errs):
+    """span 없는 표: 각 행의 cellSz 합 == 표 폭(±2). 열 폭 재분배 회귀 방어."""
+    for tm in re.finditer(r'<hp:tbl\b[^>]*>.*?</hp:tbl>', section, re.S):
+        tbl = tm.group(0)
+        if re.search(r'(?:colSpan|rowSpan)="(?:[2-9]|\d{2,})"', tbl):
+            continue
+        sz = re.search(r'<hp:sz width="(\d+)"', tbl)
+        cc = re.search(r'colCnt="(\d+)"', tbl)
+        if not sz or not cc:
+            continue
+        total, colcnt = int(sz.group(1)), int(cc.group(1))
+        for rm in re.finditer(r'<hp:tr\b[^>]*>(.*?)</hp:tr>', tbl, re.S):
+            ws = [int(x) for x in re.findall(r'<hp:cellSz width="(\d+)"', rm.group(1))]
+            if len(ws) != colcnt:
+                continue
+            if abs(sum(ws) - total) > 2:
+                errs.append(f"section: 표 행 폭 합({sum(ws)}) ≠ 표 폭({total}) "
+                            f"— 열 폭 재분배 오류 의심")
+                return   # 첫 건만 보고(노이즈 방지)
+
+
 def check_xml(data, errs):
     for n, b in data.items():
         if n.endswith(".xml") or n.endswith(".hpf") or n.endswith(".hml"):
@@ -144,7 +166,9 @@ def main():
     ranges = check_collections(header, errs, warns)
     for n in names:
         if re.match(r"Contents/section\d+\.xml$", n):
-            check_idrefs(data[n].decode("utf-8", "replace"), ranges, errs)
+            sec = data[n].decode("utf-8", "replace")
+            check_idrefs(sec, ranges, errs)
+            check_table_widths(sec, errs)
     check_xml(data, errs)
     check_zip(path, names, data, errs, warns)
 
