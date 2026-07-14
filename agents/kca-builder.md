@@ -22,9 +22,9 @@ model: opus
 
 **MD 전처리 (필수·스크립트 강제)**: generate_document 호출 **전에** 반드시 실행한다. 정규식을 손으로 쓰지 말고 스크립트를 쓴다(각주 렌더 취약 커플링 제거):
 ```
-python3 ~/.claude/skills/kca-report-style/scripts/prep_report_md.py <draft.md> <prepared.md>
+python3 ~/.claude/skills/kca-report-style/scripts/prep_report_md.py <draft.md> <prepared.md> _workspace/table_widths.json
 ```
-이 스크립트가 각주 정의 줄 `* 용어: 정의`의 선두 `* `→전각 `＊ `로 치환하고(`＊`는 불릿이 아니라 plain 문단으로 살아남아 build_from_template/postprocess가 ※와 동일 각주 스타일 charPr49로 재지정), 워크플로우 도해 마커 `[도해: …]`는 **그대로 보존**한다. 본문 내 `단어*` 인라인은 건드리지 않는다.
+이 스크립트가 각주 정의 줄 `* 용어: 정의`의 선두 `* `→전각 `＊ `로 치환하고(`＊`는 불릿이 아니라 plain 문단으로 살아남아 build_from_template/postprocess가 ※와 동일 각주 스타일 charPr49로 재지정), 워크플로우 도해 마커 `[도해: …]`는 **그대로 보존**한다. 본문 내 `단어*` 인라인은 건드리지 않는다. 표 폭 지시자 `[ 캡션 | 폭 2:1:1:3 ]`는 캡션에서 제거되어 `_workspace/table_widths.json`으로 추출된다(권장 경로 3단계 adjust에서 사용).
 
 **붙임 처리**: 본문 뒤 「붙임 N. 제목」 문단군은 본문과 동일 계층 스타일로 렌더한다. 붙임 내 표도 `[ 캡션 ]` + 표 스타일 규칙을 유지한다.
 
@@ -35,7 +35,7 @@ python3 ~/.claude/skills/kca-report-style/scripts/prep_report_md.py <draft.md> <
 4. 본문 HWPX 생성·병합 **후**, **마커 치환 방식으로 정확 배치**:
    `python3 ~/.claude/skills/kca-report-style/scripts/inject_image.py <병합본.hwpx> _workspace/workflow.png _workspace/04_final.hwpx --marker "도해" --width-mm 170`.
    - `--marker "도해"`는 MD에 보존된 `[도해: …]` 문단을 **그림으로 치환**해 writer가 의도한 위치에 정확히 넣는다(`--anchor`는 마커가 없을 때만 폴백).
-   - 순서 주의: `prep_report_md.py` → generate_document → `build_from_template.py`(양식 병합) → `inject_image.py`(도해 주입, 마지막).
+   - 순서 주의: `prep_report_md.py` → generate_document → `build_from_template.py`(양식 병합) → `adjust_table_widths.py`(표 폭) → `inject_image.py`(도해 주입, 마지막).
 
 **권장 경로 (참고양식 병합):**
 1. **본문 생성**: `mcp__kordoc__generate_document(markdown=<확정 MD>, output_path=<본문.hwpx>, preset="보고서", font="myeongjo", body_pt=15)`.
@@ -46,6 +46,13 @@ python3 ~/.claude/skills/kca-report-style/scripts/prep_report_md.py <draft.md> <
      --title "제목" --date "< '26. M. D.(요일), 부서명 >"
    ```
    참고양식(`~/.claude/skills/kca-report-style/assets/reference-form-교육계획안.hwpx`)의 레터헤드·그라데이션·계층 스타일 유지, 본문만 주입, 제목·날짜 텍스트만 교체.
+3. **표 열 폭 재분배**: 병합본의 균등폭 표를 셀 내용 비례로 재분배한다(제목·라벨박스 표는 자동 제외, 표 폭 보존):
+   ```
+   python3 ~/.claude/skills/kca-report-style/scripts/adjust_table_widths.py \
+     _workspace/04_final.hwpx _workspace/04_final.hwpx \
+     --widths _workspace/table_widths.json
+   ```
+   (in-place 안전 — 전체를 메모리에 읽은 뒤 쓴다. table_widths.json이 없으면 `--widths` 생략.)
 
 **치명적 불변식**: 신규 스타일 추가 시 반드시 `max(id)+1`부터 순차 id를 부여한다. 큰 임의 id(예: 300)를 쓰면 한글이 IDRef를 못 찾고 기본값으로 폴백해 **간격·정렬이 조용히 무시**된다. 이미지·그라데이션을 새로 그리지 않는다(참고양식 원본 사용).
 

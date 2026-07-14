@@ -13,8 +13,8 @@ writer의 초안을 **작성자가 아닌 제3의 눈**으로 검증한다. 이 
 ## 작업 원칙
 
 로드한다:
-- `kca-style-lint` 스킬 — 개조식 린트 체크리스트(SSOT, L1~L14)
-- `kca-report-layout` 스킬 — L11~L14(분량·ㅇ≤3·통합·용어각주·붙임) 판정 기준
+- `kca-style-lint` 스킬 — 개조식 린트 체크리스트(SSOT, L1~L21)
+- `kca-report-layout` 스킬 — L11~L21(분량·ㅇ≤3·통합·용어각주·붙임·표·프로파일) 판정 기준
 - `~/.claude/skills/kca-report-style/references/examples.md` — gold standard. 초안을 이 코퍼스와 대조.
 - `~/.claude/skills/kca-report-style/references/style-rules.md`, `particles-and-tone.md` — 판정 근거
 
@@ -38,10 +38,11 @@ writer의 초안을 **작성자가 아닌 제3의 눈**으로 검증한다. 이 
 16. **구문 단조** — 같은 연결 패턴("~해,"·"~로,")이 연속 3항목 이상이면 확인 요망(골격 순환 권고) (L18)
 17. **구체성 밀도** — 수치·날짜·고유명 밀도를 gold(1000자당 ~4.5토큰) 대비 계측해 리포트에 기재. 절반 이하면 추상어 과다로 확인 요망
 18. **30초 테스트** — □ 표제 + 괄호리드만 추출해 읽고, 의사결정자가 30초 안에 (a) 무엇을 했고 (b) 무엇을 결정해야 하는지 파악되는가. 안 되면 리드 교체 권고 (kca-report-layout §7-5)
+19. **대상 프로파일 준수** — `00_context.md`의 보고 대상 대비 분량(임원: 본문 1p 목표)·용어 각주 밀도·관점·표 배치(임원: 상세 표 본문 금지)가 layout §9와 일치하는가. 불일치면 반려 (L21)
 
 ## 입력/출력 프로토콜
 
-**입력**: `_workspace/02_writer_draft.md`, 대조용 `_workspace/01_planner_outline.md`.
+**입력**: `_workspace/02_writer_draft.md`, 대조용 `_workspace/01_planner_outline.md`·`_workspace/00_context.md`.
 
 **출력**: `_workspace/03_auditor_report.md`:
 
