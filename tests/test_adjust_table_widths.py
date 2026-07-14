@@ -1,8 +1,8 @@
-import re, sys, unittest
+import os, re, sys, tempfile, unittest, zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/kca-report-style/scripts"))
-from adjust_table_widths import display_width, compute_widths, redistribute_section
+from adjust_table_widths import display_width, compute_widths, redistribute_section, process
 
 
 def _tc(col, width, text, span=1):
@@ -55,6 +55,39 @@ class TestRedistributeSection(unittest.TestCase):
         out, n, _ = redistribute_section(xml, {})
         self.assertEqual(n, 0)
         self.assertEqual(out, xml)
+
+
+class TestProcessZip(unittest.TestCase):
+    def _make_hwpx(self, path, section_xml):
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr(zipfile.ZipInfo("mimetype"), b"application/hwp+zip",
+                       compress_type=zipfile.ZIP_STORED)
+            z.writestr("Contents/header.xml", "<hh:head></hh:head>")
+            z.writestr("Contents/section0.xml", section_xml)
+
+    def test_roundtrip_preserves_mimetype_and_adjusts(self):
+        xml = _tbl(2, _tc(0, 11000, "가") + _tc(1, 11000, "아주 길고 긴 설명 텍스트"), 22000)
+        with tempfile.TemporaryDirectory() as d:
+            src, dst = os.path.join(d, "in.hwpx"), os.path.join(d, "out.hwpx")
+            self._make_hwpx(src, xml)
+            n = process(src, dst, {})
+            self.assertEqual(n, 1)
+            with zipfile.ZipFile(dst) as z:
+                self.assertEqual(z.namelist()[0], "mimetype")
+                self.assertEqual(z.getinfo("mimetype").compress_type, zipfile.ZIP_STORED)
+                out = z.read("Contents/section0.xml").decode("utf-8")
+            ws = [int(x) for x in re.findall(r'<hp:cellSz width="(\d+)"', out)]
+            self.assertEqual(sum(ws), 22000)
+            self.assertGreater(ws[1], ws[0])
+
+    def test_in_place_same_path(self):
+        xml = _tbl(2, _tc(0, 11000, "가") + _tc(1, 11000, "아주 길고 긴 설명 텍스트"), 22000)
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "same.hwpx")
+            self._make_hwpx(p, xml)
+            self.assertEqual(process(p, p, {}), 1)
+            with zipfile.ZipFile(p) as z:
+                self.assertIsNone(z.testzip())
 
 
 class TestDisplayWidth(unittest.TestCase):

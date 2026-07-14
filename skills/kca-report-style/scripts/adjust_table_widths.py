@@ -116,3 +116,46 @@ def redistribute_section(xml, widths_map, start_index=0):
         return _TC.sub(cell_repl, tbl)
 
     return _TBL.sub(repl, xml), adjusted, idx
+
+
+def process(src, dst, widths_map):
+    with zipfile.ZipFile(src) as zin:
+        names = zin.namelist()
+        data = {n: zin.read(n) for n in names}
+    adjusted, idx = 0, 0
+    for n in sorted(n for n in names if re.match(r'Contents/section\d+\.xml$', n)):
+        xml, a, idx = redistribute_section(data[n].decode("utf-8"), widths_map, idx)
+        data[n] = xml.encode("utf-8")
+        adjusted += a
+    with zipfile.ZipFile(dst, "w") as zout:
+        for n in names:
+            comp = zipfile.ZIP_STORED if n == "mimetype" else zipfile.ZIP_DEFLATED
+            zout.writestr(zipfile.ZipInfo(n), data[n], compress_type=comp)
+    return adjusted
+
+
+def main():
+    argv = sys.argv[1:]
+    wpath = None
+    if "--widths" in argv:
+        i = argv.index("--widths")
+        if i + 1 >= len(argv):
+            sys.exit("usage: adjust_table_widths.py <in.hwpx> <out.hwpx> [--widths <json>]")
+        wpath = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
+    if len(argv) != 2:
+        sys.exit("usage: adjust_table_widths.py <in.hwpx> <out.hwpx> [--widths <json>]")
+    widths_map = {}
+    if wpath:
+        try:
+            raw = json.load(open(wpath, encoding="utf-8"))
+            widths_map = {int(k): v for k, v in raw.items()}
+        except (OSError, ValueError) as e:
+            print(f"  ⚠️  지시자 파일 무시({wpath}): {e} — 자동 분배로 폴백")
+    n = process(argv[0], argv[1], widths_map)
+    print(f"OK: {argv[1]}")
+    print(f"  열 폭 재분배: {n}개 표 (지시자 {len(widths_map)}건)")
+
+
+if __name__ == "__main__":
+    main()
