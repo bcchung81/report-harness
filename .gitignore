@@ -4,3 +4,5 @@ __pycache__/
 _workspace/
 _workspace_prev/
 *.hwpx.unz/
+# 산출물·원자료는 claudian vault(raw/·reports/)에 — 이 저장소는 엔진만
+data/

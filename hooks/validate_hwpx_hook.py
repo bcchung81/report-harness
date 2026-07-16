@@ -2,7 +2,8 @@
 """PostToolUse(Bash) 훅 — KCA 하네스가 생산한 HWPX를 결정론적으로 구조 검증한다.
 
 hwpx-qa 에이전트가 validate_hwpx.py 실행을 잊거나 건너뛰어도, build_from_template.py·
-inject_image.py를 부른 Bash 명령이 만든 .hwpx는 이 훅이 무조건 검증한다(안전망).
+inject_image.py·adjust_table_widths.py(in-place 표 폭 변형)를 부른 Bash 명령이 만든
+.hwpx는 이 훅이 무조건 검증한다(안전망 — 도해 없는 빌드의 마지막 변형도 포함).
 
 동작:
   1) Bash 명령이 하네스 HWPX 생산 스크립트를 부른 경우에만 작동(그 외 즉시 통과).
@@ -18,8 +19,8 @@ def main():
     except Exception:
         return
     cmd = (data.get("tool_input") or {}).get("command", "") or ""
-    # 하네스 HWPX 생산 스크립트를 부른 명령만 대상 (validate 자체 호출은 제외)
-    if not re.search(r'build_from_template\.py|inject_image\.py', cmd):
+    # 하네스 HWPX 생산·변형 스크립트를 부른 명령만 대상 (validate 자체 호출은 제외)
+    if not re.search(r'build_from_template\.py|inject_image\.py|adjust_table_widths\.py', cmd):
         return
     val = os.path.expanduser("~/.claude/skills/kca-report-style/scripts/validate_hwpx.py")
     if not os.path.isfile(val):
