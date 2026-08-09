@@ -2,7 +2,7 @@
 """md-profile 개조식 마크다운 → base.hwpx (stdlib-only).
 
 노트북 하네스의 kordoc `generate_document` 자리를 웹앱에서 대신한다. 산출물은
-`postprocess_hwpx.py --all --sender-size 12`가 그대로 받을 수 있는 형태다 —
+`postprocess_hwpx.py --all`이 그대로 받을 수 있는 형태다 —
 개조식 리터럴 기호(□ ㅇ - ※ ＊)를 문단 텍스트에 두고, 스타일은 동결 정본
 `assets/kca-header.xml`의 고정 id를 참조한다(설계문서 §5 실측 확정 맵).
 

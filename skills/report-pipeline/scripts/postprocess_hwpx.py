@@ -1960,6 +1960,12 @@ def apply_fit_page_width(section_roots):
     return {"tables_fitted": len(adjusted), "detail": adjusted}
 
 
+# 발신 줄 크기 실측값(R018, format-profile.kca.md §서체) — --all이 이 값을 기본 적용한다.
+# 종전에는 호출자가 --sender-size 12를 매번 손으로 넘겨야 해 9곳 문서에 값이 복제됐고,
+# 빠뜨리면 규칙 위반본이 그대로 나갔다.
+SENDER_SIZE_PT = 12
+
+
 def apply_sender_size(header_root, section_roots, pt):
     """발신 줄(classify=='sending') 문단 run의 charPr 크기를 pt로 치환한다."""
     height = int(round(pt * 100))
@@ -2457,7 +2463,7 @@ def process_file(path, star=False, spacing=False, sender_size=None,
 
 
 USAGE = ("usage: postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all]\n"
-         "                          [--sender-size PT]\n"
+         "                          [--sender-size PT]   (--all은 발신 줄 12pt를 기본 포함, PT 지정 시 재정의)\n"
          "exit 0: 변경 적용 완료 | exit 1: 스타일 대상 없음(패키지 정합만 적용됐을 수 있음) | exit 2: 인자/파일/구조 오류")
 
 
@@ -2499,6 +2505,8 @@ def main(argv):
     star = star or all_flag
     spacing = spacing or all_flag
     header_banner = header_banner or all_flag
+    if all_flag and sender_size is None:
+        sender_size = SENDER_SIZE_PT
     if not (star or spacing or sender_size is not None
             or header_banner):
         print(USAGE, file=sys.stderr)

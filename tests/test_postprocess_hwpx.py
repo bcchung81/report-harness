@@ -689,18 +689,22 @@ def test_main_star_indent_removed_rejects_any_value(hwpx_file):
         assert ph.main([str(hwpx_file), "--star-indent", value]) == 2, value
 
 
-def test_main_all_does_not_include_sender_size_or_star_indent(hwpx_file, capsys):
+def test_main_all_includes_sender_size_default(hwpx_file, capsys):
+    """--all이 발신 줄 12pt(R018)를 기본 적용한다 — 종전 별도 지정·9곳 복제 계약의 반전.
+
+    빠뜨리면 R018 미적용본이 검증을 통과하던 사고 경로를 기본값 승격으로 제거했다."""
     rc = ph.main([str(hwpx_file), "--all"])
     out = capsys.readouterr().out
     assert rc == 0
     payload = __import__("json").loads(out)
-    assert "sender_size" not in payload
+    assert payload["sender_size"]["height"] == ph.SENDER_SIZE_PT * 100
     assert "star_indent" not in payload
     assert "center_cells" in payload   # 기능 1은 spacing 묶음으로 --all에 포함됨
     assert "title_box" in payload      # 기능 3도 spacing 묶음으로 --all에 포함됨
 
 
-def test_main_all_plus_sender_size_combined(hwpx_file, capsys):
+def test_main_all_sender_size_override(hwpx_file, capsys):
+    """--sender-size PT는 --all의 기본값 12pt를 재정의한다."""
     rc = ph.main([str(hwpx_file), "--all", "--sender-size", "13"])
     out = capsys.readouterr().out
     assert rc == 0

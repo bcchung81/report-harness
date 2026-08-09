@@ -3,7 +3,7 @@
 
 ## 왜 필요한가
 
-`hwpx-recipe.md`는 변환 뒤에 `postprocess_hwpx.py --all --sender-size 12` →
+`hwpx-recipe.md`는 변환 뒤에 `postprocess_hwpx.py --all` →
 `validate_hwpx.py structural` 순서를 요구한다. 그런데 postprocess는 **대상이 0건이어도
 exit 0**을 내고, 검증을 아예 부르지 않아도 파일은 멀쩡히 만들어진다. 즉 절차를 건너뛴 산출물이
 조용히 인도된다 — '26.8.7에 실제로 그렇게 배포된 건이 있었다.
@@ -59,7 +59,7 @@ def check(path, validator):
     if missing:
         fails.append(
             f"후처리 미실행으로 보임 — 필수 멤버 없음 {missing}. "
-            "`postprocess_hwpx.py <파일> --all --sender-size 12`을 실행해야 한다(R043)")
+            "`postprocess_hwpx.py <파일> --all`을 실행해야 한다(R043)")
     return fails
 
 

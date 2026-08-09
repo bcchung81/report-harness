@@ -141,19 +141,20 @@ mcp__kordoc__patch_document(
   자리에서만 치환이 성립한다(§7-1 배치 승인이 게이트①에서 이미 확정돼 있어야 하는 이유).
 - 이미지가 없으면 이 단계는 생략하고 §3.5로 진행.
 
-## 3.5. 후처리 — `postprocess_hwpx.py --all --sender-size 12`
+## 3.5. 후처리 — `postprocess_hwpx.py --all`
 
 이미지 주입까지 끝난 hwpx를 양식 정합으로 후처리한다. §4 구조 검증 **이전**에 실행한다(스크립트가
 직접 zip을 재작성하므로, 재작성 결과를 검증 대상으로 삼아야 한다).
 
 ```
 python3 skills/report-pipeline/scripts/postprocess_hwpx.py \
-    {work_dir}/final/{제목}.hwpx --all --sender-size 12
+    {work_dir}/final/{제목}.hwpx --all
 ```
 
-**`--sender-size 12`를 빠뜨리지 말 것** — `--all`은 `--star-footnote`·`--spacing`·`--header-banner`
-셋만 켠다(`main()` 실측). `--sender-size`는 값이 필요해 `--all`에 포함되지 않으므로, 생략하면
-R018(발신 줄 12pt)이 영구 미적용된 채로 §4 검증을 통과해 버린다.
+`--all`은 `--star-footnote`·`--spacing`·`--header-banner`에 더해 발신 줄 12pt(R018)를 기본
+적용한다(코드 상수 `SENDER_SIZE_PT`, 프로파일과의 일치는 `test_value_drift.py`가 강제).
+과거에는 `--sender-size 12`를 매번 별도 지정해야 했고 빠뜨리면 R018 미적용본이 §4 검증을
+통과해 버렸다 — 그 복제·누락 위험을 기본값 승격으로 제거했다.
 
 - **`--star-footnote` (R011)**: ＊ 시작 문단의 run `charPrIDRef`를 참고 스타일(header.xml에서
   height=1300·fontRef=맑은고딕 계열 탐색)로 치환한다. kordoc은 ※만 참고 스타일로 인식하고
@@ -165,8 +166,8 @@ R018(발신 줄 12pt)이 영구 미적용된 채로 §4 검증을 통과해 버�
   없으면(= kordoc `generate_document` 산출물의 표준 상태) 새 스페이서 문단을 삽입한다. 확정값은
   format-profile.kca.md §7 참조.
 - **`--sender-size N` (R018)**: 발신 줄(`classify=="sending"`) 문단 run들의 charPr을 폰트는
-  유지한 채 높이만 N(pt)로 치환한다. **값 인자가 필요해 `--all`에 포함되지 않는다** — KCA
-  양식 실측 확정값 12pt를 위 호출처럼 매번 명시해야 한다(`--sender-size 12`).
+  유지한 채 높이만 N(pt)로 치환한다. `--all`이 KCA 양식 실측 확정값 12pt(`SENDER_SIZE_PT`)를
+  기본 적용하므로 별도 지정은 다른 값으로 재정의할 때만 쓴다.
 - **표 캡션 내장 (R034, '26.7.28 사용자 확정)**: 표 바깥 캡션 문단(`[ … ]`)을 바로 다음
   콘텐츠 표의 `hp:caption`(side=TOP — 260331 실무본 실측 원형: outMargin 다음 위치)으로
   옮기고 CENTER+볼드를 배정한다(크기는 R023 12pt 일괄 처리). 캡션↔표 사이 스페이서는
@@ -256,8 +257,9 @@ R018(발신 줄 12pt)이 영구 미적용된 채로 §4 검증을 통과해 버�
   정렬을 JUSTIFY로 배정한다(`apply_annex_banner` ⑤). 라벨·스페이서 셀은 셀 텍스트 가운데
   정렬(CENTER) 현행 유지 — `apply_center_cell_text`는 배너 제목 셀을 제외한다(R023의 배너
   제외와 같은 패턴). 결과 요약 `annex_banner.title_justified`로 치환 문단 수를 보고한다.
-- **`--all`**은 `--star-footnote`·`--spacing`·`--header-banner` **세 플래그**를 켜고 zip을
-  1회만 재작성한다(항목 순서·mimetype 보존). 값 인자가 필요한 `--sender-size`는 포함되지 않는다. 결과 요약(치환 건수·삽입/치환 스페이서 이벤트 목록)을 JSON으로 stdout에 낸다.
+- **`--all`**은 `--star-footnote`·`--spacing`·`--header-banner` 세 플래그에 더해 발신 줄
+  12pt(R018 기본값)를 켜고 zip을 1회만 재작성한다(항목 순서·mimetype 보존). 결과 요약(치환
+  건수·삽입/치환 스페이서 이벤트 목록)을 JSON으로 stdout에 낸다.
 - exit 0: 변경 적용 완료. exit 1: **적용한 모든 처리에서 대상 0건**(＊ 문단·전환 지점·배너·
   폭 초과 표 어느 것도 미발견 — 잘못된 파일을 가리켰을 가능성, 원인 확인).
   exit 2: 인자·파일·zip/xml 구조 오류.
@@ -352,7 +354,7 @@ python3 skills/report-pipeline/scripts/validate_hwpx.py \
 | `check_image_size.py` | `check_image_size.py <img> [--max-w-mm 170] [--max-h-mm 90] [--dpi 96]` | 규격 이내(`fits:true`) | 규격 초과(`fits:false`) | 포맷 인식 실패 등 예외 |
 | `postprocess_hwpx.py` | `postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all] [--sender-size PT]` | 변경 적용 완료(요약 JSON) | 적용한 모든 처리에서 대상 0건 | 인자/파일/zip·xml 구조 오류(참고 charPr 미발견 포함) |
 
-- `postprocess_hwpx.py` 보충: `--all` = `--star-footnote`+`--spacing`+`--header-banner`.
-  값 인자가 필요한 `--sender-size`는 `--all`에 포함되지 않으며, 플래그를 하나도 주지 않으면
+- `postprocess_hwpx.py` 보충: `--all` = `--star-footnote`+`--spacing`+`--header-banner`
+  +발신 줄 12pt(R018 기본값, `--sender-size PT`로 재정의). 플래그를 하나도 주지 않으면
   exit 2다. `apply_fit_page_width`(R036·R042)·`canonicalize_package`(R043)는
   플래그와 무관하게 항상 실행된다.

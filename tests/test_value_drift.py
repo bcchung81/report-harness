@@ -72,6 +72,15 @@ def test_hierarchy_indent_table_matches_code():
                 f"{label} 내어쓰기 불일치"
 
 
+def test_sender_size_default_matches_profile():
+    """--all이 기본 적용하는 발신 줄 크기가 프로파일 실측(R018)과 같다.
+
+    종전에는 이 값이 문서 9곳에 '--sender-size 12'로 복제돼 있었다 — 기본값 승격 후
+    프로파일과 코드 상수 두 곳만 남기고, 그 둘의 일치를 여기서 강제한다."""
+    assert re.search(r"발신 줄 12pt\(R018\)", _profile_text()), "프로파일의 발신 줄 실측 서술이 사라졌다"
+    assert ph.SENDER_SIZE_PT == 12
+
+
 def test_line_fit_floors_match_rules():
     """자간·장평 하한이 rules-seed.md 서술과 코드에서 같다 (R062)."""
     body = SEED.read_text(encoding="utf-8")

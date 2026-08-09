@@ -241,15 +241,14 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 
    ```
    python3 skills/report-pipeline/scripts/postprocess_hwpx.py \
-       {work_dir}/final/{제목}.hwpx --all --sender-size 12
+       {work_dir}/final/{제목}.hwpx --all
    ```
 
    - **실행 위치**: 이미지 주입 **후**, `validate_hwpx.py structural` **전**. 스크립트가 zip을
      직접 재작성하므로 재작성 결과를 구조 검증 대상으로 삼아야 한다.
-   - **`--sender-size 12`는 `--all`에 포함되지 않는다** — 값이 필요해 별도 지정이며, 빠뜨리면
-     발신 줄 12pt(R018)가 적용되지 않는다. 위 호출 형태를 그대로 쓴다.
    - `--all` = `--star-footnote`(R011) + `--spacing`(간격·정렬·폰트·캡션·배너 묶음) +
-     `--header-banner`(R030·R041). 표 폭 본문 정합(R036·R042 `apply_fit_page_width`)과
+     `--header-banner`(R030·R041) + 발신 줄 12pt(R018, 코드 기본값 `SENDER_SIZE_PT` —
+     다른 값이 필요할 때만 `--sender-size PT`로 재정의). 표 폭 본문 정합(R036·R042 `apply_fit_page_width`)과
      **패키지 정합(R043 `canonicalize_package` — version.xml 등 필수 멤버 보강·디렉터리
      엔트리 제거·정품 압축 프로파일, 내부망 반입 판별용)**은 **플래그와 무관하게 매 실행
      적용**된다.
@@ -330,13 +329,12 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 - `scripts/lint_md_profile.py <md>` — 결정론 린트. JSON 출력, exit 0(통과)/1(위반).
 - `scripts/prep_report_md.py <src> -o <out>` — 변환 전 정규화. exit 0(성공)/2(모호한 입력
   거부).
-- `scripts/postprocess_hwpx.py <file.hwpx> --all --sender-size 12` — **양식 정합 후처리(export
+- `scripts/postprocess_hwpx.py <file.hwpx> --all` — **양식 정합 후처리(export
   필수 단계, §④-2-1)**. kordoc 산출 hwpx의 계층 간격·정렬·폰트·캡션·배너·표 폭을 양식 실측값으로
-  치환해 `[export]` 규칙 대부분을 실제로 적용하는 스크립트다. 플래그: `--star-footnote`(R011)·
-  `--spacing`(R013~R015·R017·R019·R020·R022~R025·R027·R031~R035·R037~R040)·
-  `--header-banner`(R030·R041)·`--all`(앞 셋)·`--sender-size PT`(R018, `--all` 미포함)·
-  (`--star-indent`는 R019 폐기로 제거 — 넘기면 exit 2). 표 폭 정합(R036·R042)·패키지 정합(R043 —
-  내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
+  치환해 `[export]` 규칙 대부분을 실제로 적용하는 스크립트다. 플래그와 규칙 매핑의 정본은
+  hwpx-recipe.md §3.5 — `--all`은 발신 줄 12pt(R018)를 기본 포함하고, `--sender-size PT`는
+  재정의용이다(`--star-indent`는 R019 폐기로 제거 — 넘기면 exit 2). 표 폭 정합(R036·R042)·
+  패키지 정합(R043 — 내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
   exit 0(적용)/1(대상 0건 — 원인 확인)/2(인자·파일·구조 오류).
 - `scripts/validate_hwpx.py structural|compare|numbers` — 구조 검증/왕복 대조/경량 팩트체크.
   시그니처는 `hwpx-recipe.md` 부록 표 참조(중복 서술 안 함).

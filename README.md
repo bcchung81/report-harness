@@ -125,7 +125,7 @@ flowchart LR
 변환기가 뱉은 hwpx는 아직 기관 양식이 아니다. 그래서 뒤에 후처리가 붙어 있다.
 
 ```
-prep 정규화 → hwpx 생성 → ★ postprocess_hwpx.py --all --sender-size 12
+prep 정규화 → hwpx 생성 → ★ postprocess_hwpx.py --all
    → 구조 검증 → 왕복 되읽기 → 내용 대조
 ```
 

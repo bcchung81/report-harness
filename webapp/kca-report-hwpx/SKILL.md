@@ -162,9 +162,9 @@ python3 "$SKILL_DIR/scripts/prep_report_md.py" draft.md -o prepared.md
 # 2) 생성
 python3 "$SKILL_DIR/scripts/md2hwpx.py" prepared.md -o base.hwpx
 
-# 3) 후처리 — --sender-size 12를 빠뜨리지 말 것(--all에 포함되지 않는다)
+# 3) 후처리 — --all이 발신 줄 12pt(R018)까지 기본 적용한다
 cp base.hwpx "결과.hwpx"
-python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" "결과.hwpx" --all --sender-size 12 > post.json
+python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" "결과.hwpx" --all > post.json
 
 # 4) 침묵 실패 차단 + 기하 불변식 — 실패 시 여기서 중단한다
 #    hwpx를 3번째 인자로 넘겨야 제목표 상단 여백·열 폭 역전까지 검사한다(빠뜨리지 말 것)
