@@ -132,6 +132,22 @@ figcaption{font-size:1.02cqw;color:var(--faint);margin-top:.5cqw}
 .notes[hidden]{display:none}
 .notes b{display:block;font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;
   color:var(--low);margin-bottom:.35rem;font-weight:400}
+
+/* 확인 필요 — 발표자만 답할 수 있는 값. 채우기 전에는 절대 못 지나치게 둔다 */
+.todo{display:inline-flex;align-items:center;gap:.5cqw;
+  border:1px dashed var(--warn);border-radius:.3cqw;padding:.4cqw .8cqw;
+  color:var(--warn);font-size:1.05cqw}
+.todo::before{content:"확인 필요";font-family:var(--mono);font-size:.78cqw;letter-spacing:.1em;
+  opacity:.75}
+/* 심사 항목 배지 — 어느 평가 항목에 답하는 장인지 발표자와 심사자 모두 알게 한다 */
+.crit{display:inline-flex;align-items:baseline;gap:.55cqw;font-family:var(--mono);
+  font-size:.86cqw;letter-spacing:.12em;color:var(--accent)}
+.crit b{font-weight:400;color:var(--faint)}
+.pill{display:inline-block;border:1px solid var(--hair);border-radius:99px;
+  padding:.28cqw .8cqw;font-size:1cqw;color:var(--mid)}
+.pill.ac{border-color:var(--accent);color:var(--accent)}
+.pill.bad{border-color:var(--warn);color:var(--warn)}
+.rowpills{display:flex;gap:.7cqw;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -139,463 +155,338 @@ figcaption{font-size:1.02cqw;color:var(--faint);margin-top:.5cqw}
 <div class="bar" id="bar" style="width:0"></div>
 <main class="stage" id="stage" tabindex="0" aria-label="발표 슬라이드">
 
-<!-- ══ S1 · 타이틀 ══ -->
+<!-- S1 · 타이틀 -->
 <section class="slide" data-id="S1" data-time="0:00" data-part="">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">A harness for institutional reports</p>
-    <h1 class="rise">보고서 하네스,<br>구조부터 보겠습니다</h1>
-    <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 120" role="img"
-           aria-label="마크다운 초안이 변환과 검증을 거쳐 기관 양식 hwpx로 나가는 한 줄 흐름">
-        <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
-          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-        <g color="#6A7181">
-          <rect class="bx" x="10" y="34" width="180" height="56" rx="8"/>
-          <text class="mn hi" x="100" y="68" text-anchor="middle">20_draft.md</text>
-          <line class="ln" x1="196" y1="62" x2="256" y2="62" marker-end="url(#a1)"/>
-          <rect class="bx" x="262" y="34" width="200" height="56" rx="8"/>
-          <text x="362" y="68" text-anchor="middle">변환</text>
-          <line class="ln" x1="468" y1="62" x2="528" y2="62" marker-end="url(#a1)"/>
-          <rect class="bx" x="534" y="34" width="200" height="56" rx="8"/>
-          <text x="634" y="68" text-anchor="middle">양식 정합 · 검증</text>
-          <line class="ln-ac" x1="740" y1="62" x2="800" y2="62" marker-end="url(#a1)" color="#7C8CF8"/>
-          <rect class="bx-ac" x="806" y="34" width="184" height="56" rx="8"/>
-          <text class="mn ac" x="898" y="68" text-anchor="middle">.hwpx</text>
-        </g>
-      </svg>
-    </figure>
-    <p class="cap rise">마크다운 하나를 원본으로 기관 양식 한글 파일까지. 변환·검증·배포가 전부 표준 라이브러리로 돈다.</p>
+    <p class="eyebrow rise">Report harness · md → 기관 양식 hwpx</p>
+    <h1 class="rise">한글 보고서를<br>손으로 꾸미지 않는다</h1>
+    <p class="lede rise">망분리 안에서 마크다운 하나를 원본으로 기관 양식 한글 파일까지.
+    <b>9일간 실제 보고서 5건</b>을 이걸로 냈다.</p>
   </div>
 </section>
 
-<!-- ══ S2 · 전체 구조 ══ -->
-<section class="slide" data-id="S2" data-time="0:10" data-part="1">
+<!-- S2 · ① 누구의 고통 -->
+<section class="slide" data-id="S2" data-time="0:12" data-part="1">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">System map</p>
-    <h2 class="rise">세 조각이 두 망에 나뉘어 돈다</h2>
+    <p class="crit rise">① 고객과 문제 <b>25%</b></p>
+    <h2 class="rise">내용은 다 됐는데, 옮기는 데 시간이 다 간다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 396" role="img"
-           aria-label="개발 노트북의 claudian 위키와 report-harness, VDI 브라우저의 웹앱 스킬이 지식 인용·승인 적재·재배포로 연결된 구조도">
-        <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+      <svg class="dg" viewBox="0 0 1000 210" role="img"
+           aria-label="초안이 완성된 뒤에도 사람이 손으로 여덟 가지 서식을 맞추는 기존 작업 흐름">
+        <defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-
-        <rect class="zone" x="8" y="40" width="560" height="344" rx="12"/>
-        <text class="lo" x="24" y="30">개발 노트북 · 터미널 + Claude Code</text>
-        <rect class="zone" x="600" y="40" width="392" height="344" rx="12"/>
-        <text class="lo" x="616" y="30">VDI 브라우저 · 망분리 안쪽</text>
-
         <g color="#6A7181">
-          <!-- claudian -->
-          <rect class="bx" x="36" y="76" width="184" height="92" rx="8"/>
-          <text class="hi" x="128" y="112" text-anchor="middle">claudian</text>
-          <text class="lo" x="128" y="140" text-anchor="middle">LLM 위키 · 지식 축적</text>
-
-          <!-- harness -->
-          <rect class="bx-ac" x="292" y="76" width="244" height="92" rx="8"/>
-          <text class="ac" x="414" y="112" text-anchor="middle">report-harness</text>
-          <text class="lo" x="414" y="140" text-anchor="middle">조사 → 분석 → 초안 → 변환</text>
-
-          <!-- 위키 ↔ 하네스. 두 화살표를 세로로 벌려 라벨이 겹치지 않게 둔다 -->
-          <line class="ln" x1="226" y1="102" x2="286" y2="102" marker-end="url(#a2)"/>
-          <text class="lo" x="256" y="92" text-anchor="middle">인용</text>
-          <line class="ln" x1="286" y1="146" x2="226" y2="146" marker-end="url(#a2)"/>
-          <text class="lo" x="256" y="170" text-anchor="middle">승인분만</text>
-
-          <!-- 규칙 축적은 하네스 자신에게 되돌아온다 — 자기 루프로 그려야 대상이 분명하다 -->
-          <path class="ln dash" d="M356 168 L356 200 L472 200 L472 172" marker-end="url(#a2)"/>
-          <text class="lo" x="414" y="224" text-anchor="middle">규칙 축적 lessons → rules</text>
-
-          <!-- 하네스 산출 -->
-          <line class="ln" x1="414" y1="240" x2="414" y2="286" marker-end="url(#a2)"/>
-          <rect class="bx" x="316" y="292" width="196" height="60" rx="8"/>
-          <text class="mn" x="414" y="328" text-anchor="middle">보고서.hwpx</text>
-
-          <!-- 웹앱 -->
-          <rect class="bx" x="640" y="76" width="312" height="92" rx="8"/>
-          <text class="hi" x="796" y="112" text-anchor="middle">kca-report-hwpx</text>
-          <text class="lo" x="796" y="140" text-anchor="middle">스킬 파일 하나 · MCP 없이 자립</text>
-          <line class="ln" x1="796" y1="230" x2="796" y2="286" marker-end="url(#a2)"/>
-          <rect class="bx" x="698" y="292" width="196" height="60" rx="8"/>
-          <text class="mn" x="796" y="328" text-anchor="middle">보고서.hwpx</text>
+          <rect class="bx" x="4" y="60" width="176" height="66" rx="8"/>
+          <text x="92" y="90" text-anchor="middle">초안은 다 썼다</text>
+          <text class="lo" x="92" y="112" text-anchor="middle">내용 완성</text>
+          <line class="ln" x1="184" y1="93" x2="224" y2="93" marker-end="url(#b1)"/>
         </g>
-
-        <!-- 재배포: 망을 건너는 유일한 선 -->
-        <g color="#7C8CF8">
-          <path class="ln-ac dash" d="M540 122 L640 122" marker-end="url(#a2)"/>
-          <text class="ac" x="590" y="108" text-anchor="middle" style="font-size:18px">재배포</text>
+        <g color="#E0A458">
+          <rect class="bx-w" x="228" y="30" width="536" height="126" rx="8"/>
+          <text x="248" y="60" style="fill:#E0A458;font-size:19px">여기부터 전부 사람 손</text>
+          <text class="mn" x="248" y="94" style="fill:#9BA3B4">글머리 계층 · 서체 · 줄간격 · 표 폭</text>
+          <text class="mn" x="248" y="124" style="fill:#9BA3B4">각주 · 붙임 배너 · 머리말 · 여백</text>
+          <line class="ln-w" x1="768" y1="93" x2="808" y2="93" marker-end="url(#b1)"/>
+        </g>
+        <g color="#6A7181">
+          <rect class="bx" x="812" y="60" width="184" height="66" rx="8"/>
+          <text class="mn" x="904" y="98" text-anchor="middle">제출본.hwpx</text>
+          <text class="lo" x="500" y="186" text-anchor="middle">도구를 깔 자리도 없다 — VDI 라 개발 환경 설치 불가</text>
         </g>
       </svg>
-      <figcaption>축적은 왼쪽에서만 일어난다. 웹앱판은 세션 사이에 아무것도 기억하지 못해 재배포가 유일한 전달 경로다.</figcaption>
     </figure>
+    <p class="cap rise"><b>누가</b> — 인터넷망 VDI에서 기관 보고서를 쓰는 실무자.
+    조사·작성은 인터넷망에서 하고 업무망으로는 완성 파일 하나만 넘긴다.
+    <span class="todo rise">특정 인물 한 명 — 부서·직무·연간 보고서 건수</span></p>
   </div>
 </section>
 
-<!-- ══ S3 · 4단계와 작업폴더 ══ -->
-<section class="slide" data-id="S3" data-time="0:35" data-part="1">
+<!-- S3 · ① 고통의 강도 -->
+<section class="slide" data-id="S3" data-time="0:36" data-part="1">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">Stages ↔ working folder</p>
-    <h2 class="rise">단계는 폴더를 인터페이스로 쓴다</h2>
-    <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 330" role="img"
-           aria-label="네 단계가 각각 작업폴더의 특정 파일을 읽고 쓰는 구조도">
-        <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
-          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-        <g color="#6A7181">
-          <rect class="bx" x="8"   y="16" width="222" height="64" rx="8"/>
-          <text class="hi" x="119" y="46" text-anchor="middle">① research</text>
-          <text class="lo" x="119" y="68" text-anchor="middle">조사</text>
-          <rect class="bx" x="264" y="16" width="222" height="64" rx="8"/>
-          <text class="hi" x="375" y="46" text-anchor="middle">② analyze</text>
-          <text class="lo" x="375" y="68" text-anchor="middle">분석</text>
-          <rect class="bx-ac" x="520" y="16" width="222" height="64" rx="8"/>
-          <text class="ac" x="631" y="46" text-anchor="middle">③ draft</text>
-          <text class="lo" x="631" y="68" text-anchor="middle">게이트 ⓪①② 가 전부 여기</text>
-          <rect class="bx" x="776" y="16" width="216" height="64" rx="8"/>
-          <text class="hi" x="884" y="46" text-anchor="middle">④ export</text>
-          <text class="lo" x="884" y="68" text-anchor="middle">변환</text>
-
-          <line class="ln" x1="119" y1="86" x2="119" y2="150" marker-end="url(#a3)"/>
-          <line class="ln" x1="375" y1="86" x2="375" y2="150" marker-end="url(#a3)"/>
-          <line class="ln" x1="631" y1="86" x2="631" y2="150" marker-end="url(#a3)"/>
-          <line class="ln" x1="884" y1="86" x2="884" y2="150" marker-end="url(#a3)"/>
-
-          <rect class="bx" x="8" y="156" width="984" height="148" rx="10"/>
-          <text class="lo" x="28" y="182">{reports_dir}/20260729/1430_AI성과측정체계/</text>
-          <text class="mn hi" x="28"  y="222">research/</text>
-          <text class="mn lo" x="28"  y="248">_manifest.jsonl</text>
-          <text class="mn hi" x="264" y="222">05_analysis.md</text>
-          <text class="mn lo" x="264" y="248">논지 후보 · 근거 공백</text>
-          <text class="mn hi" x="520" y="222">10_outline.md → 20_draft.md</text>
-          <text class="mn lo" x="520" y="248">이 파일이 진짜 원본</text>
-          <text class="mn hi" x="776" y="222">final/*.hwpx</text>
-          <text class="mn lo" x="776" y="248">40_qa.md</text>
-          <text class="lo" x="28" y="288">00_context.md — 요구사항·게이트 답변이 여기 누적된다</text>
-        </g>
-      </svg>
-      <figcaption>세션이 아니라 폴더가 맥락을 갖는다. "이어서 해줘" 한 마디면 폴더 상태를 읽고 그 지점부터 잇는다.</figcaption>
-    </figure>
+    <p class="crit rise">① 고객과 문제 <b>25%</b> · 강도</p>
+    <h2 class="rise">숫자로 말하면</h2>
+    <div class="metrics rise">
+      <div class="metric"><b class="bad">?</b><span>건당 서식 작업 시간 (도입 전)</span></div>
+      <div class="metric"><b class="ac">30분</b><span>기계 시간 상한 (도입 후 · 설계값)</span></div>
+      <div class="metric"><b class="good">5건</b><span>9일간 실제 인도 (07-30 ~ 08-07)</span></div>
+      <div class="metric"><b class="bad">1건</b><span>업무망 반입 반려 실사고</span></div>
+    </div>
+    <p class="cap rise">반려 사고는 서식이 아니라 <b>패키지 구조</b> 때문이었다 — 파일은 멀쩡한데
+    자료교환 시스템이 hwpx로 판별하지 못해 반려됐다. 손으로 만들 때는 원인조차 알기 어려운 종류의 실패다.</p>
+    <p class="cap rise"><span class="todo">도입 전 건당 소요시간 · 연간 보고서 건수 · 담당자 수</span>
+    <span class="todo">실무자에게 직접 물어본 기록(면담·설문) 유무</span></p>
   </div>
 </section>
 
-<!-- ══ S4 · 판단 / 실행 ══ -->
+<!-- S4 · ② 해법 전체 구조 -->
 <section class="slide" data-id="S4" data-time="1:00" data-part="2">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">The core split</p>
-    <h2 class="rise">판단은 문서로, 실행은 스크립트로</h2>
+    <p class="crit rise">② 해법의 적정성 <b>15%</b> · 전체 구조</p>
+    <h2 class="rise">세 조각이 두 망에 나뉘어 돈다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 318" role="img"
-           aria-label="파이프라인 위에서 references 문서가 판단 기준을 주입하고 아래에서 scripts가 기계 검사를 거는 구조도">
-        <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+      <svg class="dg" viewBox="0 0 1000 330" role="img"
+           aria-label="개발 노트북의 지식 위키와 하네스, VDI 브라우저의 웹앱 스킬이 인용·승인적재·재배포로 연결된 구조도">
+        <defs><marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+        <rect class="zone" x="8" y="34" width="560" height="286" rx="12"/>
+        <text class="lo" x="24" y="24">개발 노트북 · 운영자</text>
+        <rect class="zone" x="600" y="34" width="392" height="286" rx="12"/>
+        <text class="lo" x="616" y="24">VDI 브라우저 · 실무자</text>
         <g color="#6A7181">
-          <text class="lo" x="8" y="20">references/ — LLM 이 읽고 판단한다</text>
-          <rect class="bx" x="8"   y="32" width="234" height="52" rx="8"/>
-          <text x="125" y="63" text-anchor="middle">문체 관례 34건 코퍼스</text>
-          <rect class="bx" x="258" y="32" width="234" height="52" rx="8"/>
-          <text x="375" y="63" text-anchor="middle">양식 실측 프로파일</text>
-          <rect class="bx" x="508" y="32" width="234" height="52" rx="8"/>
-          <text x="625" y="63" text-anchor="middle">변환 가능 문법</text>
-          <rect class="bx" x="758" y="32" width="234" height="52" rx="8"/>
-          <text x="875" y="63" text-anchor="middle">회귀 규칙 70건</text>
-
-          <line class="ln" x1="125" y1="90" x2="125" y2="126" marker-end="url(#a4)"/>
-          <line class="ln" x1="375" y1="90" x2="375" y2="126" marker-end="url(#a4)"/>
-          <line class="ln" x1="625" y1="90" x2="625" y2="126" marker-end="url(#a4)"/>
-          <line class="ln" x1="875" y1="90" x2="875" y2="126" marker-end="url(#a4)"/>
-
-          <rect class="bx-ac" x="8" y="132" width="984" height="56" rx="8"/>
-          <text class="ac" x="500" y="167" text-anchor="middle">보고서 파이프라인</text>
-
-          <line class="ln" x1="125" y1="236" x2="125" y2="194" marker-end="url(#a4)"/>
-          <line class="ln" x1="375" y1="236" x2="375" y2="194" marker-end="url(#a4)"/>
-          <line class="ln" x1="625" y1="236" x2="625" y2="194" marker-end="url(#a4)"/>
-          <line class="ln" x1="875" y1="236" x2="875" y2="194" marker-end="url(#a4)"/>
-
-          <rect class="bx" x="8"   y="242" width="234" height="52" rx="8"/>
-          <text class="mn" x="125" y="273" text-anchor="middle">lint 20종</text>
-          <rect class="bx" x="258" y="242" width="234" height="52" rx="8"/>
-          <text class="mn" x="375" y="273" text-anchor="middle">postprocess</text>
-          <rect class="bx" x="508" y="242" width="234" height="52" rx="8"/>
-          <text class="mn" x="625" y="273" text-anchor="middle">validate</text>
-          <rect class="bx" x="758" y="242" width="234" height="52" rx="8"/>
-          <text class="mn" x="875" y="273" text-anchor="middle">consolidate</text>
-          <text class="lo" x="8" y="314">scripts/ — 판단이 끼어들면 안 되는 일. 결과가 매번 같아야 한다</text>
+          <rect class="bx" x="36" y="64" width="180" height="84" rx="8"/>
+          <text class="hi" x="126" y="98" text-anchor="middle">claudian</text>
+          <text class="lo" x="126" y="124" text-anchor="middle">지식 위키</text>
+          <rect class="bx-ac" x="288" y="64" width="248" height="84" rx="8"/>
+          <text class="ac" x="412" y="98" text-anchor="middle">report-harness</text>
+          <text class="lo" x="412" y="124" text-anchor="middle">조사 → 분석 → 초안 → 변환</text>
+          <line class="ln" x1="222" y1="90" x2="282" y2="90" marker-end="url(#b2)"/>
+          <text class="lo" x="252" y="80" text-anchor="middle">인용</text>
+          <line class="ln" x1="282" y1="126" x2="222" y2="126" marker-end="url(#b2)"/>
+          <text class="lo" x="252" y="150" text-anchor="middle">승인분만</text>
+          <path class="ln dash" d="M352 148 L352 178 L472 178 L472 152" marker-end="url(#b2)"/>
+          <text class="lo" x="412" y="200" text-anchor="middle">규칙 축적 lessons → rules</text>
+          <line class="ln" x1="412" y1="216" x2="412" y2="252" marker-end="url(#b2)"/>
+          <rect class="bx" x="314" y="258" width="196" height="52" rx="8"/>
+          <text class="mn" x="412" y="290" text-anchor="middle">보고서.hwpx</text>
+          <rect class="bx" x="640" y="64" width="312" height="84" rx="8"/>
+          <text class="hi" x="796" y="98" text-anchor="middle">kca-report-hwpx</text>
+          <text class="lo" x="796" y="124" text-anchor="middle">스킬 파일 하나 · MCP 없이 자립</text>
+          <line class="ln" x1="796" y1="216" x2="796" y2="252" marker-end="url(#b2)"/>
+          <rect class="bx" x="698" y="258" width="196" height="52" rx="8"/>
+          <text class="mn" x="796" y="290" text-anchor="middle">보고서.hwpx</text>
+        </g>
+        <g color="#7C8CF8">
+          <path class="ln-ac dash" d="M540 106 L640 106" marker-end="url(#b2)"/>
+          <text class="ac" x="590" y="94" text-anchor="middle" style="font-size:18px">재배포</text>
         </g>
       </svg>
-      <figcaption>매번 똑같아야 하는 일을 전부 아래로 내려 LLM 편차를 없앴다. 위에 남은 것만 판단이다.</figcaption>
+      <figcaption>축적은 왼쪽에서만 일어난다. 실무자에게는 파일 하나만 건너간다.</figcaption>
     </figure>
   </div>
 </section>
 
-<!-- ══ S5 · 변환 파이프라인 ══ -->
-<section class="slide" data-id="S5" data-time="1:26" data-part="3">
+<!-- S5 · ② 왜 이 기술 + 유지보수 -->
+<section class="slide" data-id="S5" data-time="1:26" data-part="2">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">Conversion path</p>
-    <h2 class="rise">변환은 다섯 지점을 지난다</h2>
+    <p class="crit rise">② 해법의 적정성 <b>15%</b> · 대체재와 유지보수</p>
+    <h2 class="rise">더 단순한 방법으로는 왜 안 됐나</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 300" role="img"
-           aria-label="초안이 정규화·생성·후처리·검증을 거쳐 hwpx로 인도되고, 검증 실패 시 마크다운으로 되돌아가는 흐름도">
-        <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
-          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+      <svg class="dg" viewBox="0 0 1000 216" role="img"
+           aria-label="한글 매크로·워드 변환·수작업 템플릿 세 대체재가 각각 어디서 막히는지 비교한 도식">
         <g color="#6A7181">
-          <rect class="bx" x="4"   y="40" width="150" height="60" rx="8"/>
-          <text class="mn" x="79" y="76" text-anchor="middle">20_draft.md</text>
-          <line class="ln" x1="158" y1="70" x2="196" y2="70" marker-end="url(#a5)"/>
-          <rect class="bx" x="200" y="40" width="150" height="60" rx="8"/>
-          <text x="275" y="66" text-anchor="middle">정규화</text>
-          <text class="lo" x="275" y="88" text-anchor="middle">모호하면 거부</text>
-          <line class="ln" x1="354" y1="70" x2="392" y2="70" marker-end="url(#a5)"/>
-          <rect class="bx" x="396" y="40" width="150" height="60" rx="8"/>
-          <text x="471" y="76" text-anchor="middle">hwpx 생성</text>
-          <line class="ln" x1="550" y1="70" x2="588" y2="70" marker-end="url(#a5)"/>
-          <rect class="bx-ac" x="592" y="40" width="196" height="60" rx="8"/>
-          <text class="ac" x="690" y="66" text-anchor="middle">양식 정합 후처리</text>
-          <text class="lo" x="690" y="88" text-anchor="middle">25 스테이지</text>
-          <line class="ln" x1="792" y1="70" x2="830" y2="70" marker-end="url(#a5)"/>
-          <rect class="bx" x="834" y="40" width="162" height="60" rx="8"/>
-          <text x="915" y="76" text-anchor="middle">검증</text>
-
-          <!-- 검증 분기. 박스를 텍스트 폭보다 넉넉히 잡아야 잘리지 않는다 -->
-          <line class="ln" x1="915" y1="106" x2="915" y2="140" marker-end="url(#a5)"/>
-          <rect class="bx" x="636" y="146" width="360" height="52" rx="8"/>
-          <text class="mn" x="816" y="178" text-anchor="middle">structural · compare · numbers</text>
-
-          <!-- 통과는 오른쪽으로 내려간다(실패 경로와 겹치지 않게) -->
-          <line class="ln" x1="883" y1="204" x2="883" y2="234" marker-end="url(#a5)"/>
-          <rect class="bx" x="770" y="240" width="226" height="50" rx="8"/>
-          <text class="mn" x="883" y="272" text-anchor="middle">final/*.hwpx</text>
+          <rect class="bx" x="4" y="8" width="322" height="88" rx="8"/>
+          <text class="hi" x="24" y="40">한글 매크로</text>
+          <text class="lo" x="24" y="70">VDI 에 설치·배포 경로가 없다</text>
+          <rect class="bx" x="340" y="8" width="322" height="88" rx="8"/>
+          <text class="hi" x="360" y="40">워드 → 한글 변환</text>
+          <text class="lo" x="360" y="70">계층 기호·표 폭·배너가 무너진다</text>
+          <rect class="bx" x="676" y="8" width="320" height="88" rx="8"/>
+          <text class="hi" x="696" y="40">양식 템플릿만 배포</text>
+          <text class="lo" x="696" y="70">채우는 일은 그대로 사람 몫</text>
         </g>
-        <!-- 실패 경로는 모든 박스 아래로 우회한다 -->
-        <g color="#E0A458">
-          <path class="ln-w dash" d="M700 204 L700 224 L120 224 L120 106" marker-end="url(#a5)"/>
-          <text x="150" y="252" style="fill:#E0A458;font-size:19px">어긋난 게 남으면 목록을 밝히고 마크다운을 인도한다</text>
+        <g color="#7C8CF8">
+          <rect class="bx-ac" x="4" y="112" width="992" height="92" rx="8"/>
+          <text class="ac" x="24" y="146">시간 말고 줄인 것 — 담당자별 편차와 재작업</text>
+          <text class="lo" x="24" y="180">같은 규칙이 매번 같게 적용된다 · 반려 사유가 코드로 박제돼 재발하지 않는다</text>
         </g>
       </svg>
-      <figcaption>틀린 hwpx를 조용히 내주지 않는다. 실패는 사용자에게 보이는 상태로만 끝난다.</figcaption>
     </figure>
+    <p class="cap rise"><b>양식이 바뀌면 누가 고치나</b> — 실측값은 <code>format-profile.kca.md</code> 한 곳에 모여 있고,
+    코드 상수와 어긋나면 테스트가 실패한다. 고칠 자리가 한 곳으로 특정된다.
+    <span class="todo">양식 개정 시 담당·인수인계 주체</span></p>
   </div>
 </section>
 
-<!-- ══ S6 · 후처리 내부 ══ -->
+<!-- S6 · ③ 실제 작동 -->
 <section class="slide" data-id="S6" data-time="1:52" data-part="3">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">postprocess_hwpx.py — 2,499 lines</p>
-    <h2 class="rise">후처리는 XML을 다섯 갈래로 고친다</h2>
-    <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 300" role="img"
-           aria-label="section0.xml이 간격·글자·표·머리말·패키지 다섯 갈래 스테이지를 거쳐 양식 정합본이 되는 구조도">
-        <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
-          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-        <g color="#6A7181">
-          <rect class="bx" x="4" y="106" width="150" height="72" rx="8"/>
-          <text class="mn" x="79" y="136" text-anchor="middle">section0</text>
-          <text class="mn" x="79" y="160" text-anchor="middle">.xml</text>
-          <line class="ln" x1="158" y1="142" x2="216" y2="142" marker-end="url(#a6)"/>
-
-          <rect class="bx" x="220" y="4"   width="330" height="50" rx="8"/>
-          <text x="238" y="35">계층 간격 · 정렬</text><text class="lo" x="530" y="35" text-anchor="end">5</text>
-          <rect class="bx" x="220" y="60"  width="330" height="50" rx="8"/>
-          <text x="238" y="91">글자 · 서체 · 괄호 · 위첨자</text><text class="lo" x="530" y="91" text-anchor="end">7</text>
-          <rect class="bx-ac" x="220" y="116" width="330" height="50" rx="8"/>
-          <text class="ac" x="238" y="147">표 — 캡션 내장 · 폭 정합 · 분할</text><text class="lo" x="530" y="147" text-anchor="end">6</text>
-          <rect class="bx" x="220" y="172" width="330" height="50" rx="8"/>
-          <text x="238" y="203">머리말 배너 · 붙임</text><text class="lo" x="530" y="203" text-anchor="end">4</text>
-          <rect class="bx" x="220" y="228" width="330" height="50" rx="8"/>
-          <text x="238" y="259">패키지 정합</text><text class="lo" x="530" y="259" text-anchor="end">3</text>
-
-          <line class="ln" x1="554" y1="29"  x2="612" y2="114" marker-end="url(#a6)"/>
-          <line class="ln" x1="554" y1="85"  x2="612" y2="128" marker-end="url(#a6)"/>
-          <line class="ln" x1="554" y1="141" x2="612" y2="142" marker-end="url(#a6)"/>
-          <line class="ln" x1="554" y1="197" x2="612" y2="156" marker-end="url(#a6)"/>
-          <line class="ln" x1="554" y1="253" x2="612" y2="170" marker-end="url(#a6)"/>
-
-          <rect class="bx" x="616" y="106" width="180" height="72" rx="8"/>
-          <text x="706" y="136" text-anchor="middle">양식 정합본</text>
-          <text class="lo" x="706" y="160" text-anchor="middle">멱등 · 재실행 안전</text>
-        </g>
-        <g color="#7C8CF8">
-          <text class="lo" x="824" y="66">합성 샘플 1건 실행 결과</text>
-          <text class="mn ac" x="824" y="100">스페이서   8 삽입</text>
-          <text class="mn ac" x="824" y="128">양쪽정렬  10 적용</text>
-          <text class="mn ac" x="824" y="156">캡션 내장  1</text>
-          <text class="mn ac" x="824" y="184">표 폭 정합 1</text>
-          <text class="mn ac" x="824" y="212">배너 이미지 2 주입</text>
-        </g>
-      </svg>
-      <figcaption>스테이지는 선언 테이블이라 순서 제약이 코드가 아니라 데이터로 남는다 — 캡션 내장은 반드시 간격 계산 앞이다.</figcaption>
-    </figure>
-  </div>
-</section>
-
-<!-- ══ S7 · 패키지 정합 (실물) ══ -->
-<section class="slide" data-id="S7" data-time="2:18" data-part="3">
-  <div class="rail"></div>
-  <div class="body">
-    <p class="eyebrow rise">Package canonicalization — real output</p>
-    <h2 class="rise">패키지를 한컴 정본 지문으로 맞춘다</h2>
+    <p class="crit rise">③ 실제 작동 <b>15%</b></p>
+    <h2 class="rise">전시가 아니라 지금 돌아간다</h2>
     <div class="cap2 rise">
-      <div class="shot"><h4>생성 직후 — 최소 OCF</h4>mimetype              <span class="dim">STORED</span>
-Contents/header.xml   <span class="dim">DEFLATED</span>
-Contents/section0.xml <span class="dim">DEFLATED</span>
-Preview/PrvText.txt   <span class="dim">DEFLATED</span>
-Contents/content.hpf  <span class="dim">DEFLATED</span>
-META-INF/container.xml<span class="dim">DEFLATED</span>
-<span class="del">└ version.xml 없음 → octet-stream 판정</span></div>
-      <div class="shot"><h4>canonicalize_package 적용 후</h4>mimetype              <span class="dim">STORED</span>
-<span class="add">version.xml           STORED</span>
-<span class="add">BinData/kcaHdrLogo.png STORED</span>
-Contents/header.xml   <span class="dim">DEFLATED</span>
-Contents/section0.xml <span class="dim">DEFLATED</span>
-<span class="add">settings.xml          DEFLATED</span>
-<span class="add">META-INF/manifest.xml DEFLATED</span>
-<span class="add">META-INF/container.rdf DEFLATED</span></div>
+      <div class="shot"><h4>실제 인도 건 — 9일 5건</h4>이음5G AI 챗봇 구축 결과 보고
+cert-poc 결과보고서
+AI 성과측정 방안 개선
+공공도입 규제 검토결과
+펌웨어 보안 검증결과
+<span class="dim">└ 전부 final/*.hwpx 인도 완료</span></div>
+      <div class="shot"><h4>지금 이 자리 실행 — 후처리 출력</h4><span class="key">spacing</span>       inserted <span class="add">8</span>
+<span class="key">body_justify</span>   changed  <span class="add">10</span>
+<span class="key">caption_embed</span>  embedded <span class="add">1</span>
+<span class="key">fit_page_width</span> fitted   <span class="add">1</span>
+<span class="key">header_banner</span>  injected <span class="add">2</span>
+<span class="dim">structural exit=0 · 검증 통과</span></div>
     </div>
-    <p class="cap rise">최소 패키지는 <code>mimetype</code>+<code>container.xml</code> 구조가 EPUB류와 지문이 같아,
-    압축 내부까지 검사하는 반입 엔진이 hwpx로 판별하지 못한다. 필수 멤버 보강·디렉터리 엔트리 제거·
-    압축 프로파일 정품 일치를 <b>플래그와 무관하게 매 실행</b> 적용한다.</p>
+    <p class="cap rise"><b>무슨 데이터로 도는가</b> — 왼쪽은 실제 업무 보고서다.
+    오른쪽 실행은 합성 샘플로 돌렸다. 실보고서 본문은 기관 내부 내용이라 이 자리에 띄우지 않고,
+    <b>파이프라인은 동일한 코드 경로</b>를 탄다.</p>
   </div>
 </section>
 
-<!-- ══ S8 · 검증 3층 ══ -->
-<section class="slide" data-id="S8" data-time="2:44" data-part="4">
+<!-- S7 · ③ 변환 엔진 -->
+<section class="slide" data-id="S7" data-time="2:16" data-part="3">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">Three layers of verification</p>
-    <h2 class="rise">조용히 틀린 걸 내주지 않는다</h2>
+    <p class="crit rise">③ 실제 작동 <b>15%</b> · 내부</p>
+    <h2 class="rise">변환은 다섯 지점을 지나고, 실패는 숨기지 않는다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 250" role="img"
-           aria-label="구조 검증·왕복 대조·수치 근거 세 층과 침묵 실패 차단이 hwpx 인도 앞에 직렬로 놓인 구조도">
-        <defs><marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+      <svg class="dg" viewBox="0 0 1000 272" role="img"
+           aria-label="초안이 정규화·생성·후처리 25스테이지·검증 3종을 거쳐 인도되고 실패 시 마크다운으로 되돌아가는 흐름도">
+        <defs><marker id="b3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
         <g color="#6A7181">
-          <rect class="bx" x="4" y="70" width="140" height="66" rx="8"/>
-          <text class="mn" x="74" y="109" text-anchor="middle">.hwpx</text>
-          <line class="ln" x1="148" y1="103" x2="186" y2="103" marker-end="url(#a8)"/>
-
-          <rect class="bx-ac" x="190" y="70" width="184" height="66" rx="8"/>
-          <text class="ac" x="282" y="98" text-anchor="middle">침묵 실패 차단</text>
-          <text class="lo" x="282" y="122" text-anchor="middle">대상 0건도 exit 0 이다</text>
-          <line class="ln" x1="378" y1="103" x2="416" y2="103" marker-end="url(#a8)"/>
-
-          <rect class="bx" x="420" y="16" width="240" height="56" rx="8"/>
-          <text x="440" y="49">구조 — OCF 시그니처</text>
-          <rect class="bx" x="420" y="76" width="240" height="56" rx="8"/>
-          <text x="440" y="109">왕복 — 되읽어 대조</text>
-          <rect class="bx" x="420" y="136" width="240" height="56" rx="8"/>
-          <text x="440" y="169">수치 — 근거 대조</text>
-
-          <line class="ln" x1="664" y1="44"  x2="720" y2="96" marker-end="url(#a8)"/>
-          <line class="ln" x1="664" y1="104" x2="720" y2="104" marker-end="url(#a8)"/>
-          <line class="ln" x1="664" y1="164" x2="720" y2="112" marker-end="url(#a8)"/>
-          <rect class="bx" x="724" y="76" width="180" height="66" rx="8"/>
-          <text x="814" y="115" text-anchor="middle">인도</text>
+          <rect class="bx" x="4" y="30" width="150" height="60" rx="8"/>
+          <text class="mn" x="79" y="66" text-anchor="middle">draft.md</text>
+          <line class="ln" x1="158" y1="60" x2="196" y2="60" marker-end="url(#b3)"/>
+          <rect class="bx" x="200" y="30" width="150" height="60" rx="8"/>
+          <text x="275" y="56" text-anchor="middle">정규화</text>
+          <text class="lo" x="275" y="78" text-anchor="middle">모호하면 거부</text>
+          <line class="ln" x1="354" y1="60" x2="392" y2="60" marker-end="url(#b3)"/>
+          <rect class="bx" x="396" y="30" width="150" height="60" rx="8"/>
+          <text x="471" y="66" text-anchor="middle">hwpx 생성</text>
+          <line class="ln" x1="550" y1="60" x2="588" y2="60" marker-end="url(#b3)"/>
+          <rect class="bx-ac" x="592" y="30" width="216" height="60" rx="8"/>
+          <text class="ac" x="700" y="56" text-anchor="middle">양식 정합 후처리</text>
+          <text class="lo" x="700" y="78" text-anchor="middle">2,499줄 · 25 스테이지</text>
+          <line class="ln" x1="812" y1="60" x2="850" y2="60" marker-end="url(#b3)"/>
+          <rect class="bx" x="854" y="30" width="142" height="60" rx="8"/>
+          <text x="925" y="66" text-anchor="middle">검증</text>
+          <line class="ln" x1="925" y1="96" x2="925" y2="130" marker-end="url(#b3)"/>
+          <rect class="bx" x="636" y="136" width="360" height="52" rx="8"/>
+          <text class="mn" x="816" y="168" text-anchor="middle">structural · compare · numbers</text>
+          <line class="ln" x1="883" y1="194" x2="883" y2="222" marker-end="url(#b3)"/>
+          <rect class="bx" x="770" y="228" width="226" height="44" rx="8"/>
+          <text class="mn" x="883" y="257" text-anchor="middle">final/*.hwpx</text>
         </g>
         <g color="#E0A458">
-          <path class="ln-w dash" d="M540 198 L540 226 L120 226 L120 142" marker-end="url(#a8)"/>
-          <text x="300" y="248" style="fill:#E0A458;font-size:19px">불합격 — 목록을 밝히고 마크다운으로</text>
+          <path class="ln-w dash" d="M700 194 L700 214 L120 214 L120 96" marker-end="url(#b3)"/>
+          <text x="150" y="240" style="fill:#E0A458;font-size:19px">어긋난 게 남으면 목록을 밝히고 마크다운을 인도한다</text>
         </g>
       </svg>
-      <figcaption>후처리는 고칠 대상이 하나도 없어도 정상 종료한다. 그래서 기대 하한을 따로 검사한다.</figcaption>
+      <figcaption>후처리는 고칠 대상이 0건이어도 정상 종료한다 — 그래서 기대 하한을 따로 검사해 조용한 실패를 막는다.</figcaption>
     </figure>
-    <div class="metrics rise">
-      <div class="metric"><b class="ac">2,499</b><span>후처리 줄 수</span></div>
-      <div class="metric"><b>25</b><span>스테이지</span></div>
-      <div class="metric"><b>20</b><span>초안 린트 룰</span></div>
-      <div class="metric"><b class="good">218</b><span>회귀 테스트</span></div>
+  </div>
+</section>
+
+<!-- S8 · ④ 사용성 -->
+<section class="slide" data-id="S8" data-time="2:42" data-part="4">
+  <div class="rail"></div>
+  <div class="body">
+    <p class="crit rise">④ 사용성 <b>15%</b></p>
+    <h2 class="rise">실무자가 넘을 허들은 하나다</h2>
+    <figure class="rise">
+      <svg class="dg" viewBox="0 0 1000 190" role="img"
+           aria-label="실무자는 스킬 파일 업로드 한 번으로 시작하고 운영자는 플러그인과 MCP 설치가 필요한 진입 경로 비교">
+        <defs><marker id="b4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+        <g color="#7C8CF8">
+          <text class="ac" x="4" y="24" style="font-size:19px">실무자 — VDI 브라우저</text>
+          <rect class="bx-ac" x="4" y="34" width="250" height="56" rx="8"/>
+          <text class="ac" x="129" y="68" text-anchor="middle">스킬 파일 1개 업로드</text>
+          <line class="ln-ac" x1="258" y1="62" x2="296" y2="62" marker-end="url(#b4)"/>
+        </g>
+        <g color="#6A7181">
+          <rect class="bx" x="300" y="34" width="220" height="56" rx="8"/>
+          <text x="410" y="68" text-anchor="middle">자료 붙여넣기</text>
+          <line class="ln" x1="524" y1="62" x2="562" y2="62" marker-end="url(#b4)"/>
+          <rect class="bx" x="566" y="34" width="220" height="56" rx="8"/>
+          <text x="676" y="62" text-anchor="middle">확인 2~3회</text>
+          <text class="lo" x="676" y="84" text-anchor="middle">전부 선택지 클릭</text>
+          <line class="ln" x1="790" y1="62" x2="828" y2="62" marker-end="url(#b4)"/>
+          <rect class="bx" x="832" y="34" width="164" height="56" rx="8"/>
+          <text class="mn" x="914" y="68" text-anchor="middle">.hwpx</text>
+          <text class="lo" x="4" y="132">운영자 — 개발 노트북 · 플러그인 + MCP 설치</text>
+          <text class="lo" x="4" y="166">터미널·git·프롬프트·모델·파라미터 — 실무자는 하나도 몰라도 된다</text>
+        </g>
+      </svg>
+    </figure>
+    <div class="rowpills rise">
+      <span class="pill ac">설치 0</span><span class="pill ac">계정 추가 0</span>
+      <span class="pill ac">API 키 0</span><span class="pill">교육 없음</span>
+      <span class="pill">망분리 제약 충족 — 전 구간 stdlib</span>
     </div>
+    <p class="cap rise"><span class="todo">처음 쓰는 사람이 결과를 얻기까지 실측 소요시간(1인 시연 계측)</span></p>
   </div>
 </section>
 
-<!-- ══ S9 · 복리축적 ══ -->
-<section class="slide" data-id="S9" data-time="3:10" data-part="4">
+<!-- S9 · ⑤ 채택과 위험 -->
+<section class="slide" data-id="S9" data-time="3:06" data-part="5">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">Compounding, with brakes</p>
-    <h2 class="rise">규칙은 쌓이고, 상한이 걸린다</h2>
+    <p class="crit rise">⑤ 채택과 위험 인식 <b>15%</b></p>
+    <h2 class="rise">쓰게 되는 이유 하나, 실패할 이유 셋</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 268" role="img"
-           aria-label="게이트 피드백이 규칙으로 승격돼 다음 건에 자동 적용되는 순환과, 그 순환에 걸린 상한 세 장치">
-        <defs><marker id="a9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
-          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-        <g color="#6A7181">
-          <rect class="bx" x="4"   y="30" width="196" height="60" rx="8"/>
-          <text x="102" y="66" text-anchor="middle">게이트 피드백</text>
-          <line class="ln" x1="204" y1="60" x2="244" y2="60" marker-end="url(#a9)"/>
-          <rect class="bx" x="248" y="30" width="196" height="60" rx="8"/>
-          <text class="mn" x="346" y="58" text-anchor="middle">lessons</text>
-          <text class="lo" x="346" y="80" text-anchor="middle">1줄 append</text>
-          <line class="ln" x1="448" y1="60" x2="488" y2="60" marker-end="url(#a9)"/>
-          <rect class="bx-ac" x="492" y="30" width="196" height="60" rx="8"/>
-          <text class="ac" x="590" y="58" text-anchor="middle">규칙 승격</text>
-          <text class="lo" x="590" y="80" text-anchor="middle">2회 이상 반복 시</text>
-          <line class="ln" x1="692" y1="60" x2="732" y2="60" marker-end="url(#a9)"/>
-          <rect class="bx" x="736" y="30" width="260" height="60" rx="8"/>
-          <text x="866" y="58" text-anchor="middle">다음 건 프리플라이트</text>
-          <text class="lo" x="866" y="80" text-anchor="middle">단계 태그로 걸러 읽는다</text>
-          <path class="ln dash" d="M866 96 L866 122 L102 122 L102 98" marker-end="url(#a9)"/>
-
-          <rect class="bx" x="4"   y="164" width="322" height="86" rx="8"/>
-          <text class="hi" x="24" y="196">근거 등급</text>
-          <text class="lo" x="24" y="226">실측 / 추론 / 관례 없이 승격 금지</text>
-          <rect class="bx" x="340" y="164" width="322" height="86" rx="8"/>
-          <text class="hi" x="360" y="196">드리프트 탐지</text>
-          <text class="lo" x="360" y="226">같은 값이 8곳까지 복제된다</text>
-          <rect class="bx" x="676" y="164" width="320" height="86" rx="8"/>
-          <text class="hi" x="696" y="196">정기 통폐합</text>
-          <text class="lo" x="696" y="226">10건 늘면 테스트가 실패한다</text>
-          <text class="lo" x="4" y="152">상한 — 셋 다 테스트에 배선돼 있다</text>
+      <svg class="dg" viewBox="0 0 1000 232" role="img"
+           aria-label="채택의 결정적 이유 하나와 실패 원인 세 가지 및 각각의 대비책">
+        <g color="#7C8CF8">
+          <rect class="bx-ac" x="4" y="4" width="992" height="66" rx="8"/>
+          <text class="ac" x="24" y="34">쓰게 되는 이유 — 서식을 안 만져도 반려되지 않는 파일이 나온다</text>
+          <text class="lo" x="24" y="58">①의 고통에 정확히 맞물린다: 옮기고 꾸미는 시간이 0이 되고, 반입 실패가 사라진다</text>
+        </g>
+        <g color="#E0A458">
+          <rect class="bx-w" x="4" y="86" width="322" height="132" rx="8"/>
+          <text style="fill:#E0A458" x="24" y="116">1 · 양식 개정</text>
+          <text class="lo" x="24" y="146">실측값을 다시 떠야 한다</text>
+          <text class="lo" x="24" y="176">대비 — 프로파일 단일 출처</text>
+          <text class="lo" x="24" y="202">+ 드리프트 테스트</text>
+          <rect class="bx-w" x="340" y="86" width="322" height="132" rx="8"/>
+          <text style="fill:#E0A458" x="360" y="116">2 · 규칙 비대화</text>
+          <text class="lo" x="360" y="146">쌓이면 안 읽히고 안 지켜진다</text>
+          <text class="lo" x="360" y="176">대비 — 근거 등급·통폐합</text>
+          <text class="lo" x="360" y="202">임계를 테스트에 배선</text>
+          <rect class="bx-w" x="676" y="86" width="320" height="132" rx="8"/>
+          <text style="fill:#E0A458" x="696" y="116">3 · 1인 의존</text>
+          <text class="lo" x="696" y="146">만든 사람만 고칠 수 있다</text>
+          <text class="lo" x="696" y="176">대비 — MIT 공개·문서 4종</text>
+          <text class="lo" x="696" y="202">+ 자가진단 커맨드</text>
         </g>
       </svg>
-      <figcaption>쌓기만 하면 길어서 안 읽히고, 안 읽히면 안 지켜진다. 검증 없이 박은 값 하나가 넉 달간 모든 문서를 늘어지게 했다.</figcaption>
     </figure>
+    <p class="cap rise"><b>이탈 지점</b> — 변환이 실패해 마크다운만 손에 쥐는 순간이 가장 위험하다.
+    그래서 실패를 침묵시키지 않고 <b>무엇이 어긋났는지</b> 목록으로 돌려준다.
+    <span class="todo">시범 사용자 이탈 관찰 결과</span></p>
   </div>
 </section>
 
-<!-- ══ S10 · 배포 ══ -->
-<section class="slide" data-id="S10" data-time="3:34" data-part="5">
+<!-- S10 · ⑥ 확산 -->
+<section class="slide" data-id="S10" data-time="3:32" data-part="6">
   <div class="rail"></div>
   <div class="body">
-    <p class="eyebrow rise">Delivery</p>
-    <h2 class="rise">실무자에게는 파일 하나만 간다</h2>
+    <p class="crit rise">⑥ 확산 전략 <b>15%</b></p>
+    <h2 class="rise">가져다 쓰는 데 필요한 것은 이미 있다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 244" role="img"
-           aria-label="하네스에 쌓인 규칙이 빌드 기준 9종을 통과해 세 플랫폼 패키지로 나가고 실무자에게 전달되는 흐름도">
-        <defs><marker id="a10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+      <svg class="dg" viewBox="0 0 1000 178" role="img"
+           aria-label="규칙 축적이 빌드 기준을 통과해 세 플랫폼 패키지로 배포되고 다른 부서와 기관으로 이전되는 경로">
+        <defs><marker id="b5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
         <g color="#6A7181">
-          <rect class="bx" x="4" y="60" width="182" height="70" rx="8"/>
-          <text x="95" y="90" text-anchor="middle">하네스 규칙</text>
-          <text class="lo" x="95" y="114" text-anchor="middle">축적본</text>
-          <line class="ln" x1="190" y1="95" x2="230" y2="95" marker-end="url(#a10)"/>
-          <rect class="bx-ac" x="234" y="60" width="206" height="70" rx="8"/>
-          <text class="ac" x="337" y="90" text-anchor="middle">빌드 기준 9종</text>
-          <text class="lo" x="337" y="114" text-anchor="middle">하나라도 걸리면 exit 1</text>
-          <line class="ln" x1="444" y1="95" x2="484" y2="95" marker-end="url(#a10)"/>
-          <rect class="bx" x="488" y="18"  width="240" height="48" rx="8"/>
-          <text class="mn" x="508" y="48">claude · .skill</text>
-          <rect class="bx" x="488" y="72"  width="240" height="48" rx="8"/>
-          <text class="mn" x="508" y="102">chatgpt · .zip</text>
-          <rect class="bx" x="488" y="126" width="240" height="48" rx="8"/>
-          <text class="mn" x="508" y="156">gemini · .zip</text>
-          <text class="lo" x="508" y="192">바이너리 금지 → 배너를 base64 로</text>
-          <line class="ln" x1="732" y1="42"  x2="790" y2="86" marker-end="url(#a10)"/>
-          <line class="ln" x1="732" y1="96"  x2="790" y2="95" marker-end="url(#a10)"/>
-          <line class="ln" x1="732" y1="150" x2="790" y2="104" marker-end="url(#a10)"/>
-          <rect class="bx" x="794" y="60" width="202" height="70" rx="8"/>
-          <text class="hi" x="895" y="90" text-anchor="middle">실무자</text>
-          <text class="lo" x="895" y="114" text-anchor="middle">터미널 · git · MCP 불필요</text>
-          <path class="ln dash" d="M895 136 L895 218 L95 218 L95 136" marker-end="url(#a10)"/>
-          <text class="lo" x="440" y="238" text-anchor="middle">규칙이 쌓이면 다시 빌드해 배포한다 — 웹앱판이 축적을 받는 유일한 경로</text>
+          <rect class="bx" x="4" y="34" width="180" height="66" rx="8"/>
+          <text x="94" y="62" text-anchor="middle">규칙 축적</text>
+          <text class="lo" x="94" y="86" text-anchor="middle">하네스에 쌓인다</text>
+          <line class="ln" x1="188" y1="67" x2="226" y2="67" marker-end="url(#b5)"/>
+          <rect class="bx-ac" x="230" y="34" width="206" height="66" rx="8"/>
+          <text class="ac" x="333" y="62" text-anchor="middle">빌드 기준 9종</text>
+          <text class="lo" x="333" y="86" text-anchor="middle">하나라도 걸리면 중단</text>
+          <line class="ln" x1="440" y1="67" x2="478" y2="67" marker-end="url(#b5)"/>
+          <rect class="bx" x="482" y="34" width="230" height="66" rx="8"/>
+          <text class="mn" x="597" y="62" text-anchor="middle">.skill / .zip</text>
+          <text class="lo" x="597" y="86" text-anchor="middle">claude · chatgpt · gemini</text>
+          <line class="ln" x1="716" y1="67" x2="754" y2="67" marker-end="url(#b5)"/>
+          <rect class="bx" x="758" y="34" width="238" height="66" rx="8"/>
+          <text class="hi" x="877" y="62" text-anchor="middle">타 부서 · 타 기관</text>
+          <text class="lo" x="877" y="86" text-anchor="middle">양식 프로파일만 교체</text>
+          <text class="lo" x="4" y="140">준비돼 있는 것 — 설치 문서 4종 · MIT 공개 저장소 · 자가진단 커맨드 · 회귀 테스트 218건</text>
+          <text class="lo" x="4" y="168">기관이 달라도 바뀌는 것은 format-profile 하나다 — 코드는 그대로다</text>
         </g>
       </svg>
     </figure>
-    <p class="repo rise">github.com/kca-deep/report-harness · MIT</p>
+    <p class="cap rise"><span class="todo">먼저 알릴 대상과 경로 — 부서 회의 · 내부 게시판 · 기관 간 협의체 · 교육 과정 중 택</span></p>
   </div>
 </section>
 </main>
@@ -608,36 +499,35 @@ Contents/section0.xml <span class="dim">DEFLATED</span>
   <span id="partName"></span>
   <button id="notesBtn" type="button">N 노트</button>
   <span class="grow" id="msg"></span>
-  <span>← → 이동 · N 노트 · 1~5 파트 점프</span>
+  <span>← → 이동 · N 노트 · 1~6 항목 점프</span>
 </footer>
 
 <script>
-const PARTS = [["1","MAP"],["2","SPLIT"],["3","ENGINE"],["4","TRUST"],["5","REACH"]];
+const PARTS = [["1","① 문제 25%"],["2","② 해법 15%"],["3","③ 작동 15%"],
+               ["4","④ 사용성 15%"],["5","⑤ 위험 15%"],["6","⑥ 확산 15%"]];
 const NOTES = {
-  S1:"기관 보고서를 마크다운 하나에서 한글 파일까지 뽑는 하네스를 만들었습니다. 오늘은 그 구조를 보여드리겠습니다.",
-  S2:"전체는 세 조각이고 두 망에 나뉘어 있습니다. 개발 노트북에는 지식 위키와 하네스가 있고, VDI 브라우저에는 스킬 파일 하나만 올라갑니다. 위키는 출발점이면서 도착점이에요. 조사는 위키를 먼저 뒤지고, 새로 찾은 것은 승인한 것만 되돌아갑니다. 축적은 왼쪽에서만 일어나고, 오른쪽으로는 재배포로만 전달됩니다.",
-  S3:"네 단계는 서로를 직접 호출하지 않습니다. 각자 작업폴더의 정해진 파일을 읽고 씁니다. 그래서 세션이 끊겨도 폴더만 있으면 이어집니다. 필요한 구간만 골라 들어갈 수도 있어요.",
-  S4:"설계의 핵심은 이 그림입니다. 위쪽 문서는 LLM이 읽고 판단하는 기준이고, 아래쪽 스크립트는 판단이 끼면 안 되는 일을 합니다. 양식 정합처럼 매번 똑같아야 하는 건 전부 아래로 내려서 편차를 없앴습니다.",
-  S5:"변환은 다섯 지점을 지납니다. 정규화, 생성, 후처리, 검증, 인도. 중요한 건 실패 경로예요. 어긋난 게 남으면 목록을 밝히고 마크다운을 인도합니다. 틀린 한글 파일을 조용히 내주지 않습니다.",
-  S6:"후처리가 이 시스템에서 제일 큰 덩어리입니다. 2,499줄이고 스테이지가 스물다섯 개인데, 하는 일은 다섯 갈래로 묶입니다. 오른쪽은 샘플 한 건을 실제로 돌린 결과입니다. 스페이서 여덟 개를 넣고 열 문단을 양쪽정렬하고 캡션 하나를 표 안으로 넣었습니다.",
-  S7:"이건 실제 패키지 목록입니다. 왼쪽이 생성 직후, 오른쪽이 정합 후예요. version.xml이 없으면 시스템이 hwpx로 알아보지 못하고 일반 압축파일로 판정합니다. 실제로 반입에서 반려된 적이 있습니다.",
-  S8:"검증은 세 층입니다. 그 앞에 하나가 더 있는데, 후처리가 고칠 대상이 없어도 정상 종료하기 때문에 기대 하한을 따로 검사합니다. 조용한 실패를 막는 장치입니다.",
-  S9:"쓸수록 좋아지는 부분입니다. 같은 지적을 두 번 받으면 규칙이 되고 다음 건에 자동으로 걸립니다. 다만 쌓기만 하면 무너져서 상한 세 개를 테스트에 배선했습니다.",
-  S10:"마지막은 배포입니다. 실무자는 스킬 파일 하나만 올리면 됩니다. 규칙이 쌓이면 다시 빌드해서 배포하고, 그게 웹앱판이 축적을 받는 유일한 경로입니다. 감사합니다."
+  S1:"기관 보고서를 마크다운 하나에서 한글 파일까지 뽑는 하네스입니다. 만들어만 둔 게 아니라 지난 아흐레 동안 실제 보고서 다섯 건을 이걸로 냈습니다.",
+  S2:"문제는 내용이 아니라 옮기는 데 있습니다. 초안이 다 돼도 글머리 계층, 서체, 줄간격, 표 폭, 각주, 붙임 배너를 사람이 손으로 맞춥니다. 그런데 도구를 깔 자리가 없어요. 대부분 VDI에서 일하니까요.",
+  S3:"강도를 숫자로 보면 이렇습니다. 아흐레 동안 다섯 건을 냈고, 기계 시간은 건당 삼십 분 안입니다. 그리고 반입 반려가 한 번 있었는데, 서식이 아니라 패키지 구조 때문이었습니다. 손으로 만들 때는 원인조차 알기 어려운 실패입니다.",
+  S4:"구조는 세 조각이고 두 망에 나뉩니다. 개발 노트북에는 지식 위키와 하네스가 있고, VDI에는 스킬 파일 하나만 올라갑니다. 축적은 왼쪽에서만 일어나고 오른쪽으로는 재배포로만 전달됩니다.",
+  S5:"더 단순한 방법을 먼저 봤습니다. 한글 매크로는 VDI에 배포할 길이 없고, 워드 변환은 계층과 표가 무너지고, 템플릿만 주면 채우는 일은 그대로 사람 몫입니다. 시간 말고 줄인 것은 담당자별 편차와 재작업입니다. 양식이 바뀌면 고칠 자리는 프로파일 한 곳으로 특정됩니다.",
+  S6:"왼쪽은 실제로 낸 보고서 다섯 건입니다. 오른쪽은 지금 돌린 결과예요. 스페이서 여덟 개를 넣고 열 문단을 정렬하고 배너 이미지 두 개를 주입했습니다. 실보고서 본문은 기관 내부 내용이라 띄우지 않고 합성 샘플로 보여드리는데, 코드 경로는 완전히 같습니다.",
+  S7:"변환은 다섯 지점을 지납니다. 핵심은 후처리와 실패 경로예요. 후처리는 고칠 대상이 하나도 없어도 정상 종료합니다. 그래서 기대 하한을 따로 검사해서 조용한 실패를 막고, 그래도 어긋나면 목록을 밝히고 마크다운을 돌려줍니다.",
+  S8:"실무자가 넘을 허들은 하나입니다. 스킬 파일 하나 올리고 자료를 붙여넣으면 됩니다. 설치도 계정 추가도 API 키도 없고, 확인은 두세 번인데 전부 선택지 클릭입니다. 프롬프트나 모델 같은 내부 개념은 몰라도 됩니다.",
+  S9:"쓰게 되는 이유는 하나로 요약됩니다. 서식을 안 만져도 반려되지 않는 파일이 나온다. 실패한다면 세 가지 때문일 겁니다. 양식이 개정되거나, 규칙이 비대해지거나, 저 혼자만 고칠 수 있게 되거나. 셋 다 대비를 걸어 뒀습니다. 이탈은 변환이 실패해 마크다운만 남을 때가 가장 위험합니다.",
+  S10:"확산에 필요한 것은 이미 있습니다. 설치 문서 네 종, MIT 공개 저장소, 자가진단 커맨드, 회귀 테스트 이백열여덟 건. 기관이 달라도 바뀌는 건 양식 프로파일 하나고 코드는 그대로입니다. 감사합니다."
 };
 const slides = [...document.querySelectorAll(".slide")];
 const stage = document.getElementById("stage"), notes = document.getElementById("notes");
 const notesBody = document.getElementById("notesBody");
 let i = 0;
-
 slides.forEach((s, k) => {
   s.querySelector(".rail").innerHTML =
     '<div class="ident">REPORT-HARNESS<hr><b>SHEET ' + String(k + 1).padStart(2,"0") + " / 10</b></div>" +
     "<ul class='parts'>" + PARTS.map(([n,l]) =>
-      "<li" + (n === s.dataset.part ? " data-on" : "") + "><span>0" + n + "</span>" + l + "</li>").join("") +
+      "<li" + (n === s.dataset.part ? " data-on" : "") + "><span>" + n + "</span>" + l.slice(2) + "</li>").join("") +
     "</ul><div class='stamp'>md → hwpx</div>";
 });
-
 function show(n, push){
   i = Math.max(0, Math.min(slides.length - 1, n));
   slides.forEach((s, k) => k === i ? s.setAttribute("data-active","") : s.removeAttribute("data-active"));
@@ -645,14 +535,13 @@ function show(n, push){
   document.getElementById("pos").textContent = i + 1;
   document.getElementById("tc").textContent = s.dataset.time;
   const p = PARTS.find(([n2]) => n2 === s.dataset.part);
-  document.getElementById("partName").textContent = p ? "0" + p[0] + " " + p[1] : "";
+  document.getElementById("partName").textContent = p ? p[1] : "";
   document.getElementById("bar").style.width = ((i + 1) / slides.length * 100) + "%";
   notesBody.textContent = NOTES[s.dataset.id] || "";
   if (push !== false && location.hash.slice(1) !== s.dataset.id)
     history.replaceState(null, "", "#" + s.dataset.id);
 }
 const fromHash = () => Math.max(0, slides.findIndex(s => s.dataset.id === location.hash.slice(1)));
-
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown"){ e.preventDefault(); show(i + 1); }
@@ -660,7 +549,7 @@ addEventListener("keydown", e => {
   else if (e.key === "Home"){ show(0); }
   else if (e.key === "End"){ show(slides.length - 1); }
   else if (k === "n"){ notes.hidden = !notes.hidden; }
-  else if (/^[1-5]$/.test(e.key)){
+  else if (/^[1-6]$/.test(e.key)){
     const t = slides.findIndex(s => s.dataset.part === e.key);
     if (t >= 0) show(t);
   }
@@ -668,7 +557,6 @@ addEventListener("keydown", e => {
 document.getElementById("notesBtn").addEventListener("click", () => notes.hidden = !notes.hidden);
 stage.addEventListener("click", e => { if (!e.target.closest("button")) show(i + 1); });
 addEventListener("hashchange", () => show(fromHash(), false));
-
 show(fromHash());
 stage.focus();
 </script>
