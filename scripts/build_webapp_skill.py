@@ -15,6 +15,9 @@
 7. **서드파티 고지** — 번들한 서드파티 폴더마다 `LICENSE`가 있고 루트 `NOTICE.md`가
    그 경로를 언급해야 한다. 번들 사본은 상류 원본과 바이트 동일해야 한다.
 8. **루트 SKILL.md 단일** — 패키지 안에 SKILL.md가 둘 이상이면 매니페스트가 모호해진다.
+9. **PII 0** — 패키지 전 파일에 전화·이메일이 없어야 한다(외부 3플랫폼 배포물).
+   `--allow-drift`로도 우회되지 않으며, 위반 시 재생성한 rules.md를 이전 내용으로 원복해
+   `--rules`로 지정한 내부 축적본이 소스 트리에 남지 않게 한다.
 
 ## 배포 타깃
 
@@ -33,6 +36,9 @@ usage: build_webapp_skill.py [--target claude|chatgpt|gemini|all] [-o PATH] [--r
 exit 0 성공 / 1 기준 위반 / 2 구조 오류
 """
 import sys, re, json, base64, hashlib, zipfile, pathlib, argparse
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from pii_scan import scan_dir
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "webapp" / "kca-report-hwpx"
@@ -235,9 +241,13 @@ def main(argv):
         print(f"error: 룰 원본 없음 — {rules_src}", file=sys.stderr)
         return 2
 
-    # 기준 1·2 — 룰 재생성 (배포 전 항상 최신화)
+    # 기준 1·2 — 룰 재생성 (배포 전 항상 최신화). 검사(dangling·사장 자산)가 rules.md
+    # 본문을 corpus로 읽으므로 먼저 쓰되, 기준 위반으로 빌드가 실패하면 이전 내용으로
+    # 원복한다 — --rules로 지정한 내부 축적본이 소스 트리에 남는 경로를 막는다.
     rendered, n_kept, n_dropped = render_rules(rules_src)
-    (SRC / "references" / "rules.md").write_text(rendered, encoding="utf-8")
+    rules_dst = SRC / "references" / "rules.md"
+    rules_prev = rules_dst.read_bytes() if rules_dst.is_file() else None
+    rules_dst.write_text(rendered, encoding="utf-8")
 
     files = collect()
     violations = {
@@ -246,10 +256,16 @@ def main(argv):
         "dead_assets": check_dead_assets(files),
         "third_party": check_third_party(files),
         "multiple_manifests": check_single_manifest(files),
+        # 패키지는 외부 3플랫폼으로 나간다 — PII가 있으면 무조건 차단 (--allow-drift 무관)
+        "pii": scan_dir(SRC),
     }
     blocking = {k: v for k, v in violations.items() if v and
                 not (k == "drift" and a.allow_drift)}
     if blocking:
+        if rules_prev is None:
+            rules_dst.unlink(missing_ok=True)
+        else:
+            rules_dst.write_bytes(rules_prev)
         print(json.dumps({"violations": blocking}, ensure_ascii=False, indent=1))
         print("FATAL: 스킬 배포 기준 위반 — 위 항목을 고친 뒤 다시 빌드하세요", file=sys.stderr)
         return 1

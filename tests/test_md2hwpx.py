@@ -270,6 +270,27 @@ def test_gemini_package_has_no_binary_files():
     assert any(n.endswith(".b64") for n in names), names
 
 
+def test_build_blocks_pii_and_restores_rules():
+    """PII가 실린 룰 원본으로 빌드하면 exit 1이고, 재생성됐던 rules.md는 원복된다.
+
+    종전에는 rules.md 기록이 기준 검사보다 먼저라 빌드가 실패해도 --rules로 지정한
+    내부 축적본이 소스 트리에 남았다 — 외부 배포 패키지의 PII 가드 부재와 함께 수정."""
+    import tempfile
+    rules_dst = SKILL / "references" / "rules.md"
+    before = rules_dst.read_bytes()
+    with tempfile.TemporaryDirectory() as td:
+        bad = pathlib.Path(td) / "rules.md"
+        bad.write_text("- R001 [draft] 문의 010-1234-5678 로 연락 (근거[관례]: x)\n",
+                       encoding="utf-8")
+        out = pathlib.Path(td) / "c.skill"
+        r = run([ROOT / "scripts" / "build_webapp_skill.py", "--target", "claude",
+                 "-o", out, "--rules", bad])
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert '"pii"' in r.stdout
+    assert rules_dst.read_bytes() == before, "빌드 실패 후 rules.md가 원복되지 않았다"
+    assert not out.exists()
+
+
 def test_bundled_humanizer_ships_license_and_notice():
     """서드파티 번들은 라이선스 전문 동봉 + 루트 고지가 있어야 배포할 수 있다."""
     lic = SKILL / "references" / "humanizer" / "LICENSE"

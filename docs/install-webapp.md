@@ -70,6 +70,7 @@ python3 scripts/build_webapp_skill.py --target chatgpt
 | **dangling 참조 0** | SKILL.md·references가 가리키는 스킬 내부 경로가 실재해야 한다 |
 | **사장 자산 0** | 어떤 스크립트·문서도 읽지 않는 `assets/` 파일이 있으면 안 된다 |
 | **출처 고정** | `manifest.json`에 전 파일 해시 + 룰 원본 경로·해시·건수를 박는다 |
+| **PII 0** | 패키지 전 파일에 전화·이메일이 없어야 한다. 위반 시 빌드 중단 + 재생성된 rules.md 원복 |
 
 **운영 흐름은 이렇게 돈다.** 하네스(B)로 보고서를 쓰다 보면 lessons가 쌓이고, 승격되면
 `rules.md`가 늘어난다. 그 시점에 위 `--rules` 빌드로 `.skill`을 다시 만들어 배포하면

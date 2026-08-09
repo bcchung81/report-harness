@@ -597,7 +597,7 @@ def test_render_profile_table():
     assert "| 문서 제목 | HY헤드라인M | 20pt |" in md and "160%" in md
 
 def test_pii_scan_detects(tmp_path):
-    (tmp_path / "a.md").write_text("문의: 061-350-1565 mail@kca.kr")
+    (tmp_path / "a.md").write_text("문의: 0XX-XXX-XXXX m***@kca.kr")  # 실제 픽스처는 tests/ 참조 (문서는 마스킹)
     hits = scan_dir(tmp_path)
     assert len(hits) == 2
 
