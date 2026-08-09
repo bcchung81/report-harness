@@ -27,9 +27,15 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
    세션에서 결정된 사항 append).
 4. `state_dir`에 `rules.md`가 없으면 `skills/report-pipeline/references/rules-seed.md`를
    그대로 복사해 첫 실행 시드로 삼는다(있으면 손대지 않는다).
-5. 지금부터 실행할 단계의 태그(`[research]`/`[analyze]`/`[draft]`/`[export]`)로 `rules.md`를
-   읽어 해당 항목만 프리플라이트에 반영한다 — 태그 없는 항목이나 다른 단계 태그는 이번 실행에
-   적용하지 않는다.
+5. 지금부터 실행할 단계의 태그(`[research]`/`[analyze]`/`[draft]`/`[export]`)에 해당하는
+   규칙만 프리플라이트에 반영한다. 규칙은 1줄 1건이므로 파일 전체를 읽지 말고 태그로 거른다:
+
+   ```
+   grep -F "[{단계태그}]" {state_dir}/rules.md
+   ```
+
+   결과 0건이면(현재 research·analyze가 그렇다) 규칙 프리플라이트 없이 진행한다.
+   다른 단계 태그·태그 없는 항목은 이번 실행에 적용하지 않는다.
 
 이 절차를 매 단계 시작마다 반복하지 않는다 — 한 요청 안에서 여러 단계를 이어 붙일 때는 최초
 1회만 수행하고 같은 `work_dir`을 계속 쓴다.

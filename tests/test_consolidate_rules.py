@@ -40,6 +40,15 @@ def test_every_rule_carries_evidence_grade():
     assert not a["ungraded"], f"근거 등급 누락: {a['ungraded']}"
 
 
+def test_no_oversized_rule_bodies():
+    """규칙 본문은 1,000자 이내 — 초과분은 경위를 rules-history.md로 이관한다.
+
+    rules-history 스스로 정한 정책의 성문화다. 구 시드에는 1,000자 초과 변형이
+    22건까지 쌓여 '길어서 안 읽히는' 상태가 재발했었다(운영본 동기화로 해소)."""
+    a = cr.analyze(RULES)
+    assert not a["oversized"], f"본문 비대: {a['oversized']}"
+
+
 def test_growth_within_consolidation_limit():
     """마지막 통합 이후 규칙 증가가 임계(10건) 미만이다.
 

@@ -58,6 +58,10 @@ def analyze(path):
     # ④ 근거 등급 누락 (규약: 등급 없이 승격 금지)
     ungraded = sorted(r for r, b in body.items() if "(근거" in b and "근거[" not in b)
 
+    # ④-1 본문 비대 (규약: 1,000자 초과분은 경위를 rules-history로 내리고 포인터만 남긴다
+    #      — 길면 안 읽히고, 안 읽히면 안 지켜진다)
+    oversized = sorted(f"{r}({len(b)}자)" for r, b in body.items() if len(b) > 1000)
+
     # ⑤ 증가분 — 마지막 통합 마커 대비
     mk = MARKER.search(text)
     marked = int(mk.group(1)[1:]) if mk else 0
@@ -66,6 +70,7 @@ def analyze(path):
 
     return {"path": str(path), "count": len(body), "parse_gap": parse_gap,
             "candidates": sorted(candidates), "dead_refs": dead, "ungraded": ungraded,
+            "oversized": oversized,
             "marked_at": f"R{marked:03d}" if marked else "없음",
             "latest": f"R{latest:03d}", "growth": growth, "limit": GROWTH_LIMIT,
             "chars": sum(len(b) for b in body.values())}
@@ -82,6 +87,8 @@ def check(path):
         fail.append(f"죽은 참조 — rules·history 어디에도 없음: {a['dead_refs']}")
     if a["ungraded"]:
         fail.append(f"근거 등급 누락: {a['ungraded']}")
+    if a["oversized"]:
+        fail.append(f"본문 1,000자 초과 — 경위를 rules-history.md로 이관: {a['oversized']}")
     if a["growth"] >= GROWTH_LIMIT:
         fail.append(f"마지막 통합 이후 {a['growth']}건 증가 (임계 {GROWTH_LIMIT}) — 통폐합 후 --mark")
 
