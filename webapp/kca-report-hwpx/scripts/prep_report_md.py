@@ -106,7 +106,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("src"); ap.add_argument("-o", required=True)
     a = ap.parse_args()
-    src = open(a.src, encoding="utf-8").read()
+    try:
+        src = open(a.src, encoding="utf-8").read()
+    except OSError as e:
+        print(f"FATAL: 입력을 열 수 없음 — {e}", file=sys.stderr)
+        sys.exit(2)
     try:
         out = prep(src)
     except PrepError as e:

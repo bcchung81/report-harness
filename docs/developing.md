@@ -35,10 +35,28 @@ cp -R commands ~/.claude/
 bash scripts/package_check.sh
 ```
 
-- `git ls-files`로 `form/`·`docs/analysis/`가 여전히 추적 중인지 확인(추적 중이면 즉시 실패).
-- `scripts/pii_scan.py`로 `skills/`·`commands/`만 스캔해 전화번호·이메일 잔존을 검사한다
-  (`tests/` 픽스처는 의도적 PII 예시를 포함하므로 스캔 대상에서 제외).
+- `git ls-files`로 `form/`·`docs/analysis/`·`report/`가 추적 중인지 확인(추적 중이면 즉시 실패).
+- `scripts/pii_scan.py`로 `skills/`·`commands/`·`webapp/`·`hooks/`·`scripts/`·`docs/`를 스캔해
+  전화번호·이메일 잔존을 검사한다(`tests/` 픽스처는 의도적 PII 예시를 포함하므로 제외).
 - 모두 통과하면 `package check OK`를 출력한다.
+
+## 웹앱 스킬 빌드
+
+```bash
+python3 scripts/build_webapp_skill.py --target all        # dist/에 3플랫폼 패키지
+```
+
+배포 기준 9종(룰 최신성·범위 필터·드리프트 0·dangling 0·사장 자산 0·출처 고정·서드파티 고지·
+SKILL.md 단일·PII 0)을 전부 통과해야 산출된다 — 상세는 [install-webapp.md](install-webapp.md).
+`dist/`는 gitignore 대상이다. 하네스 스크립트 4종과 references 문서 3종(md-profile·style-guide·
+table-pool)은 웹앱 사본이 바이트 동일해야 한다 — 하네스 쪽을 고쳤으면 `cp`로 동기화한 뒤
+빌드한다(안 하면 빌드·테스트가 잡는다). `diagram-pool.md`만 의도적 분기다.
+
+## 훅
+
+`hooks/hooks.json`이 PostToolUse(Bash) 훅 `verify_hwpx_hook.py`를 등록한다 — hwpx를 만들고
+구조 검증을 건너뛴 채 인도되는 것을 차단하는 마지막 안전망이다('26.8.7 실사고 재발 방지).
+플러그인 설치 시 자동 등록되며, 동작 검증은 `tests/test_verify_hwpx_hook.py`.
 
 ## 테스트
 
@@ -57,9 +75,6 @@ python3 -m pytest -q
 | `test_consolidate_rules.py` | 규칙 축적 방치. 파서 정합(다중 태그 규칙 누락 회귀)·죽은 참조·근거 등급 누락을 검사하고, 마지막 통합 이후 **10건이 늘면 실패**시킨다 |
 
 규칙 현황만 보려면 `python3 skills/report-pipeline/scripts/consolidate_rules.py --check`.
-
----
-
 
 ---
 

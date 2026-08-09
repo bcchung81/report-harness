@@ -176,7 +176,16 @@ def lint_text(text):
     return out
 
 if __name__ == "__main__":
-    text = open(sys.argv[1], encoding="utf-8").read()
+    # exit 계약: 0 통과 / 1 린트 위반 / 2 인자·파일 오류 — 크래시가 1로 새면
+    # 호출자가 '위반 있음'으로 오독한다
+    if len(sys.argv) != 2:
+        print("usage: lint_md_profile.py <draft.md>", file=sys.stderr)
+        sys.exit(2)
+    try:
+        text = open(sys.argv[1], encoding="utf-8").read()
+    except OSError as e:
+        print(f"error: {e}", file=sys.stderr)
+        sys.exit(2)
     v = lint_text(text)
     print(json.dumps({"violations": v}, ensure_ascii=False, indent=1))
     sys.exit(1 if v else 0)

@@ -45,8 +45,12 @@ def find_validator():
 def check(path, validator):
     """(실패 사유 목록)을 반환한다. 빈 목록이면 통과."""
     fails = []
-    r = subprocess.run([sys.executable, validator, "structural", path],
-                       capture_output=True, text=True)
+    # 훅은 매 Bash 호출 경로에 있다 — validator가 걸리면 세션 전체가 멈추므로 상한 필수
+    try:
+        r = subprocess.run([sys.executable, validator, "structural", path],
+                           capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return [f"구조 검증 30초 초과 — validate_hwpx.py structural을 수동 실행해 확인할 것"]
     if r.returncode != 0:
         detail = (r.stdout or r.stderr).strip().splitlines()
         fails.append(f"구조 검증 실패 — {detail[-1][:200] if detail else 'exit ' + str(r.returncode)}")
@@ -67,12 +71,16 @@ def main():
     try:
         data = json.load(sys.stdin)
     except Exception:
+        # 페이로드 스키마 변화로 안전망이 죽으면 조용히 사라지지 않게 흔적은 남긴다
+        print("verify_hwpx_hook: stdin 페이로드 파싱 실패 — 훅이 검증을 건너뜀", file=sys.stderr)
         return
     cmd = ((data.get("tool_input") or {}).get("command") or "")
     if not PRODUCER.search(cmd):
         return
     validator = find_validator()
     if validator is None:
+        # hwpx 생성은 감지했는데 검증기가 없다 — 무음 통과는 안전망 부재와 같다
+        print("verify_hwpx_hook: validate_hwpx.py 미발견 — hwpx 검증 없이 통과함", file=sys.stderr)
         return
     report, seen = [], set()
     for p in HWPX.findall(cmd):

@@ -232,6 +232,7 @@ report-harness/
 │   └── humanizer/           윤문 — AI 문체 흔적 제거 (MIT © DaleSeo)
 │
 ├── commands/                슬래시 커맨드 5종
+├── hooks/                   hwpx 검증 강제 훅 — 검증 우회 산출 차단 안전망
 │
 ├── webapp/kca-report-hwpx/  ★ 웹앱 배포판 원본 — MCP 없이 자립
 │   ├── SKILL.md             ③초안 게이트 최대 3회 → ④변환 자동

@@ -46,6 +46,10 @@ HARNESS = ROOT / "skills" / "report-pipeline"
 SEED = HARNESS / "references" / "rules-seed.md"
 COPIED = ("postprocess_hwpx.py", "validate_hwpx.py",
           "prep_report_md.py", "lint_md_profile.py")
+# 하네스 references와 바이트 동일해야 하는 문서 사본 — 종전에는 스크립트 4종만 검사해
+# 문서 쪽이 소리 없이 갈라질 수 있었다. diagram-pool.md는 의도적 분기라 제외한다
+# (웹앱판은 도식 Pool 원형 hwpx를 싣지 않아 관련 서술이 다르다 — 설계문서 §4).
+SYNCED_REFS = ("md-profile.md", "style-guide.md", "table-pool.md")
 SCOPE_TAGS = ("[draft]", "[export]")
 TARGETS = {"claude": ".skill", "chatgpt": ".zip", "gemini": ".zip"}
 BINARY_EXT = (".png", ".bmp", ".jpg", ".jpeg", ".gif", ".hwpx", ".hwp")
@@ -100,12 +104,13 @@ def render_rules(source):
 
 def check_drift():
     out = []
-    for name in COPIED:
-        a, b = HARNESS / "scripts" / name, SRC / "scripts" / name
+    pairs = [(HARNESS / "scripts" / n, SRC / "scripts" / n) for n in COPIED] + \
+            [(HARNESS / "references" / n, SRC / "references" / n) for n in SYNCED_REFS]
+    for a, b in pairs:
         if not b.is_file():
-            out.append({"file": name, "reason": "웹앱 복사본 없음"})
+            out.append({"file": b.name, "reason": "웹앱 복사본 없음"})
         elif sha(a) != sha(b):
-            out.append({"file": name, "reason": "하네스 원본과 불일치",
+            out.append({"file": b.name, "reason": "하네스 원본과 불일치",
                         "harness": sha(a)[:12], "webapp": sha(b)[:12]})
     return out
 

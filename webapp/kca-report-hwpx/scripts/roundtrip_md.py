@@ -109,7 +109,11 @@ def main(argv):
     else:
         try:
             md, backend = read_pyhwpx(a.src), "python-hwpx"
-        except ImportError:
+        except Exception as e:
+            # 미설치(ImportError)만이 아니라 open 실패·API 부재(AttributeError)도 폴백 —
+            # 어느 경우든 stdlib 되읽기가 동일 집계를 내는 것이 실측 확인돼 있다.
+            # 무엇으로부터 폴백했는지는 남긴다(조용한 강등 금지).
+            print(f"python-hwpx 사용 불가({type(e).__name__}) — stdlib 폴백", file=sys.stderr)
             md, backend = read_stdlib(a.src), "stdlib(fallback)"
     pathlib.Path(a.output).write_text(md, encoding="utf-8")
     print(f"OK {a.output} (backend={backend})")
