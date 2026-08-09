@@ -209,7 +209,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
         <g color="#8D96A8">
           <rect class="bx" x="782" y="150" width="214" height="62" rx="8"/>
           <text class="mn" x="889" y="187" text-anchor="middle">제출본.hwpx</text>
-          <text class="lo" x="4" y="240">둘 다 VDI 안에서 벌어진다 — 도구를 깔 자리가 없다</text>
+          <text class="lo" x="4" y="240">VDI 안 — 도구 설치 불가</text>
         </g>
       </svg>
     </figure>
@@ -329,35 +329,47 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 대체재</p>
     <h2 class="rise">이미 있는 것으로는 왜 안 됐나</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 232" role="img"
-           aria-label="기존 hwpx 변환 스킬은 기관 양식 지시 시 2~3회 수정이 필요하고, 범용 검색은 KCA를 다른 기관으로 오인식한다는 비교">
-        <g color="#E3AC64">
-          <rect class="bx-w" x="4" y="4" width="486" height="102" rx="8"/>
-          <text class="hi" x="24" y="38" style="fill:#F4F6FA">기존 hwpx 변환 스킬</text>
-          <text class="lo" x="24" y="68" style="fill:#B0B8C8">변환은 된다. 그런데 기관 양식으로 지시하면</text>
-          <text x="24" y="94" style="fill:#E3AC64;font-size:21px">매번 2~3회 수정이 붙는다</text>
-
-          <rect class="bx-w" x="510" y="4" width="486" height="102" rx="8"/>
-          <text class="hi" x="530" y="38" style="fill:#F4F6FA">범용 검색 · LLM 맥락</text>
-          <text class="mn" x="530" y="68" style="fill:#B0B8C8">"KCA" 검색 →</text>
-          <text x="530" y="94" style="fill:#E3AC64;font-size:21px">한국소비자원 · 컨설팅 업체</text>
+      <svg class="dg" viewBox="0 0 1000 262" role="img"
+           aria-label="서식과 맥락 두 축에서 기존 방식과 하네스를 비교한 행렬. 기존은 2~3회 수정과 KCA 오인식, 하네스는 수정 왕복 0과 원출처 대조">
+        <g color="#8D96A8">
+          <text class="lo" x="176" y="24">서식 — 양식 정합</text>
+          <text class="lo" x="606" y="24">맥락 — 기관 지식</text>
+          <text class="lo" x="0" y="98">이미</text>
+          <text class="lo" x="0" y="122">있는 것</text>
+          <text class="ac" x="0" y="212">하네스</text>
         </g>
-        <g color="#8B99FA">
-          <rect class="bx-ac" x="4" y="124" width="486" height="98" rx="8"/>
-          <text class="ac" x="24" y="158">양식 실측값을 프로파일로 박았다</text>
-          <text class="lo" x="24" y="188" style="fill:#B0B8C8">후처리 25스테이지가 매번 같게 적용</text>
-          <text class="lo" x="24" y="212" style="fill:#B0B8C8">어긋나면 검증이 잡는다 — 수정 왕복이 사라진다</text>
 
-          <rect class="bx-ac" x="510" y="124" width="486" height="98" rx="8"/>
-          <text class="ac" x="530" y="158">기관 지식을 위키에 쌓아 재인용</text>
-          <text class="lo" x="530" y="188" style="fill:#B0B8C8">한 번 확인한 기관 맥락은 다시 찾지 않는다</text>
-          <text class="lo" x="530" y="212" style="fill:#B0B8C8">원출처가 붙어 있어 오인식이 걸러진다</text>
+        <g color="#E3AC64">
+          <rect class="bx-w" x="156" y="40" width="420" height="94" rx="8"/>
+          <text class="hi" x="176" y="76" style="fill:#F4F6FA">hwpx 변환 스킬</text>
+          <rect x="176" y="92" width="176" height="30" rx="15" fill="rgba(227,172,100,.14)" stroke="#E3AC64"/>
+          <text class="mn" x="264" y="112" text-anchor="middle" style="fill:#E3AC64">2~3회 수정</text>
+
+          <rect class="bx-w" x="586" y="40" width="414" height="94" rx="8"/>
+          <text class="hi" x="606" y="76" style="fill:#F4F6FA">범용 검색 · LLM</text>
+          <rect x="606" y="92" width="286" height="30" rx="15" fill="rgba(227,172,100,.14)" stroke="#E3AC64"/>
+          <text class="mn" x="749" y="112" text-anchor="middle" style="fill:#E3AC64">KCA → 한국소비자원</text>
+        </g>
+
+        <g color="#8B99FA">
+          <rect class="bx-ac" x="156" y="150" width="420" height="94" rx="8"/>
+          <text class="hi" x="176" y="186" style="fill:#F4F6FA">양식 프로파일 + 후처리 25</text>
+          <rect x="176" y="202" width="164" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="258" y="222" text-anchor="middle" style="fill:#8B99FA">수정 왕복 0</text>
+
+          <rect class="bx-ac" x="586" y="150" width="414" height="94" rx="8"/>
+          <text class="hi" x="606" y="186" style="fill:#F4F6FA">위키 재인용</text>
+          <rect x="606" y="202" width="164" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="688" y="222" text-anchor="middle" style="fill:#8B99FA">원출처 대조</text>
         </g>
       </svg>
       <figcaption>범용 도구가 못 하는 것은 기술이 아니라 <b>맥락</b>이다 — 우리 기관의 양식이 무엇이고 KCA가 누구인지.</figcaption>
     </figure>
+    <p class="cap rise"><b>서식</b> — 실측값을 프로파일 한 곳에 박아 두고 후처리가 매번 같게 적용한다.
+    어긋나면 검증이 잡으니 수정 왕복이 사라진다. <b>맥락</b> — 한 번 확인한 기관 지식은 다시 찾지 않고,
+    원출처가 붙어 있어 오인식이 걸러진다.</p>
     <p class="cap rise"><b>시간 말고 줄인 것</b> — 담당자별 편차와 수정 왕복.
-    <b>양식이 바뀌면</b> 고칠 자리는 <code>format-profile</code> 한 곳으로 특정되고, 코드 상수와 어긋나면 테스트가 실패한다.
+    양식이 바뀌면 고칠 자리는 <code>format-profile</code> 한 곳으로 특정된다.
     <span class="todo">양식 개정 시 담당·인수인계 주체</span></p>
   </div>
 </section>
@@ -391,7 +403,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <text class="lo" x="774" y="104">MIT © fivetaku</text>
         </g>
         <g color="#8B99FA">
-          <text class="lo" x="4" y="150">직접 만들었다 — 기관 양식이라 남이 만들어 둔 것이 없다</text>
+          <text class="lo" x="4" y="150">직접 만들었다 — 기관 양식 전용</text>
           <rect class="bx-ac" x="4" y="160" width="242" height="82" rx="8"/>
           <text class="ac" x="24" y="192">양식 정합 후처리</text>
           <text class="lo" x="24" y="220" style="fill:#B0B8C8">25스테이지 · 2,499줄</text>
@@ -450,10 +462,10 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
         </g>
         <g color="#E3AC64">
           <path class="ln-w dash" d="M700 194 L700 214 L120 214 L120 96" marker-end="url(#b3)"/>
-          <text x="150" y="240" style="fill:#E3AC64;font-size:19px">어긋난 게 남으면 목록을 밝히고 마크다운을 인도한다</text>
+          <text x="150" y="240" style="fill:#E3AC64;font-size:19px">불합격 → 어긋난 목록 + 마크다운 인도</text>
         </g>
       </svg>
-      <figcaption>후처리는 고칠 대상이 0건이어도 정상 종료한다 — 그래서 기대 하한을 따로 검사해 조용한 실패를 막는다.</figcaption>
+      <figcaption>후처리는 고칠 대상이 0건이어도 정상 종료한다 — 그래서 기대 하한을 따로 검사해 조용한 실패를 막는다. 어긋난 게 남으면 틀린 hwpx 를 조용히 내주지 않고 목록과 함께 마크다운을 인도한다.</figcaption>
     </figure>
     <p class="cap rise"><b>무슨 데이터로 도는가</b> — 지난 아흐레 동안 실제 업무 보고서 5건이 이 경로로 나갔다.
     이 자리 시연은 합성 샘플로 돌린다(실보고서 본문은 기관 내부 내용이라 띄우지 않는다) — <b>코드 경로는 같다.</b></p>
@@ -488,7 +500,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <rect class="bx" x="832" y="34" width="164" height="56" rx="8"/>
           <text class="mn" x="914" y="68" text-anchor="middle">.hwpx</text>
           <text class="lo" x="4" y="132">운영자 — 개발 노트북 · 플러그인 + MCP 설치</text>
-          <text class="lo" x="4" y="166">터미널·git·프롬프트·모델·파라미터 — 실무자는 하나도 몰라도 된다</text>
+          <text class="lo" x="4" y="166">터미널 · git · 프롬프트 · 모델 — 노출 0</text>
         </g>
       </svg>
     </figure>
@@ -508,30 +520,40 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">⑤ 채택과 위험 인식 <b>15%</b></p>
     <h2 class="rise">쓰게 되는 이유 하나, 다음에 손볼 것 셋</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 236" role="img"
-           aria-label="채택의 결정적 이유 하나와 앞으로 손볼 개선 방향 세 가지">
+      <svg class="dg" viewBox="0 0 1000 244" role="img"
+           aria-label="채택의 결정적 이유 하나와, 지금 상태에서 목표 상태로 가는 개선 방향 세 가지">
+        <defs><marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+          orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
         <g color="#8B99FA">
-          <rect class="bx-ac" x="4" y="4" width="992" height="66" rx="8"/>
-          <text class="ac" x="24" y="34">쓰게 되는 이유 — 서식을 안 만져도 반려되지 않는 파일이 나온다</text>
-          <text class="lo" x="24" y="58" style="fill:#B0B8C8">①의 고통에 정확히 맞물린다: 찾는 시간과 꾸미는 시간이 함께 사라진다</text>
+          <rect class="bx-ac" x="4" y="4" width="992" height="62" rx="8"/>
+          <text class="ac" x="24" y="32">쓰게 되는 이유 — 서식을 안 만져도 반려되지 않는 파일이 나온다</text>
+          <text class="lo" x="24" y="56" style="fill:#B0B8C8">찾는 시간 · 꾸미는 시간 동시 제거</text>
         </g>
         <g color="#8D96A8">
-          <text class="lo" x="4" y="94">앞으로 손볼 것</text>
-          <rect class="bx" x="4" y="104" width="322" height="126" rx="8"/>
-          <text class="hi" x="24" y="136">1 · 양식 프로파일 확장</text>
-          <text class="lo" x="24" y="166" style="fill:#B0B8C8">지금은 KCA 양식 하나</text>
-          <text class="lo" x="24" y="192" style="fill:#B0B8C8">프로파일만 추가하면</text>
-          <text class="lo" x="24" y="216" style="fill:#B0B8C8">코드는 그대로 쓴다</text>
-          <rect class="bx" x="340" y="104" width="322" height="126" rx="8"/>
-          <text class="hi" x="360" y="136">2 · 재배포 자동화</text>
-          <text class="lo" x="360" y="166" style="fill:#B0B8C8">규칙이 쌓이면 지금은</text>
-          <text class="lo" x="360" y="192" style="fill:#B0B8C8">손으로 다시 빌드한다</text>
-          <text class="lo" x="360" y="216" style="fill:#B0B8C8">CI 에 물릴 수 있다</text>
-          <rect class="bx" x="676" y="104" width="320" height="126" rx="8"/>
-          <text class="hi" x="696" y="136">3 · 절감 효과 계측</text>
-          <text class="lo" x="696" y="166" style="fill:#B0B8C8">소요 시간을 자동 기록해</text>
-          <text class="lo" x="696" y="192" style="fill:#B0B8C8">'두세 시간'을 추정이 아닌</text>
-          <text class="lo" x="696" y="216" style="fill:#B0B8C8">실측으로 바꾼다</text>
+          <text class="lo" x="4" y="94">다음에 손볼 것</text>
+          <text class="lo" x="286" y="94">지금</text>
+          <text class="lo" x="640" y="94">목표</text>
+
+          <text class="hi" x="4" y="132">양식 프로파일 확장</text>
+          <rect x="286" y="110" width="228" height="30" rx="15" fill="rgba(150,165,205,.08)" stroke="rgba(226,232,245,.24)"/>
+          <text class="mn" x="400" y="130" text-anchor="middle">KCA 양식 1종</text>
+          <line class="ln" x1="530" y1="125" x2="616" y2="125" marker-end="url(#c1)"/>
+          <rect x="640" y="110" width="228" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="754" y="130" text-anchor="middle" style="fill:#8B99FA">타 기관 N종</text>
+
+          <text class="hi" x="4" y="180">재배포 자동화</text>
+          <rect x="286" y="158" width="228" height="30" rx="15" fill="rgba(150,165,205,.08)" stroke="rgba(226,232,245,.24)"/>
+          <text class="mn" x="400" y="178" text-anchor="middle">손으로 다시 빌드</text>
+          <line class="ln" x1="530" y1="173" x2="616" y2="173" marker-end="url(#c1)"/>
+          <rect x="640" y="158" width="228" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="754" y="178" text-anchor="middle" style="fill:#8B99FA">CI 연동</text>
+
+          <text class="hi" x="4" y="228">절감 효과 계측</text>
+          <rect x="286" y="206" width="228" height="30" rx="15" fill="rgba(150,165,205,.08)" stroke="rgba(226,232,245,.24)"/>
+          <text class="mn" x="400" y="226" text-anchor="middle">추정 2~3시간</text>
+          <line class="ln" x1="530" y1="221" x2="616" y2="221" marker-end="url(#c1)"/>
+          <rect x="640" y="206" width="228" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="754" y="226" text-anchor="middle" style="fill:#8B99FA">자동 실측</text>
         </g>
       </svg>
     </figure>
