@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>자동화는 쉬웠고, 축적이 어려웠다 — report-harness 5분 발표</title>
+<title>자동화는 쉬웠고, 축적이 어려웠다 — report-harness</title>
 <style>
 /* ── 토큰 ───────────────────────────────────────────────────────
    투사용 덱이라 단일 다크 테마로 확정한다. 뷰어 테마를 따르지 않으므로
@@ -11,7 +11,6 @@
 :root{
   --ground:#08090B;
   --grid:rgba(180,195,255,.035);
-  --grid-strong:rgba(180,195,255,.06);
   --hi:#F2F4F8;
   --mid:#9BA3B4;
   --low:#6A7181;
@@ -19,6 +18,7 @@
   --accent:#7C8CF8;
   --accent-soft:rgba(124,140,248,.34);
   --hair:rgba(226,232,245,.13);
+  --hair-soft:rgba(226,232,245,.07);
 
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --sans:"Pretendard","Pretendard Variable","Apple SD Gothic Neo",
@@ -36,9 +36,7 @@ body{
   word-break:keep-all;
   overflow-wrap:anywhere;
   overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  display:flex;align-items:center;justify-content:center;
 }
 
 /* ── 스테이지 ──────────────────────────────────────────────────
@@ -57,137 +55,143 @@ body{
 }
 
 .slide{
-  position:absolute;
-  inset:0;
-  display:grid;
-  grid-template-columns:23cqw 1fr;
-  padding:5.4cqw 6cqw 5cqw 4.2cqw;
-  opacity:0;
-  visibility:hidden;
-  transition:opacity .28s ease;
+  position:absolute;inset:0;
+  display:grid;grid-template-columns:22cqw 1fr;
+  padding:5cqw 5.5cqw 4.6cqw 4.2cqw;
+  opacity:0;visibility:hidden;
+  transition:opacity .3s ease;
 }
 .slide[data-active]{opacity:1;visibility:visible}
-@media (prefers-reduced-motion:reduce){.slide{transition:none}}
+
+/* ── 등장 연출 ─────────────────────────────────────────────────
+   활성 슬라이드의 요소를 위에서부터 차례로 올린다. 슬라이드를 넘길 때마다
+   시선이 시작점을 다시 찾게 해 준다 — 장식이 아니라 읽는 순서의 표시다. */
+.slide[data-active] .rise{animation:rise .5s cubic-bezier(.2,.7,.3,1) backwards}
+.slide[data-active] .rise:nth-child(1){animation-delay:.04s}
+.slide[data-active] .rise:nth-child(2){animation-delay:.11s}
+.slide[data-active] .rise:nth-child(3){animation-delay:.18s}
+.slide[data-active] .rise:nth-child(4){animation-delay:.25s}
+.slide[data-active] .rise:nth-child(5){animation-delay:.32s}
+.slide[data-active] .rise:nth-child(6){animation-delay:.39s}
+@keyframes rise{from{opacity:0;transform:translateY(1.1cqw)}to{opacity:1;transform:none}}
+
+/* 흐름도의 노드·연결선은 왼쪽부터 순차로 켠다 — 흐름 자체가 내용이다 */
+.slide[data-active] .flow > *{animation:pop .34s ease backwards}
+@keyframes pop{from{opacity:0;transform:translateX(-.7cqw)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .slide,.slide[data-active] .rise,.slide[data-active] .flow > *{transition:none;animation:none}
+  .bar{transition:none}
+}
 
 /* ── 좌측 크롬 ─────────────────────────────────────────────── */
 .rail{display:flex;flex-direction:column;justify-content:space-between}
-
-.ident{font-family:var(--mono);font-size:1.05cqw;letter-spacing:.19em;color:var(--low)}
+.ident{font-family:var(--mono);font-size:1cqw;letter-spacing:.19em;color:var(--low)}
 .ident b{display:block;font-weight:400;color:var(--mid)}
-.ident hr{border:0;border-top:1px solid var(--hair);margin:.9cqw 0;width:74%}
+.ident hr{border:0;border-top:1px solid var(--hair);margin:.85cqw 0;width:74%}
 
-.parts{list-style:none;display:flex;flex-direction:column;gap:1.5cqw}
+.parts{list-style:none;display:flex;flex-direction:column;gap:1.35cqw}
 .parts li{
-  font-family:var(--mono);font-size:1.15cqw;letter-spacing:.17em;
-  color:var(--faint);display:flex;gap:.9cqw;align-items:baseline;
-  padding-left:.9cqw;border-left:1px solid transparent;
+  font-family:var(--mono);font-size:1.08cqw;letter-spacing:.16em;
+  color:var(--faint);display:flex;gap:.85cqw;align-items:baseline;
+  padding-left:.85cqw;border-left:1px solid transparent;
+  transition:color .3s ease,border-color .3s ease;
 }
 .parts li[data-on]{color:var(--hi);border-left-color:var(--hi)}
-.parts li span{color:inherit;opacity:.55}
+.parts li span{opacity:.55}
 .parts li[data-on] span{opacity:1}
-
-.stamp{font-family:var(--mono);font-size:.95cqw;letter-spacing:.16em;color:var(--faint)}
+.act{font-family:var(--mono);font-size:.9cqw;letter-spacing:.2em;color:var(--accent);
+     margin-bottom:1.1cqw;opacity:.85}
+.stamp{font-family:var(--mono);font-size:.9cqw;letter-spacing:.15em;color:var(--faint)}
 
 /* ── 우측 본문 ─────────────────────────────────────────────── */
-.body{display:flex;flex-direction:column;justify-content:center;gap:2.4cqw}
-.slide[data-layout="title"] .body{justify-content:center;gap:1.6cqw}
+.body{display:flex;flex-direction:column;justify-content:center;gap:2.2cqw}
+.eyebrow{font-family:var(--mono);font-size:1cqw;letter-spacing:.22em;color:var(--low);
+         text-transform:uppercase}
+h1{font-size:5.2cqw;font-weight:800;letter-spacing:-.018em;line-height:1.14;
+   text-wrap:balance;color:var(--hi)}
+h2{font-size:3.2cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
+   text-wrap:balance;color:var(--hi)}
+.lede{font-size:1.8cqw;color:var(--mid);line-height:1.5;max-width:46cqw}
+.note{font-size:1.42cqw;color:var(--low);line-height:1.6;max-width:50cqw}
+.note b{color:var(--hi);font-weight:600}
+.rule{border:0;border-top:1px solid var(--hair);width:100%;max-width:54cqw}
 
-.eyebrow{
-  font-family:var(--mono);font-size:1.05cqw;letter-spacing:.22em;
-  color:var(--low);text-transform:uppercase;
-}
-h1{
-  font-size:5.4cqw;font-weight:800;letter-spacing:-.018em;line-height:1.14;
-  text-wrap:balance;color:var(--hi);
-}
-h2{
-  font-size:3.5cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
-  text-wrap:balance;color:var(--hi);
-}
-.lede{font-size:1.85cqw;font-weight:400;color:var(--mid);line-height:1.5;max-width:44cqw}
-.note{font-size:1.5cqw;color:var(--low);line-height:1.6;max-width:46cqw}
-.rule{border:0;border-top:1px solid var(--hair);width:100%;max-width:52cqw}
-
-/* 큰 숫자 — 서사의 기둥 3장. 액센트를 여기서 숫자 자신에게 준다. */
-.figure{display:flex;align-items:baseline;gap:2.2cqw;flex-wrap:wrap}
-.num{
-  font-family:var(--mono);font-size:14cqw;line-height:.9;font-weight:500;
-  letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums;
-}
+/* 큰 숫자 — 서사의 기둥. 액센트를 여기서 숫자 자신에게 준다. */
+.figure{display:flex;align-items:baseline;gap:2cqw;flex-wrap:wrap}
+.num{font-family:var(--mono);font-size:13cqw;line-height:.9;font-weight:500;
+     letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums}
 .num.muted{color:var(--faint)}
-.arrow{font-family:var(--mono);font-size:4.6cqw;color:var(--low);line-height:1}
-/* 넓은 자간은 라틴 전용이다. 한글에 먹이면 어절 사이가 벌어져 늘어져 보인다. */
-.figcap{font-family:var(--sans);font-size:1.2cqw;letter-spacing:.01em;color:var(--low);line-height:1.5}
+.arrow{font-family:var(--mono);font-size:4.2cqw;color:var(--low);line-height:1}
+.figcap{font-family:var(--sans);font-size:1.15cqw;letter-spacing:.01em;color:var(--low);
+        line-height:1.5}
 
 /* 흐름 다이어그램 — 테두리 1px, 채움 없음(그리드가 비쳐야 도면으로 읽힌다) */
-.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap}
-.node{
-  border:1px solid var(--hair);border-radius:.55cqw;
-  padding:1.15cqw 1.9cqw;
-  font-family:var(--sans);font-size:1.3cqw;letter-spacing:.01em;color:var(--mid);
-  white-space:nowrap;
-}
-/* 라틴 노드(hwpx 등)만 도면 라벨 투로 되돌린다 */
-.node[data-latin]{font-family:var(--mono);font-size:1.15cqw;letter-spacing:.15em}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:0}
+.node{border:1px solid var(--hair);border-radius:.5cqw;padding:1cqw 1.6cqw;
+      font-family:var(--sans);font-size:1.22cqw;color:var(--mid);white-space:nowrap}
+.node[data-latin]{font-family:var(--mono);font-size:1.08cqw;letter-spacing:.14em}
 .node[data-hot]{border-color:var(--accent);color:var(--hi);box-shadow:0 0 0 1px var(--accent-soft)}
-.link{width:2.6cqw;height:1px;background:var(--hair);flex:none}
+.node small{display:block;font-size:.82cqw;color:var(--faint);letter-spacing:0;margin-top:.25cqw}
+.link{width:2.2cqw;height:1px;background:var(--hair);flex:none}
+.link.dash{background:repeating-linear-gradient(to right,var(--hair) 0 4px,transparent 4px 8px)}
 
-/* 2열 대비 (references / scripts) */
-.split{display:grid;grid-template-columns:1fr 1fr;gap:3.2cqw;max-width:60cqw}
-.col h3{
-  font-family:var(--mono);font-size:1.35cqw;letter-spacing:.13em;
-  color:var(--hi);font-weight:400;margin-bottom:.9cqw;
-}
-.col p{font-size:1.45cqw;color:var(--mid);line-height:1.62}
+/* 2열 대비 */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:3cqw;max-width:60cqw}
+.col h3{font-family:var(--mono);font-size:1.28cqw;letter-spacing:.12em;color:var(--hi);
+        font-weight:400;margin-bottom:.8cqw}
+.col p{font-size:1.4cqw;color:var(--mid);line-height:1.6}
 .col em{color:var(--low);font-style:normal}
 
-/* 장치 3종 목록 — 번호가 실제 순서를 뜻하지 않으므로 기호를 쓰지 않는다 */
-.devices{list-style:none;display:flex;flex-direction:column;gap:1.7cqw;max-width:56cqw}
-.devices li{display:grid;grid-template-columns:15cqw 1fr;gap:2cqw;align-items:baseline}
-.devices dt{
-  font-family:var(--sans);font-size:1.45cqw;letter-spacing:.01em;
-  color:var(--hi);font-weight:600;
-}
-.devices dd{font-size:1.45cqw;color:var(--mid);line-height:1.55}
+/* 정의 목록 (장치·단계·게이트) */
+.devices{list-style:none;display:flex;flex-direction:column;gap:1.5cqw;max-width:58cqw}
+.devices li{display:grid;grid-template-columns:14cqw 1fr;gap:1.8cqw;align-items:baseline}
+.devices dt{font-family:var(--sans);font-size:1.4cqw;color:var(--hi);font-weight:600}
+.devices dd{font-size:1.36cqw;color:var(--mid);line-height:1.5}
+.devices dd em{color:var(--low);font-style:normal}
 
-.closing{display:flex;flex-direction:column;gap:1.7cqw;max-width:56cqw}
-.closing p{font-size:2.15cqw;line-height:1.45;color:var(--hi);font-weight:500}
-.closing p.sub{font-size:1.6cqw;color:var(--mid);font-weight:400}
+/* 표 — 세 조각·4단계처럼 축이 둘인 내용 */
+.grid-tbl{width:100%;max-width:62cqw;border-collapse:collapse;font-size:1.24cqw}
+.grid-tbl th,.grid-tbl td{text-align:left;padding:.85cqw 1.1cqw;
+  border-bottom:1px solid var(--hair-soft);vertical-align:top;line-height:1.45}
+.grid-tbl thead th{font-family:var(--mono);font-size:1.02cqw;letter-spacing:.13em;
+  color:var(--low);font-weight:400;border-bottom:1px solid var(--hair)}
+.grid-tbl tbody th{color:var(--hi);font-weight:600;white-space:nowrap}
+.grid-tbl td{color:var(--mid)}
+.grid-tbl td b{color:var(--hi);font-weight:600}
+.grid-tbl .dim{color:var(--faint)}
+
+/* 폴더 트리 */
+.tree{font-family:var(--mono);font-size:1.12cqw;line-height:1.75;color:var(--mid);
+      max-width:58cqw;white-space:pre}
+.tree i{color:var(--faint);font-style:normal}
+.tree b{color:var(--accent);font-weight:400}
+
+.closing{display:flex;flex-direction:column;gap:1.6cqw;max-width:58cqw}
+.closing p{font-size:2cqw;line-height:1.45;color:var(--hi);font-weight:500}
+.closing p.sub{font-size:1.55cqw;color:var(--mid);font-weight:400}
 .closing strong{color:var(--accent);font-weight:500}
-.repo{font-family:var(--mono);font-size:1cqw;letter-spacing:.14em;color:var(--faint)}
+.repo{font-family:var(--mono);font-size:.95cqw;letter-spacing:.14em;color:var(--faint)}
 
-/* ── HUD (발표자용, 화면 밖 판단 재료) ─────────────────────── */
-.hud{
-  position:fixed;left:0;right:0;bottom:0;
-  display:flex;align-items:center;gap:1.4rem;
-  padding:.6rem 1rem;
-  font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;
-  color:var(--low);background:rgba(8,9,11,.92);
-  border-top:1px solid var(--hair);
-}
+/* ── HUD ───────────────────────────────────────────────────── */
+.hud{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:1.1rem;
+  padding:.55rem 1rem;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;
+  color:var(--low);background:rgba(8,9,11,.93);border-top:1px solid var(--hair)}
 .hud .grow{flex:1}
 .hud b{color:var(--mid);font-weight:400}
-.hud button{
-  font:inherit;letter-spacing:inherit;color:var(--mid);
-  background:transparent;border:1px solid var(--hair);border-radius:3px;
-  padding:.3rem .7rem;cursor:pointer;
-}
+.hud button{font:inherit;letter-spacing:inherit;color:var(--mid);background:transparent;
+  border:1px solid var(--hair);border-radius:3px;padding:.28rem .65rem;cursor:pointer}
 .hud button:hover:not(:disabled){color:var(--hi);border-color:var(--accent)}
 .hud button:disabled{color:var(--faint);cursor:not-allowed}
 .hud button:focus-visible,.stage:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.bar{position:fixed;left:0;top:0;height:2px;background:var(--accent);transition:width .28s ease}
-@media (prefers-reduced-motion:reduce){.bar{transition:none}}
+.bar{position:fixed;left:0;top:0;height:2px;background:var(--accent);transition:width .3s ease}
 
-.notes{
-  position:fixed;left:0;right:0;bottom:2.4rem;
-  max-height:38vh;overflow-y:auto;
-  padding:1rem 1.2rem;
-  background:rgba(8,9,11,.97);border-top:1px solid var(--hair);
-  font-size:.95rem;line-height:1.7;color:var(--mid);
-}
+.notes{position:fixed;left:0;right:0;bottom:2.3rem;max-height:38vh;overflow-y:auto;
+  padding:.9rem 1.1rem;background:rgba(8,9,11,.97);border-top:1px solid var(--hair);
+  font-size:.92rem;line-height:1.7;color:var(--mid)}
 .notes[hidden]{display:none}
-.notes b{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;
-  color:var(--low);margin-bottom:.5rem;font-weight:400}
+.notes b{display:block;font-family:var(--mono);font-size:.68rem;letter-spacing:.15em;
+  color:var(--low);margin-bottom:.45rem;font-weight:400}
 </style>
 </head>
 <body>
@@ -196,43 +200,38 @@ h2{
 
 <main class="stage" id="stage" tabindex="0" aria-label="발표 슬라이드">
 
-  <!-- S1 ─ 타이틀 -->
-  <section class="slide" data-layout="title" data-id="S1" data-time="0:00" data-part="">
-    <div class="rail">
-      <div class="ident">GRAPH ENGINEERING<hr><b>SHEET 01 / OPEN</b></div>
-      <ul class="parts"></ul>
-      <div class="stamp">REPORT-HARNESS · 2026.08</div>
-    </div>
+<!-- ══ ACT I — 5분 서사 ══════════════════════════════════════ -->
+
+  <section class="slide" data-id="S1" data-time="0:00" data-act="1" data-part="">
+    <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">The hard part wasn't automation</p>
-      <h1>자동화는 쉬웠고,<br>축적이 어려웠다</h1>
-      <p class="lede">보고서 하네스를 만들며 틀린 것</p>
+      <p class="eyebrow rise">The hard part wasn't automation</p>
+      <h1 class="rise">자동화는 쉬웠고,<br>축적이 어려웠다</h1>
+      <p class="lede rise">보고서 하네스를 만들며 틀린 것</p>
     </div>
   </section>
 
-  <!-- S2 ─ 만든 것 -->
-  <section class="slide" data-id="S2" data-time="0:12" data-part="1">
+  <section class="slide" data-id="S2" data-time="0:11" data-act="1" data-part="1">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">What I built</p>
-      <h2>네 단계, 게이트 세 번</h2>
-      <div class="flow">
+      <p class="eyebrow rise">What I built</p>
+      <h2 class="rise">네 단계, 게이트 세 번</h2>
+      <div class="flow rise">
         <div class="node">조사</div><div class="link"></div>
         <div class="node">분석</div><div class="link"></div>
         <div class="node">초안</div><div class="link"></div>
         <div class="node" data-latin>hwpx</div>
       </div>
-      <p class="note">개조식으로 쓰고 한글 파일로 나간다. 사람이 끼어드는 건 세 번.</p>
+      <p class="note rise">개조식으로 쓰고 한글 파일로 나간다. 사람이 끼어드는 건 세 번.</p>
     </div>
   </section>
 
-  <!-- S3 ─ 판단/실행 분리 -->
-  <section class="slide" data-id="S3" data-time="0:40" data-part="1">
+  <section class="slide" data-id="S3" data-time="0:39" data-act="1" data-part="1">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">The easy half</p>
-      <h2>판단은 문서로, 실행은 스크립트로</h2>
-      <div class="split">
+      <p class="eyebrow rise">The easy half</p>
+      <h2 class="rise">판단은 문서로, 실행은 스크립트로</h2>
+      <div class="split rise">
         <div class="col">
           <h3>references/</h3>
           <p>LLM이 읽고 판단하는 기준<br><em>문체 관례 · 양식 프로파일</em></p>
@@ -242,65 +241,61 @@ h2{
           <p>판단이 끼어들면 안 되는 일<br><em>글머리 간격 · 서체 크기 · 표 폭</em></p>
         </div>
       </div>
-      <p class="note">매번 똑같아야 하는 건 전부 스크립트로 내렸다. LLM한테 맡기면 매번 조금씩 달라진다.</p>
+      <p class="note rise">매번 똑같아야 하는 건 전부 스크립트로 내렸다. LLM한테 맡기면 매번 조금씩 달라진다.</p>
     </div>
   </section>
 
-  <!-- S4 ─ 복리 루프 -->
-  <section class="slide" data-id="S4" data-time="1:18" data-part="2">
+  <section class="slide" data-id="S4" data-time="1:16" data-act="1" data-part="2">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">Compounding</p>
-      <h2>같은 지적을 두 번 받으면 규칙이 된다</h2>
-      <div class="flow">
+      <p class="eyebrow rise">Compounding</p>
+      <h2 class="rise">같은 지적을 두 번 받으면 규칙이 된다</h2>
+      <div class="flow rise">
         <div class="node">게이트 피드백</div><div class="link"></div>
         <div class="node">lessons 1줄</div><div class="link"></div>
         <div class="node">2회 반복</div><div class="link"></div>
         <div class="node" data-hot>규칙 승격</div><div class="link"></div>
         <div class="node">다음 건부터 자동</div>
       </div>
-      <p class="note">잘 돌았다.</p>
+      <p class="note rise">잘 돌았다.</p>
     </div>
   </section>
 
-  <!-- S5 ─ 43 -->
-  <section class="slide" data-id="S5" data-time="1:42" data-part="2">
+  <section class="slide" data-id="S5" data-time="1:38" data-act="1" data-part="2">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">Two months later</p>
-      <div class="figure">
-        <span class="num">43</span>
+      <p class="eyebrow rise">Two months later</p>
+      <div class="figure rise">
+        <span class="num" data-count="43">43</span>
         <span class="figcap">규칙 건수 / 두 달</span>
       </div>
-      <hr class="rule">
-      <p class="lede">길어서 안 읽힌다 → 안 지켜진다 → 같은 실수가 또 박제된다</p>
+      <hr class="rule rise">
+      <p class="lede rise">길어서 안 읽힌다 → 안 지켜진다 → 같은 실수가 또 박제된다</p>
     </div>
   </section>
 
-  <!-- S6 ─ 75 → 35 -->
-  <section class="slide" data-id="S6" data-time="2:01" data-part="3">
+  <section class="slide" data-id="S6" data-time="1:57" data-act="1" data-part="3">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">The rule nobody measured</p>
-      <div class="figure">
+      <p class="eyebrow rise">The rule nobody measured</p>
+      <div class="figure rise">
         <span class="num muted">75</span>
         <span class="arrow">→</span>
-        <span class="num">35</span>
+        <span class="num" data-count="35">35</span>
         <span class="figcap">1줄 자수 · 추정 → 실측</span>
       </div>
-      <hr class="rule">
-      <p class="lede">넉 달 · 전 문서 3~4줄로 늘어짐 · 쪽수 2배</p>
-      <p class="note">규칙이 안 지켜져서 난 사고가 아니다. <strong style="color:var(--hi);font-weight:500">틀린 규칙이 아주 성실하게 지켜져서</strong> 난 사고다.</p>
+      <hr class="rule rise">
+      <p class="lede rise">넉 달 · 전 문서 3~4줄로 늘어짐 · 쪽수 2배</p>
+      <p class="note rise">규칙이 안 지켜져서 난 사고가 아니다. <b>틀린 규칙이 아주 성실하게 지켜져서</b> 난 사고다.</p>
     </div>
   </section>
 
-  <!-- S7 ─ 멈추는 장치 셋 -->
-  <section class="slide" data-id="S7" data-time="2:43" data-part="4">
+  <section class="slide" data-id="S7" data-time="2:38" data-act="1" data-part="4">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">Brakes, not just an engine</p>
-      <h2>멈추는 장치 셋</h2>
-      <dl class="devices">
+      <p class="eyebrow rise">Brakes, not just an engine</p>
+      <h2 class="rise">멈추는 장치 셋</h2>
+      <dl class="devices rise">
         <li><dt>근거 등급</dt><dd>실측 / 추론 / 관례 — 등급이 없으면 승격 자체가 안 된다</dd></li>
         <li><dt>드리프트 탐지</dt><dd>같은 값이 8곳까지 복제된다. 단일 출처와 코드 상수를 테스트가 대조한다</dd></li>
         <li><dt>정기 통폐합</dt><dd>지난 통합 이후 10건이 늘면 테스트가 실패한다. 자동 병합은 하지 않는다</dd></li>
@@ -308,36 +303,185 @@ h2{
     </div>
   </section>
 
-  <!-- S8 ─ 가드도 거짓말한다 -->
-  <section class="slide" data-id="S8" data-time="3:46" data-part="4">
+  <section class="slide" data-id="S8" data-time="3:33" data-act="1" data-part="4">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow">This morning</p>
-      <div class="figure">
-        <span class="num">60</span>
+      <p class="eyebrow rise">This morning</p>
+      <div class="figure rise">
+        <span class="num" data-count="60">60</span>
         <span class="figcap">/ 70건 본문 불일치<br>그런데 테스트는 초록</span>
       </div>
-      <hr class="rule">
-      <p class="note">가드가 규칙 번호만 맞춰 보고 본문은 아예 안 봤다.
+      <hr class="rule rise">
+      <p class="note rise">가드가 규칙 번호만 맞춰 보고 본문은 아예 안 봤다.
       그 테스트 주석에는 이렇게 적혀 있었다 — "배포본을 놓칠 뻔한 사고의 재발 방지용."</p>
     </div>
   </section>
 
-  <!-- S9 ─ 마무리 -->
-  <section class="slide" data-id="S9" data-time="4:23" data-part="">
-    <div class="rail">
-      <div class="ident">GRAPH ENGINEERING<hr><b>SHEET 09 / CLOSE</b></div>
-      <ul class="parts"></ul>
-      <div class="stamp">REPORT-HARNESS · 2026.08</div>
-    </div>
+  <section class="slide" data-id="S9" data-time="4:08" data-act="1" data-part="">
+    <div class="rail"></div>
     <div class="body">
-      <div class="closing">
+      <div class="closing rise">
         <p>축적은 저절로 되지 않는다.<br>쌓는 장치를 만들었으면 <strong>멈추는 장치</strong>도 같이 설계한다.</p>
         <hr class="rule">
         <p class="sub">검증 장치는 무엇을 검증하는지보다 무엇을 검증하지 <strong>않는지</strong>를 봐야 한다.<br>
         초록불은 통과했다는 뜻이 아니라, 본 것만 통과했다는 뜻이다.</p>
-        <p class="repo">github.com/kca-deep/report-harness</p>
       </div>
+    </div>
+  </section>
+
+<!-- ══ ACT II — 시스템 (확장·질의응답용, 무낭독) ═════════════ -->
+
+  <section class="slide" data-id="S10" data-act="2" data-part="5">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">How it actually runs</p>
+      <h2 class="rise">위키가 출발점이면서 도착점이다</h2>
+      <div class="flow rise">
+        <div class="node" data-hot>claudian<small>LLM 위키</small></div><div class="link"></div>
+        <div class="node">① 사전지식 조회</div><div class="link"></div>
+        <div class="node">② 분석</div><div class="link"></div>
+        <div class="node">③ 초안<small>게이트 ⓪①②</small></div><div class="link"></div>
+        <div class="node">④ 변환</div><div class="link"></div>
+        <div class="node" data-latin>hwpx</div>
+      </div>
+      <p class="note rise">위키에 없는 것만 새로 조사하고, 새로 찾은 것도 <b>사람이 승인한 것만</b> 위키로 돌아간다.
+      그래서 쓸수록 왼쪽이 두꺼워지고 오른쪽에서 찾을 게 줄어든다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S11" data-act="2" data-part="5">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">Four stages</p>
+      <h2 class="rise">단계마다 산출물이 정해져 있다</h2>
+      <table class="grid-tbl rise">
+        <thead><tr><th>단계</th><th>하는 일</th><th>산출물</th><th>기계 시간</th></tr></thead>
+        <tbody>
+          <tr><th>① research</th><td>제공자료 적재 · 위키 조회 · 신규조사</td>
+              <td><b>research/</b> + _manifest.jsonl</td><td class="dim">—</td></tr>
+          <tr><th>② analyze</th><td>조사 결과 종합</td>
+              <td><b>05_analysis.md</b></td><td>5분</td></tr>
+          <tr><th>③ draft</th><td>개조식 초안 — 게이트 3개가 전부 여기</td>
+              <td><b>10_outline.md → 20_draft.md</b></td><td>10분</td></tr>
+          <tr><th>④ export</th><td>팩트체크 ∥ 회귀검사 → 양식 정합 변환</td>
+              <td><b>final/{제목}.hwpx</b> + 40_qa.md</td><td>5분</td></tr>
+        </tbody>
+      </table>
+      <p class="note rise">필요한 구간만 골라 진입한다. 자료가 있으면 ②부터, 초안이 있으면 ④만.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S12" data-act="2" data-part="5">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">Three gates, all of them clicks</p>
+      <h2 class="rise">사람이 끼어드는 건 세 번뿐</h2>
+      <dl class="devices rise">
+        <li><dt>게이트 ⓪</dt><dd>③ 시작 — 보고서 유형 · 수신자 격·분량 · <em>산출물 요구</em> · 논지 방향<br>
+          <em>최대 4문항, 답이 이미 명확하면 건너뛴다</em></dd></li>
+        <li><dt>게이트 ①</dt><dd>아웃라인 완성 — 승인 / 수정 지정 / 방향 전환<br>
+          <em>논지가 갈리면 2안을 만들어 고르게 한다</em></dd></li>
+        <li><dt>게이트 ②</dt><dd>초안 완성 — 승인 + 팩트체크 범위<br>
+          <em>수정은 절 주소로 한 줄 — "□3 ㅇ2 수치 중심으로"</em></dd></li>
+      </dl>
+      <p class="note rise">전부 선택지 클릭형이다. "어떻게 할까요" 같은 열린 질문은 던지지 않는다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S13" data-act="2" data-part="5">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">The folder is the interface</p>
+      <h2 class="rise">세션이 아니라 폴더가 맥락을 갖는다</h2>
+      <div class="tree rise"><i>{reports_dir}/20260729/1430_AI성과측정체계/</i>
+├── 00_context.md          <i>요구사항 · 게이트 답변 누적</i>
+├── research/
+│   ├── provided/          <i>받은 자료 원본 + 파싱본</i>
+│   └── fetched/{topic}/   <i>_manifest.jsonl · 원문 발췌 · images/</i>
+├── 05_analysis.md         <i>논지 후보 · 총괄표 후보 · 근거 공백</i>
+├── 10_outline.md          <i>목차 · 논지 · 근거 · 표 · 도식 설계</i>
+├── <b>20_draft.md</b>            <i>개조식 초안 — 이 파일이 진짜 원본</i>
+├── 40_qa.md               <i>검증 리포트</i>
+└── final/{제목}.hwpx      <i>최종 산출물</i></div>
+      <p class="note rise">세션이 끊겨도 <b>"이어서 해줘"</b> 한 마디면 폴더 상태를 읽고 그 지점부터 잇는다. 새 폴더를 만들지 않는다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S14" data-act="2" data-part="6">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">Who uses which</p>
+      <h2 class="rise">세 조각, 서로 다른 사람이 쓴다</h2>
+      <table class="grid-tbl rise">
+        <thead><tr><th></th><th>C. claudian</th><th>B. report-harness</th><th>A. kca-report-hwpx</th></tr></thead>
+        <tbody>
+          <tr><th>역할</th><td>지식을 쌓고 재인용</td><td>조사→분석→초안→변환</td><td>초안 + hwpx 변환</td></tr>
+          <tr><th>대상</th><td>자료를 계속 다루는 사람</td><td>운영자</td><td><b>실무자</b></td></tr>
+          <tr><th>쓰는 곳</th><td>개발 노트북 · Obsidian</td><td>개발 노트북 · Claude Code</td><td><b>VDI 브라우저</b></td></tr>
+          <tr><th>설치</th><td>저장소 클론</td><td>플러그인 + MCP</td><td><b>스킬 파일 하나</b></td></tr>
+          <tr><th>축적</th><td><b>지식</b> acquired→wiki</td><td><b>규칙</b> lessons→rules</td><td class="dim">없음 (정적)</td></tr>
+        </tbody>
+      </table>
+      <p class="note rise">VDI에서 일하는 실무자라면 <b>A만</b> 주면 된다. 같은 주제를 계속 다룬다면 <b>B에 C를 붙인다</b>.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S15" data-act="2" data-part="6">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">Research: contract, not method</p>
+      <h2 class="rise">조사는 방법을 강제하지 않는다</h2>
+      <div class="split rise">
+        <div class="col">
+          <h3>자유</h3>
+          <p>어떤 도구로 조사하든 상관없다<br><em>환경에 있는 걸 골라 쓰고, 없으면 건너뛴다</em></p>
+        </div>
+        <div class="col">
+          <h3>강제</h3>
+          <p>산출물이 계약대로 쌓이는 것<br><em>프론트매터 · _manifest.jsonl</em></p>
+        </div>
+      </div>
+      <p class="note rise">산출물 1건당 manifest 1줄 — <b>출처 · 시각 · 도구 · 확정/추정</b>.
+      원문 발췌로 수집하고(의역 금지), 이미 확보한 근거는 다시 조사하지 않는다.
+      그래서 도구가 하나도 없어도 파이프라인이 멈추지 않는다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S16" data-act="2" data-part="7">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">Getting it to people without terminals</p>
+      <h2 class="rise">웹앱판 — 파일 하나로 끝난다</h2>
+      <div class="flow rise">
+        <div class="node">하네스에서 규칙 축적</div><div class="link"></div>
+        <div class="node" data-hot>빌드 기준 9종</div><div class="link"></div>
+        <div class="node" data-latin>.skill / .zip</div><div class="link dash"></div>
+        <div class="node">VDI 브라우저</div>
+      </div>
+      <p class="note rise">MCP도 플러그인도 없이 전 구간 stdlib으로 돈다.
+      claude.ai · ChatGPT · Gemini 세 곳 모두 지원하고, Gemini판만 바이너리 금지라 배너를 base64로 싣는다.
+      빌드 기준(룰 최신성 · 드리프트 0 · dangling 0 · 사장 자산 0 · PII 0 …)을 <b>전부 통과해야</b> 패키지가 만들어진다.</p>
+      <p class="note rise">웹앱판은 세션 사이에 아무것도 기억하지 못한다 —
+      <b>재배포가 복리축적을 실무자에게 전달하는 유일한 경로다.</b></p>
+    </div>
+  </section>
+
+  <section class="slide" data-id="S17" data-act="2" data-part="7">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow rise">"이 숫자 어디서 나왔냐"</p>
+      <h2 class="rise">근거를 다섯 지점에서 붙든다</h2>
+      <table class="grid-tbl rise">
+        <thead><tr><th>지점</th><th>무엇을 하나</th></tr></thead>
+        <tbody>
+          <tr><th>조사</th><td>산출물마다 원출처 프론트매터 + manifest. 출처 불명 자료는 아예 적재하지 않는다</td></tr>
+          <tr><th>위키 인용</th><td>원출처가 추적되면 <b>[확정]</b>, 위키에만 있으면 <b>[미확정]</b></td></tr>
+          <tr><th>초안</th><td>초안의 수치를 조사 폴더와 대조해 근거 없는 값을 잡아낸다</td></tr>
+          <tr><th>변환</th><td>구조 검증 + 왕복 대조. 어긋난 게 남으면 조용히 내주지 않는다</td></tr>
+          <tr><th>회귀</th><td>같은 지적이 반복되면 규칙으로 승격돼 다음 보고서에 자동으로 걸린다</td></tr>
+        </tbody>
+      </table>
+      <p class="repo rise">github.com/kca-deep/report-harness</p>
     </div>
   </section>
 </main>
@@ -345,8 +489,8 @@ h2{
 <div class="notes" id="notes" hidden><b>발표자 노트</b><span id="notesBody"></span></div>
 
 <footer class="hud">
-  <span><b id="pos">1</b> / 9</span>
-  <span id="tc">0:00</span>
+  <span><b id="pos">1</b> / <span id="total">17</span></span>
+  <span id="tc"></span>
   <button id="play" type="button">▶ 이 대목 듣기</button>
   <button id="run" type="button">▶▶ 리허설 통주행</button>
   <span id="clock"></span>
@@ -355,7 +499,8 @@ h2{
 </footer>
 
 <script>
-// 대본 — TTS 렌더와 같은 원본에서 옮겨 적었다. 화면에는 안 나오고 노트·리허설용이다.
+/* 대본 — tts_render 와 같은 원본에서 옮겨 적었다. ACT I 만 낭독이 있다.
+   ACT II 는 확장·질의응답용 참조 슬라이드라 음성을 만들지 않는다. */
 const NOTES = {
   S1:"보고서 쓰는 일을 자동화하는 하네스를 만들었습니다. 오늘 할 이야기는 그게 어떻게 도는지가 아닙니다. 만들면서 제가 뭘 틀렸는지입니다.",
   S2:"기관 보고서는 개조식으로 쓰고 한글 파일로 나가야 합니다. 조사부터 초안, 한글 변환까지 네 단계를 붙였고 사람이 끼어드는 건 세 번입니다. 여기까지는 상상하시는 그대로예요. 별로 안 어려웠습니다. — 어려웠던 건 그 다음이었습니다. 쓸수록 좋아지게 만드는 쪽이요. [여기서 한 박자 쉰다]",
@@ -365,96 +510,102 @@ const NOTES = {
   S6:"결정타는 이겁니다. '한 줄은 대략 일흔다섯 자'라고 적어뒀는데 아무도 재본 적이 없었어요. 실제로 렌더해서 세어 보니 서른다섯 자였습니다. 그 규칙이 넉 달을 살아 있었습니다. [천천히] 틀린 규칙이 아주 성실하게 지켜져서 난 사고입니다.",
   S7:"쌓는 장치 옆에 멈추는 장치를 세 개 붙였습니다. 하나는 근거 등급. 일흔다섯 자가 딱 등급 없는 추측이었어요. 또 하나는 값 드리프트 탐지. 나머지 하나는 정기 통폐합. 다만 자동 병합은 안 합니다 — 내용이 흡수됐는지는 사람이 읽어야 압니다.",
   S8:"그런데 오늘 아침에 이 장치를 점검하다가 하나를 발견했습니다. 일흔 건 중에 예순 건이나 본문이 달랐는데 테스트는 초록이었어요. [자조 섞인 톤] 더 웃긴 게 있습니다. 그 주석에 '재발 방지용'이라고 적혀 있었어요. 정확히 그 규칙에서 재발한 채로요.",
-  S9:"두 가지만 남기고 내려가겠습니다. 축적은 저절로 되지 않습니다. 그리고 검증 장치는 무엇을 검증하지 않는지를 봐야 합니다. 초록불은 통과했다는 뜻이 아니거든요. 본 것만 통과했다는 뜻입니다. 감사합니다."
+  S9:"두 가지만 남기고 내려가겠습니다. 축적은 저절로 되지 않습니다. 그리고 검증 장치는 무엇을 검증하지 않는지를 봐야 합니다. 초록불은 통과했다는 뜻이 아니거든요. 본 것만 통과했다는 뜻입니다. 감사합니다.",
+  S10:"[ACT II — 5분 발표에는 넣지 않는다. 질문이 나오거나 긴 버전을 할 때 쓴다] 위키가 출발점이면서 도착점입니다.",
+  S11:"네 단계는 각각 작업폴더를 인터페이스로 읽고 씁니다. 필요한 구간만 골라 진입할 수 있어요.",
+  S12:"게이트는 전부 선택지 클릭형입니다. 열린 질문을 던지면 사용자가 답을 만들어야 하니까요.",
+  S13:"폴더가 맥락을 기억하기 때문에 세션이 끊겨도 이어집니다.",
+  S14:"실무자에게는 A만 줍니다. 터미널도 git도 몰라도 됩니다.",
+  S15:"조사는 방법을 강제하지 않습니다. 도구가 없어도 파이프라인이 안 멈추는 이유입니다.",
+  S16:"웹앱판은 아무것도 기억하지 못해서, 재배포가 축적을 전달하는 유일한 경로입니다.",
+  S17:"결국 이 질문에 답할 수 있느냐가 보고서의 수명을 정합니다."
 };
-const PARTS = [["1","BUILD"],["2","ACCUMULATE"],["3","COLLAPSE"],["4","GUARD"]];
-// 슬라이드 뒤에 두는 쉼(초) — 연출 노트의 '한 박자'를 시간으로 옮긴 값이다.
-// 숫자 슬라이드(S5·S6·S8)와 승부처(S2)에 더 준다.
+/* 좌측 내비 — 번호는 실제 서사 순서를 뜻한다(장식용 번호가 아니다) */
+const ACTS = {
+  1:{label:"ACT I · 왜", parts:[["1","BUILD"],["2","ACCUMULATE"],["3","COLLAPSE"],["4","GUARD"]]},
+  2:{label:"ACT II · 어떻게", parts:[["5","PIPELINE"],["6","PIECES"],["7","DEPLOY"]]}
+};
+/* 슬라이드 뒤에 두는 쉼(초) — 연출 노트의 '한 박자'를 시간으로 옮긴 값 */
 const PAUSE = {S1:1, S2:3, S3:1.5, S4:1.5, S5:2.5, S6:3.5, S7:1.5, S8:3, S9:2};
+const NARRATED = Object.keys(PAUSE);          // 음성이 있는 슬라이드
 
 const slides = [...document.querySelectorAll(".slide")];
-const stage = document.getElementById("stage");
-const notes = document.getElementById("notes"), notesBody = document.getElementById("notesBody");
-const playBtn = document.getElementById("play"), msg = document.getElementById("msg");
-let i = 0, audio = null;
+const stage = document.getElementById("stage"), notes = document.getElementById("notes");
+const notesBody = document.getElementById("notesBody"), msg = document.getElementById("msg");
+const playBtn = document.getElementById("play"), runBtn = document.getElementById("run");
+const clock = document.getElementById("clock");
+let i = 0, audio = null, running = false, t0 = 0, tick = null, hop = null;
 
-// 좌측 내비를 슬라이드마다 심는다 — 번호는 실제 서사 순서를 뜻한다
+document.getElementById("total").textContent = slides.length;
+
 slides.forEach(s => {
-  const rail = s.querySelector(".rail");
-  if (!rail.children.length) {
-    rail.innerHTML =
-      '<div class="ident">GRAPH ENGINEERING<hr><b>SHEET ' +
-      s.dataset.id.slice(1).padStart(2,"0") + ' / ' + (s.dataset.part ? "BODY" : "OPEN") +
-      '</b></div><ul class="parts"></ul><div class="stamp">REPORT-HARNESS · 2026.08</div>';
-  }
-  const ul = rail.querySelector(".parts");
-  ul.innerHTML = PARTS.map(([n,label]) =>
-    '<li' + (n === s.dataset.part ? " data-on" : "") + '><span>0' + n + '</span>' + label + '</li>'
-  ).join("");
+  const act = ACTS[s.dataset.act];
+  s.querySelector(".rail").innerHTML =
+    '<div class="ident">GRAPH ENGINEERING<hr><b>SHEET ' +
+      String(slides.indexOf(s) + 1).padStart(2,"0") + " / " +
+      (s.dataset.act === "1" ? "TALK" : "SYSTEM") + '</b></div>' +
+    '<div><div class="act">' + act.label + "</div><ul class='parts'>" +
+      act.parts.map(([n,l]) =>
+        "<li" + (n === s.dataset.part ? " data-on" : "") + "><span>0" + n + "</span>" + l + "</li>"
+      ).join("") + "</ul></div>" +
+    '<div class="stamp">REPORT-HARNESS · 2026.08</div>';
 });
+
+/* 숫자 카운트업 — 축적을 이야기하는 슬라이드라 숫자가 쌓이는 게 내용과 맞는다 */
+function countUp(el){
+  const target = +el.dataset.count, dur = 620, t = performance.now();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches){ el.textContent = target; return; }
+  (function step(now){
+    const k = Math.min(1, (now - t) / dur);
+    el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(step);
+  })(t);
+}
 
 function show(n, push){
   i = Math.max(0, Math.min(slides.length - 1, n));
   slides.forEach((s, k) => k === i ? s.setAttribute("data-active","") : s.removeAttribute("data-active"));
   const s = slides[i];
   document.getElementById("pos").textContent = i + 1;
-  document.getElementById("tc").textContent = s.dataset.time;
+  document.getElementById("tc").textContent = s.dataset.time || "ACT II";
   document.getElementById("bar").style.width = ((i + 1) / slides.length * 100) + "%";
   notesBody.textContent = NOTES[s.dataset.id] || "";
-  // 해시로 특정 슬라이드에 바로 들어갈 수 있다 — 리허설에서 한 대목만 반복할 때 쓴다
+  s.querySelectorAll(".flow > *").forEach((el, k) => el.style.animationDelay = (.2 + k * .07) + "s");
+  s.querySelectorAll("[data-count]").forEach(countUp);
   if (push !== false && location.hash.slice(1) !== s.dataset.id){
     history.replaceState(null, "", "#" + s.dataset.id);
   }
   stopAudio();
 }
-
-function fromHash(){
-  const k = slides.findIndex(s => s.dataset.id === location.hash.slice(1));
-  return k < 0 ? 0 : k;
-}
+const fromHash = () => Math.max(0, slides.findIndex(s => s.dataset.id === location.hash.slice(1)));
 
 function stopAudio(){
   if (audio){ audio.pause(); audio = null; }
   playBtn.textContent = "▶ 이 대목 듣기";
-  playBtn.disabled = false;
-  msg.textContent = "";
+  playBtn.disabled = !NARRATED.includes(slides[i].dataset.id);
+  msg.textContent = playBtn.disabled ? "ACT II는 참조 슬라이드라 낭독이 없다" : "";
 }
 
 function toggleAudio(){
   if (audio){ stopAudio(); return; }
   const id = slides[i].dataset.id;
+  if (!NARRATED.includes(id)) return;
   audio = new Audio("audio/" + id + ".wav");
   audio.onended = stopAudio;
-  audio.onerror = () => {
-    audio = null;
-    playBtn.textContent = "▶ 이 대목 듣기";
-    playBtn.disabled = true;
-    // 로컬 폴더에서 열지 않으면 audio/ 를 못 읽는다. 원인을 정확히 알린다.
-    msg.textContent = "audio/" + id + ".wav 를 못 읽었다 — tts_render.py 로 생성한 뒤 이 파일을 로컬에서 열 것";
-  };
-  audio.play().then(() => { playBtn.textContent = "■ 정지"; })
-              .catch(() => {/* onerror 가 처리한다 */});
+  audio.onerror = () => { audio = null; playBtn.disabled = true;
+    msg.textContent = "audio/" + id + ".wav 를 못 읽었다 — tts_render.py 로 생성한 뒤 로컬 서버로 열 것"; };
+  audio.play().then(() => { playBtn.textContent = "■ 정지"; }).catch(() => {});
 }
 
-/* ── 리허설 통주행 ────────────────────────────────────────────
-   대본 음성을 슬라이드 순서대로 이어 재생하고, 끝나면 쉼만큼 기다렸다 넘긴다.
-   HUD 시계가 '실제 경과 / 계획 시각'을 같이 보여주므로 어느 대목에서 밀리는지
-   말로 설명하지 않아도 눈에 보인다. */
-const runBtn = document.getElementById("run"), clock = document.getElementById("clock");
-let running = false, t0 = 0, tick = null, hop = null;
-
+/* ── 리허설 통주행 — ACT I 만 돈다(그게 5분 발표다) ───────── */
 const mmss = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
-const planned = n => {           // n번째 슬라이드의 계획 시작 시각(초)
-  const [m, s] = slides[n].dataset.time.split(":").map(Number);
-  return m * 60 + s;
-};
+const planned = n => { const [m, s] = (slides[n].dataset.time || "0:00").split(":").map(Number);
+                       return m * 60 + s; };
 
 function paintClock(){
-  const el = (Date.now() - t0) / 1000;
-  const drift = Math.round(el - planned(i));
-  const sign = drift > 0 ? "+" : "";
-  clock.textContent = mmss(el) + " / 계획 " + slides[i].dataset.time +
-                      (Math.abs(drift) >= 3 ? "  (" + sign + drift + "s)" : "");
+  const el = (Date.now() - t0) / 1000, drift = Math.round(el - planned(i));
+  clock.textContent = mmss(el) + " / 계획 " + (slides[i].dataset.time || "—") +
+                      (Math.abs(drift) >= 3 ? "  (" + (drift > 0 ? "+" : "") + drift + "s)" : "");
   clock.style.color = drift >= 10 ? "var(--accent)" : "var(--low)";
 }
 
@@ -462,33 +613,31 @@ function runFrom(n){
   if (!running) return;
   show(n);
   const id = slides[n].dataset.id;
+  if (!NARRATED.includes(id)){ stopRun("ACT I 끝 — " + mmss((Date.now() - t0) / 1000)); return; }
   audio = new Audio("audio/" + id + ".wav");
   audio.onended = () => {
     if (!running) return;
-    if (n + 1 >= slides.length){ stopRun("통주행 끝 — " + mmss((Date.now() - t0) / 1000)); return; }
     hop = setTimeout(() => runFrom(n + 1), (PAUSE[id] || 1.5) * 1000);
   };
   audio.onerror = () => stopRun("audio/" + id + ".wav 를 못 읽었다 — tts_render.py 로 생성할 것");
-  audio.play().catch(() => stopRun("브라우저가 재생을 막았다 — 버튼을 한 번 누른 뒤 다시 시도"));
+  audio.play().catch(() => stopRun("브라우저가 재생을 막았다 — 화면을 한 번 클릭한 뒤 다시"));
 }
 
 function startRun(){
   running = true; t0 = Date.now();
   runBtn.textContent = "■ 통주행 정지";
   tick = setInterval(paintClock, 250);
-  runFrom(i);
+  runFrom(NARRATED.includes(slides[i].dataset.id) ? i : 0);
 }
-
 function stopRun(note){
   running = false;
   clearInterval(tick); clearTimeout(hop); tick = hop = null;
   if (audio){ audio.pause(); audio = null; }
   runBtn.textContent = "▶▶ 리허설 통주행";
   playBtn.textContent = "▶ 이 대목 듣기";
-  if (note){ msg.textContent = note; }
+  if (note) msg.textContent = note;
 }
-
-function toggleRun(){ running ? stopRun("") : startRun(); }
+const toggleRun = () => running ? stopRun("") : startRun();
 
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
@@ -504,8 +653,8 @@ addEventListener("keydown", e => {
 playBtn.addEventListener("click", toggleAudio);
 runBtn.addEventListener("click", toggleRun);
 stage.addEventListener("click", e => { if (!e.target.closest("button") && !running) show(i + 1); });
-
 addEventListener("hashchange", () => show(fromHash(), false));
+
 show(fromHash());
 stage.focus();
 </script>
