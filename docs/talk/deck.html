@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자동화는 쉬웠고, 축적이 어려웠다 — report-harness 5분 발표</title>
+<style>
+/* ── 토큰 ───────────────────────────────────────────────────────
+   투사용 덱이라 단일 다크 테마로 확정한다. 뷰어 테마를 따르지 않으므로
+   배경과 모든 색을 명시적으로 칠해 어떤 호스트 위에서도 같게 보이게 한다. */
+:root{
+  --ground:#08090B;
+  --grid:rgba(180,195,255,.035);
+  --grid-strong:rgba(180,195,255,.06);
+  --hi:#F2F4F8;
+  --mid:#9BA3B4;
+  --low:#6A7181;
+  --faint:#3D4453;
+  --accent:#7C8CF8;
+  --accent-soft:rgba(124,140,248,.34);
+  --hair:rgba(226,232,245,.13);
+
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Pretendard","Pretendard Variable","Apple SD Gothic Neo",
+         "Noto Sans KR",system-ui,-apple-system,sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+html,body{height:100%}
+body{
+  background:var(--ground);
+  color:var(--hi);
+  font-family:var(--sans);
+  /* 한글은 어절 단위로 끊어야 읽힌다 — 없으면 '대조/한다'처럼 낱말 가운데서 꺾인다 */
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* ── 스테이지 ──────────────────────────────────────────────────
+   16:9 고정. 모든 치수는 cqw(스테이지 폭 기준)라 창 크기와 무관하게
+   비율이 유지된다 — 프로젝터든 노트북이든 같은 그림이 나온다. */
+.stage{
+  position:relative;
+  width:min(100vw,calc(100vh * 16 / 9));
+  aspect-ratio:16/9;
+  container-type:size;
+  overflow:hidden;
+  background:
+    repeating-linear-gradient(to right,var(--grid) 0 1px,transparent 1px 5.2%),
+    repeating-linear-gradient(to bottom,var(--grid) 0 1px,transparent 1px 9.2%),
+    var(--ground);
+}
+
+.slide{
+  position:absolute;
+  inset:0;
+  display:grid;
+  grid-template-columns:23cqw 1fr;
+  padding:5.4cqw 6cqw 5cqw 4.2cqw;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .28s ease;
+}
+.slide[data-active]{opacity:1;visibility:visible}
+@media (prefers-reduced-motion:reduce){.slide{transition:none}}
+
+/* ── 좌측 크롬 ─────────────────────────────────────────────── */
+.rail{display:flex;flex-direction:column;justify-content:space-between}
+
+.ident{font-family:var(--mono);font-size:1.05cqw;letter-spacing:.19em;color:var(--low)}
+.ident b{display:block;font-weight:400;color:var(--mid)}
+.ident hr{border:0;border-top:1px solid var(--hair);margin:.9cqw 0;width:74%}
+
+.parts{list-style:none;display:flex;flex-direction:column;gap:1.5cqw}
+.parts li{
+  font-family:var(--mono);font-size:1.15cqw;letter-spacing:.17em;
+  color:var(--faint);display:flex;gap:.9cqw;align-items:baseline;
+  padding-left:.9cqw;border-left:1px solid transparent;
+}
+.parts li[data-on]{color:var(--hi);border-left-color:var(--hi)}
+.parts li span{color:inherit;opacity:.55}
+.parts li[data-on] span{opacity:1}
+
+.stamp{font-family:var(--mono);font-size:.95cqw;letter-spacing:.16em;color:var(--faint)}
+
+/* ── 우측 본문 ─────────────────────────────────────────────── */
+.body{display:flex;flex-direction:column;justify-content:center;gap:2.4cqw}
+.slide[data-layout="title"] .body{justify-content:center;gap:1.6cqw}
+
+.eyebrow{
+  font-family:var(--mono);font-size:1.05cqw;letter-spacing:.22em;
+  color:var(--low);text-transform:uppercase;
+}
+h1{
+  font-size:5.4cqw;font-weight:800;letter-spacing:-.018em;line-height:1.14;
+  text-wrap:balance;color:var(--hi);
+}
+h2{
+  font-size:3.5cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
+  text-wrap:balance;color:var(--hi);
+}
+.lede{font-size:1.85cqw;font-weight:400;color:var(--mid);line-height:1.5;max-width:44cqw}
+.note{font-size:1.5cqw;color:var(--low);line-height:1.6;max-width:46cqw}
+.rule{border:0;border-top:1px solid var(--hair);width:100%;max-width:52cqw}
+
+/* 큰 숫자 — 서사의 기둥 3장. 액센트를 여기서 숫자 자신에게 준다. */
+.figure{display:flex;align-items:baseline;gap:2.2cqw;flex-wrap:wrap}
+.num{
+  font-family:var(--mono);font-size:14cqw;line-height:.9;font-weight:500;
+  letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums;
+}
+.num.muted{color:var(--faint)}
+.arrow{font-family:var(--mono);font-size:4.6cqw;color:var(--low);line-height:1}
+/* 넓은 자간은 라틴 전용이다. 한글에 먹이면 어절 사이가 벌어져 늘어져 보인다. */
+.figcap{font-family:var(--sans);font-size:1.2cqw;letter-spacing:.01em;color:var(--low);line-height:1.5}
+
+/* 흐름 다이어그램 — 테두리 1px, 채움 없음(그리드가 비쳐야 도면으로 읽힌다) */
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap}
+.node{
+  border:1px solid var(--hair);border-radius:.55cqw;
+  padding:1.15cqw 1.9cqw;
+  font-family:var(--sans);font-size:1.3cqw;letter-spacing:.01em;color:var(--mid);
+  white-space:nowrap;
+}
+/* 라틴 노드(hwpx 등)만 도면 라벨 투로 되돌린다 */
+.node[data-latin]{font-family:var(--mono);font-size:1.15cqw;letter-spacing:.15em}
+.node[data-hot]{border-color:var(--accent);color:var(--hi);box-shadow:0 0 0 1px var(--accent-soft)}
+.link{width:2.6cqw;height:1px;background:var(--hair);flex:none}
+
+/* 2열 대비 (references / scripts) */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:3.2cqw;max-width:60cqw}
+.col h3{
+  font-family:var(--mono);font-size:1.35cqw;letter-spacing:.13em;
+  color:var(--hi);font-weight:400;margin-bottom:.9cqw;
+}
+.col p{font-size:1.45cqw;color:var(--mid);line-height:1.62}
+.col em{color:var(--low);font-style:normal}
+
+/* 장치 3종 목록 — 번호가 실제 순서를 뜻하지 않으므로 기호를 쓰지 않는다 */
+.devices{list-style:none;display:flex;flex-direction:column;gap:1.7cqw;max-width:56cqw}
+.devices li{display:grid;grid-template-columns:15cqw 1fr;gap:2cqw;align-items:baseline}
+.devices dt{
+  font-family:var(--sans);font-size:1.45cqw;letter-spacing:.01em;
+  color:var(--hi);font-weight:600;
+}
+.devices dd{font-size:1.45cqw;color:var(--mid);line-height:1.55}
+
+.closing{display:flex;flex-direction:column;gap:1.7cqw;max-width:56cqw}
+.closing p{font-size:2.15cqw;line-height:1.45;color:var(--hi);font-weight:500}
+.closing p.sub{font-size:1.6cqw;color:var(--mid);font-weight:400}
+.closing strong{color:var(--accent);font-weight:500}
+.repo{font-family:var(--mono);font-size:1cqw;letter-spacing:.14em;color:var(--faint)}
+
+/* ── HUD (발표자용, 화면 밖 판단 재료) ─────────────────────── */
+.hud{
+  position:fixed;left:0;right:0;bottom:0;
+  display:flex;align-items:center;gap:1.4rem;
+  padding:.6rem 1rem;
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;
+  color:var(--low);background:rgba(8,9,11,.92);
+  border-top:1px solid var(--hair);
+}
+.hud .grow{flex:1}
+.hud b{color:var(--mid);font-weight:400}
+.hud button{
+  font:inherit;letter-spacing:inherit;color:var(--mid);
+  background:transparent;border:1px solid var(--hair);border-radius:3px;
+  padding:.3rem .7rem;cursor:pointer;
+}
+.hud button:hover:not(:disabled){color:var(--hi);border-color:var(--accent)}
+.hud button:disabled{color:var(--faint);cursor:not-allowed}
+.hud button:focus-visible,.stage:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar{position:fixed;left:0;top:0;height:2px;background:var(--accent);transition:width .28s ease}
+@media (prefers-reduced-motion:reduce){.bar{transition:none}}
+
+.notes{
+  position:fixed;left:0;right:0;bottom:2.4rem;
+  max-height:38vh;overflow-y:auto;
+  padding:1rem 1.2rem;
+  background:rgba(8,9,11,.97);border-top:1px solid var(--hair);
+  font-size:.95rem;line-height:1.7;color:var(--mid);
+}
+.notes[hidden]{display:none}
+.notes b{display:block;font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;
+  color:var(--low);margin-bottom:.5rem;font-weight:400}
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar" style="width:0"></div>
+
+<main class="stage" id="stage" tabindex="0" aria-label="발표 슬라이드">
+
+  <!-- S1 ─ 타이틀 -->
+  <section class="slide" data-layout="title" data-id="S1" data-time="0:00" data-part="">
+    <div class="rail">
+      <div class="ident">GRAPH ENGINEERING<hr><b>SHEET 01 / OPEN</b></div>
+      <ul class="parts"></ul>
+      <div class="stamp">REPORT-HARNESS · 2026.08</div>
+    </div>
+    <div class="body">
+      <p class="eyebrow">The hard part wasn't automation</p>
+      <h1>자동화는 쉬웠고,<br>축적이 어려웠다</h1>
+      <p class="lede">보고서 하네스를 만들며 틀린 것</p>
+    </div>
+  </section>
+
+  <!-- S2 ─ 만든 것 -->
+  <section class="slide" data-id="S2" data-time="0:12" data-part="1">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">What I built</p>
+      <h2>네 단계, 게이트 세 번</h2>
+      <div class="flow">
+        <div class="node">조사</div><div class="link"></div>
+        <div class="node">분석</div><div class="link"></div>
+        <div class="node">초안</div><div class="link"></div>
+        <div class="node" data-latin>hwpx</div>
+      </div>
+      <p class="note">개조식으로 쓰고 한글 파일로 나간다. 사람이 끼어드는 건 세 번.</p>
+    </div>
+  </section>
+
+  <!-- S3 ─ 판단/실행 분리 -->
+  <section class="slide" data-id="S3" data-time="0:40" data-part="1">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">The easy half</p>
+      <h2>판단은 문서로, 실행은 스크립트로</h2>
+      <div class="split">
+        <div class="col">
+          <h3>references/</h3>
+          <p>LLM이 읽고 판단하는 기준<br><em>문체 관례 · 양식 프로파일</em></p>
+        </div>
+        <div class="col">
+          <h3>scripts/</h3>
+          <p>판단이 끼어들면 안 되는 일<br><em>글머리 간격 · 서체 크기 · 표 폭</em></p>
+        </div>
+      </div>
+      <p class="note">매번 똑같아야 하는 건 전부 스크립트로 내렸다. LLM한테 맡기면 매번 조금씩 달라진다.</p>
+    </div>
+  </section>
+
+  <!-- S4 ─ 복리 루프 -->
+  <section class="slide" data-id="S4" data-time="1:18" data-part="2">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">Compounding</p>
+      <h2>같은 지적을 두 번 받으면 규칙이 된다</h2>
+      <div class="flow">
+        <div class="node">게이트 피드백</div><div class="link"></div>
+        <div class="node">lessons 1줄</div><div class="link"></div>
+        <div class="node">2회 반복</div><div class="link"></div>
+        <div class="node" data-hot>규칙 승격</div><div class="link"></div>
+        <div class="node">다음 건부터 자동</div>
+      </div>
+      <p class="note">잘 돌았다.</p>
+    </div>
+  </section>
+
+  <!-- S5 ─ 43 -->
+  <section class="slide" data-id="S5" data-time="1:42" data-part="2">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">Two months later</p>
+      <div class="figure">
+        <span class="num">43</span>
+        <span class="figcap">규칙 건수 / 두 달</span>
+      </div>
+      <hr class="rule">
+      <p class="lede">길어서 안 읽힌다 → 안 지켜진다 → 같은 실수가 또 박제된다</p>
+    </div>
+  </section>
+
+  <!-- S6 ─ 75 → 35 -->
+  <section class="slide" data-id="S6" data-time="2:01" data-part="3">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">The rule nobody measured</p>
+      <div class="figure">
+        <span class="num muted">75</span>
+        <span class="arrow">→</span>
+        <span class="num">35</span>
+        <span class="figcap">1줄 자수 · 추정 → 실측</span>
+      </div>
+      <hr class="rule">
+      <p class="lede">넉 달 · 전 문서 3~4줄로 늘어짐 · 쪽수 2배</p>
+      <p class="note">규칙이 안 지켜져서 난 사고가 아니다. <strong style="color:var(--hi);font-weight:500">틀린 규칙이 아주 성실하게 지켜져서</strong> 난 사고다.</p>
+    </div>
+  </section>
+
+  <!-- S7 ─ 멈추는 장치 셋 -->
+  <section class="slide" data-id="S7" data-time="2:43" data-part="4">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">Brakes, not just an engine</p>
+      <h2>멈추는 장치 셋</h2>
+      <dl class="devices">
+        <li><dt>근거 등급</dt><dd>실측 / 추론 / 관례 — 등급이 없으면 승격 자체가 안 된다</dd></li>
+        <li><dt>드리프트 탐지</dt><dd>같은 값이 8곳까지 복제된다. 단일 출처와 코드 상수를 테스트가 대조한다</dd></li>
+        <li><dt>정기 통폐합</dt><dd>지난 통합 이후 10건이 늘면 테스트가 실패한다. 자동 병합은 하지 않는다</dd></li>
+      </dl>
+    </div>
+  </section>
+
+  <!-- S8 ─ 가드도 거짓말한다 -->
+  <section class="slide" data-id="S8" data-time="3:46" data-part="4">
+    <div class="rail"></div>
+    <div class="body">
+      <p class="eyebrow">This morning</p>
+      <div class="figure">
+        <span class="num">60</span>
+        <span class="figcap">/ 70건 본문 불일치<br>그런데 테스트는 초록</span>
+      </div>
+      <hr class="rule">
+      <p class="note">가드가 규칙 번호만 맞춰 보고 본문은 아예 안 봤다.
+      그 테스트 주석에는 이렇게 적혀 있었다 — "배포본을 놓칠 뻔한 사고의 재발 방지용."</p>
+    </div>
+  </section>
+
+  <!-- S9 ─ 마무리 -->
+  <section class="slide" data-id="S9" data-time="4:23" data-part="">
+    <div class="rail">
+      <div class="ident">GRAPH ENGINEERING<hr><b>SHEET 09 / CLOSE</b></div>
+      <ul class="parts"></ul>
+      <div class="stamp">REPORT-HARNESS · 2026.08</div>
+    </div>
+    <div class="body">
+      <div class="closing">
+        <p>축적은 저절로 되지 않는다.<br>쌓는 장치를 만들었으면 <strong>멈추는 장치</strong>도 같이 설계한다.</p>
+        <hr class="rule">
+        <p class="sub">검증 장치는 무엇을 검증하는지보다 무엇을 검증하지 <strong>않는지</strong>를 봐야 한다.<br>
+        초록불은 통과했다는 뜻이 아니라, 본 것만 통과했다는 뜻이다.</p>
+        <p class="repo">github.com/kca-deep/report-harness</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="notes" id="notes" hidden><b>발표자 노트</b><span id="notesBody"></span></div>
+
+<footer class="hud">
+  <span><b id="pos">1</b> / 9</span>
+  <span id="tc">0:00</span>
+  <button id="play" type="button">▶ 이 대목 듣기</button>
+  <span class="grow" id="msg"></span>
+  <span>← → 이동 · N 노트 · P 재생</span>
+</footer>
+
+<script>
+// 대본 — TTS 렌더와 같은 원본에서 옮겨 적었다. 화면에는 안 나오고 노트·리허설용이다.
+const NOTES = {
+  S1:"보고서 쓰는 일을 자동화하는 하네스를 만들었습니다. 오늘 할 이야기는 그게 어떻게 도는지가 아닙니다. 만들면서 제가 뭘 틀렸는지입니다.",
+  S2:"기관 보고서는 개조식으로 쓰고 한글 파일로 나가야 합니다. 조사부터 초안, 한글 변환까지 네 단계를 붙였고 사람이 끼어드는 건 세 번입니다. 여기까지는 상상하시는 그대로예요. 별로 안 어려웠습니다. — 어려웠던 건 그 다음이었습니다. 쓸수록 좋아지게 만드는 쪽이요. [여기서 한 박자 쉰다]",
+  S3:"원칙은 하나로 잡았습니다. 판단은 문서로, 실행은 스크립트로. references 폴더에는 LLM이 읽고 판단할 기준을 둡니다. scripts 폴더는 반대입니다. 매번 똑같아야 하는 건 전부 스크립트로 내렸어요. 여기까지는 잘 먹혔습니다. 여러분도 이미 하고 계실 거고요.",
+  S4:"그래서 한 발 더 나갔습니다. 매번 같은 지적을 받는 게 아까웠거든요. 피드백을 한 줄씩 쌓아 두고 두 번 넘게 반복되면 규칙으로 승격시켰습니다. 잘 돌았어요. 두 달 만에 마흔세 건이 쌓였습니다.",
+  S5:"그리고 여기서부터 망가지기 시작했습니다. 마흔세 건쯤 되니까 길어서 안 읽힙니다. 안 읽히니까 안 지켜집니다. 안 지켜지니까 같은 실수가 또 나고 또 규칙으로 박제됩니다. 쌓는 장치가 자기 발등을 찍은 거죠.",
+  S6:"결정타는 이겁니다. '한 줄은 대략 일흔다섯 자'라고 적어뒀는데 아무도 재본 적이 없었어요. 실제로 렌더해서 세어 보니 서른다섯 자였습니다. 그 규칙이 넉 달을 살아 있었습니다. [천천히] 틀린 규칙이 아주 성실하게 지켜져서 난 사고입니다.",
+  S7:"쌓는 장치 옆에 멈추는 장치를 세 개 붙였습니다. 하나는 근거 등급. 일흔다섯 자가 딱 등급 없는 추측이었어요. 또 하나는 값 드리프트 탐지. 나머지 하나는 정기 통폐합. 다만 자동 병합은 안 합니다 — 내용이 흡수됐는지는 사람이 읽어야 압니다.",
+  S8:"그런데 오늘 아침에 이 장치를 점검하다가 하나를 발견했습니다. 일흔 건 중에 예순 건이나 본문이 달랐는데 테스트는 초록이었어요. [자조 섞인 톤] 더 웃긴 게 있습니다. 그 주석에 '재발 방지용'이라고 적혀 있었어요. 정확히 그 규칙에서 재발한 채로요.",
+  S9:"두 가지만 남기고 내려가겠습니다. 축적은 저절로 되지 않습니다. 그리고 검증 장치는 무엇을 검증하지 않는지를 봐야 합니다. 초록불은 통과했다는 뜻이 아니거든요. 본 것만 통과했다는 뜻입니다. 감사합니다."
+};
+const PARTS = [["1","BUILD"],["2","ACCUMULATE"],["3","COLLAPSE"],["4","GUARD"]];
+
+const slides = [...document.querySelectorAll(".slide")];
+const stage = document.getElementById("stage");
+const notes = document.getElementById("notes"), notesBody = document.getElementById("notesBody");
+const playBtn = document.getElementById("play"), msg = document.getElementById("msg");
+let i = 0, audio = null;
+
+// 좌측 내비를 슬라이드마다 심는다 — 번호는 실제 서사 순서를 뜻한다
+slides.forEach(s => {
+  const rail = s.querySelector(".rail");
+  if (!rail.children.length) {
+    rail.innerHTML =
+      '<div class="ident">GRAPH ENGINEERING<hr><b>SHEET ' +
+      s.dataset.id.slice(1).padStart(2,"0") + ' / ' + (s.dataset.part ? "BODY" : "OPEN") +
+      '</b></div><ul class="parts"></ul><div class="stamp">REPORT-HARNESS · 2026.08</div>';
+  }
+  const ul = rail.querySelector(".parts");
+  ul.innerHTML = PARTS.map(([n,label]) =>
+    '<li' + (n === s.dataset.part ? " data-on" : "") + '><span>0' + n + '</span>' + label + '</li>'
+  ).join("");
+});
+
+function show(n, push){
+  i = Math.max(0, Math.min(slides.length - 1, n));
+  slides.forEach((s, k) => k === i ? s.setAttribute("data-active","") : s.removeAttribute("data-active"));
+  const s = slides[i];
+  document.getElementById("pos").textContent = i + 1;
+  document.getElementById("tc").textContent = s.dataset.time;
+  document.getElementById("bar").style.width = ((i + 1) / slides.length * 100) + "%";
+  notesBody.textContent = NOTES[s.dataset.id] || "";
+  // 해시로 특정 슬라이드에 바로 들어갈 수 있다 — 리허설에서 한 대목만 반복할 때 쓴다
+  if (push !== false && location.hash.slice(1) !== s.dataset.id){
+    history.replaceState(null, "", "#" + s.dataset.id);
+  }
+  stopAudio();
+}
+
+function fromHash(){
+  const k = slides.findIndex(s => s.dataset.id === location.hash.slice(1));
+  return k < 0 ? 0 : k;
+}
+
+function stopAudio(){
+  if (audio){ audio.pause(); audio = null; }
+  playBtn.textContent = "▶ 이 대목 듣기";
+  playBtn.disabled = false;
+  msg.textContent = "";
+}
+
+function toggleAudio(){
+  if (audio){ stopAudio(); return; }
+  const id = slides[i].dataset.id;
+  audio = new Audio("audio/" + id + ".wav");
+  audio.onended = stopAudio;
+  audio.onerror = () => {
+    audio = null;
+    playBtn.textContent = "▶ 이 대목 듣기";
+    playBtn.disabled = true;
+    // 로컬 폴더에서 열지 않으면 audio/ 를 못 읽는다. 원인을 정확히 알린다.
+    msg.textContent = "audio/" + id + ".wav 를 못 읽었다 — tts_render.py 로 생성한 뒤 이 파일을 로컬에서 열 것";
+  };
+  audio.play().then(() => { playBtn.textContent = "■ 정지"; })
+              .catch(() => {/* onerror 가 처리한다 */});
+}
+
+addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown"){ e.preventDefault(); show(i + 1); }
+  else if (e.key === "ArrowLeft" || e.key === "PageUp"){ e.preventDefault(); show(i - 1); }
+  else if (e.key === "Home"){ show(0); }
+  else if (e.key === "End"){ show(slides.length - 1); }
+  else if (e.key.toLowerCase() === "n"){ notes.hidden = !notes.hidden; }
+  else if (e.key.toLowerCase() === "p"){ toggleAudio(); }
+});
+playBtn.addEventListener("click", toggleAudio);
+stage.addEventListener("click", e => { if (!e.target.closest("button")) show(i + 1); });
+
+addEventListener("hashchange", () => show(fromHash(), false));
+show(fromHash());
+stage.focus();
+</script>
+</body>
+</html>
