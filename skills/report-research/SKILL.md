@@ -28,7 +28,9 @@ description: "기관보고서 작성을 위한 자료조사 스킬 — 조사 '�
 
 ### 2-1. 작업폴더 확보
 
-작업폴더는 `python3 skills/report-pipeline/scripts/harness_config.py`로 설정을 로드해 정한다.
+작업폴더는 `python3 "$SKILL_DIR/../report-pipeline/scripts/harness_config.py"`로 설정을 로드해
+정한다(`SKILL_DIR` = 이 SKILL.md가 있는 디렉토리 — report-pipeline은 같은 플러그인의 형제
+스킬이다. 형제가 없으면 기본 경로 `report/` 규약으로 대체).
 출력 JSON의 `reports_dir`(null이면 `{cwd}/reports`)을 기준으로
 `{reports_dir}/{YYYYMMDD}/{HHMM}_{건명슬러그}/`가 이번 건의 작업폴더다. 이미 진행 중인 건이면
 새 폴더를 만들지 말고 그 폴더를 계속 쓴다(폴더가 맥락을 기억하는 매개).
@@ -177,7 +179,7 @@ claudian vault의 거버넌스(스테이징 → 검토·승인 통과분만 적�
    같은 줄에 **"vault 적재 후보 N건"**을 덧붙인다(§4 — 적재는 사용자 승인 후에만 실행,
    이 보고는 후보 존재를 알리는 것뿐이다). 예:
    `"조사 3단위 팬아웃 완료 — research/fetched/ 3폴더, vault 적재 후보 3건"`.
-2. **lessons 기록**: `python3 skills/report-pipeline/scripts/harness_config.py` 출력의
+2. **lessons 기록**: `python3 "$SKILL_DIR/../report-pipeline/scripts/harness_config.py"` 출력의
    `state_dir` 아래 `lessons.jsonl`에, 이번 조사 단계에서 발생한 특이사항(도구 미설치로 대체,
    교차검증 실패, 15분 초과, manifest 계약 위반 발견 등)을 `gate:"research"`로 1줄
    append한다(`gate`는 `research|analyze|outline|draft|factcheck|convert` 6값 enum 중 하나 —

@@ -14,7 +14,11 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
 
 ## 0. 공통 준비 — 모든 요청에서 가장 먼저 실행
 
-1. `python3 skills/report-pipeline/scripts/harness_config.py` 실행 → `reports_dir`·
+경로 규약: `SKILL_DIR` = **이 SKILL.md가 있는 디렉토리**. 이하 모든 스크립트 호출은
+`"$SKILL_DIR/scripts/…"` 형태다 — 저장소 상대경로를 쓰면 플러그인 설치 환경(cwd가 사용자
+프로젝트)에서 전부 깨진다.
+
+1. `python3 "$SKILL_DIR/scripts/harness_config.py"` 실행 → `reports_dir`·
    `state_dir`·`knowledge_vault`·`template_hwpx` 확보.
 2. **작업폴더 판정**:
    - 새 건이면 `harness_config.work_dir(config, slug)`로 `{reports_dir}/{YYYYMMDD}/{HHMM}_{슬러그}/`
@@ -25,8 +29,8 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
      0건이면 새 건으로 취급한다.
 3. `{work_dir}/00_context.md`가 없으면 생성, 있으면 이번 요청 내용으로 갱신(요구사항·이번
    세션에서 결정된 사항 append).
-4. `state_dir`에 `rules.md`가 없으면 `skills/report-pipeline/references/rules-seed.md`를
-   그대로 복사해 첫 실행 시드로 삼는다(있으면 손대지 않는다).
+4. `state_dir`에 `rules.md`가 없으면 `"$SKILL_DIR/references/rules-seed.md"`를 그대로 복사해
+   첫 실행 시드로 삼고, `rules-history.md`도 같은 방식으로 시드한다(있으면 손대지 않는다).
 5. 지금부터 실행할 단계의 태그(`[research]`/`[analyze]`/`[draft]`/`[export]`)에 해당하는
    규칙만 프리플라이트에 반영한다. 규칙은 1줄 1건이므로 파일 전체를 읽지 말고 태그로 거른다:
 
@@ -171,7 +175,7 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 ### 결정론 lint (shift-left)
 
 ```
-python3 skills/report-pipeline/scripts/lint_md_profile.py {work_dir}/20_draft.md
+python3 "$SKILL_DIR/scripts/lint_md_profile.py" {work_dir}/20_draft.md
 ```
 
 exit 1(위반 있음)이면 위반 목록으로 즉시 수정 후 재실행 — 통과할 때까지 사용자에게 보이지
@@ -200,7 +204,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 
 1. **전체 승인 + 팩트체크**: 전수 / 경량(기본값) / 생략 중 택1.
    - 전수: 독립 서브에이전트가 `factcheck.md` §A 절차로 전수 검증 → `35_factcheck.md`.
-   - 경량(기본): `python3 skills/report-pipeline/scripts/validate_hwpx.py numbers
+   - 경량(기본): `python3 "$SKILL_DIR/scripts/validate_hwpx.py" numbers
      {work_dir}/20_draft.md {work_dir}/research` 실행(에이전트 0개, 초 단위) — 근거 없는
      수치(`numbers-unsourced`)만 보고, 발견 시 해당 수치 출처 확인 후 수정 또는 [추정] 태깅.
    - 생략: 미검증 사실이 남을 수 있음을 인도 시 1줄 고지.
@@ -224,7 +228,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 
 1. **팩트체크(게이트②에서 선택된 값대로) ∥ 회귀검사(`rules.md` `[export]` 태그 +
    `md-profile.md`)를 한 메시지 다중 Agent로 동시 스폰**한다. 전수는 독립 서브에이전트가
-   `factcheck.md` §A 절차로 검증하고, 경량은 `python3 skills/report-pipeline/scripts/validate_hwpx.py
+   `factcheck.md` §A 절차로 검증하고, 경량은 `python3 "$SKILL_DIR/scripts/validate_hwpx.py"
    numbers {work_dir}/20_draft.md {work_dir}/research`를 실행해 근거 없는 수치
    (`numbers-unsourced`)만 보고, 발견 시 해당 수치 출처 확인 후 수정 또는 [추정] 태깅한다
    (에이전트 스폰 불필요). 생략이면 이 항목은 건너뛴다. 팩트체크가 전수로 선택됐는데
@@ -246,7 +250,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
    이 스크립트가 hwpx XML을 직접 고쳐야 적용된다. **이 호출을 건너뛰면 규칙 위반본이 인도된다.**
 
    ```
-   python3 skills/report-pipeline/scripts/postprocess_hwpx.py \
+   python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
        {work_dir}/final/{제목}.hwpx --all
    ```
 

@@ -25,8 +25,18 @@ RULE = re.compile(r"^- (R\d+) ((?:\[[a-z]+\])+) (.*)$", re.M)
 HEAD = re.compile(r"^- (R\d+) (?:\[[a-z]+\])+", re.M)
 MARKER = re.compile(r"<!--\s*consolidated-at:\s*(R\d+)\s*-->")
 GROWTH_LIMIT = 10          # 마지막 통합 이후 이만큼 늘면 통합 요구
-ROOT = pathlib.Path(__file__).resolve().parents[3]
-DEFAULT = ROOT / "report/_harness/rules.md"
+
+
+def default_rules_path():
+    """설정 규약(harness_config.state_paths)의 운영 rules.md — 없으면 배포 시드.
+
+    종전에는 저장소 상대 경로가 하드코딩돼 플러그인·수동 설치 환경에서 존재하지 않는
+    경로를 가리켰다."""
+    here = pathlib.Path(__file__).resolve().parent
+    sys.path.insert(0, str(here))
+    from harness_config import load_config, state_paths
+    rules = state_paths(load_config())["rules"]
+    return rules if rules.is_file() else here.parent / "references" / "rules-seed.md"
 
 
 def analyze(path):
@@ -115,5 +125,5 @@ def mark(path):
 if __name__ == "__main__":
     args = sys.argv[1:]
     mode = args[0] if args else "--check"
-    target = args[1] if len(args) > 1 else DEFAULT
+    target = args[1] if len(args) > 1 else default_rules_path()
     sys.exit(mark(target) if mode == "--mark" else check(target))

@@ -7,7 +7,7 @@ description: 하네스 자가진단 — 실행 환경·스크립트·규약·인
 ## 1. 환경 진단 (스크립트)
 
 ```
-python3 skills/report-pipeline/scripts/doctor.py
+python3 "${CLAUDE_PLUGIN_ROOT:-.}/skills/report-pipeline/scripts/doctor.py"
 ```
 
 종료 코드 — `0` 이상 없음 / `1` 경고(동작은 함) / `2` 치명(파이프라인 불가).
