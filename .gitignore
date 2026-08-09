@@ -13,3 +13,7 @@ docs/analysis/
 # public 배포 레포에 절대 올리지 않는다. form/ 제외와 같은 사유다.
 # 하네스 코드는 이 폴더에 의존하지 않는다(경로는 ~/.claude/report-harness.json 설정 주입).
 report/
+
+# 빌드 산출물 — zip 바이트가 빌드마다 달라 git 이력에 쌓이면 안 된다.
+# 배포는 scripts/build_webapp_skill.py로 재빌드해 전달한다 (docs/install-webapp.md).
+dist/
