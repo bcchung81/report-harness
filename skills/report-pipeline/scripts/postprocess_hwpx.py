@@ -2255,6 +2255,104 @@ def canonicalize_package(data):
     return sorted(data, key=_pkg_order_key), summary
 
 
+# ---- process_file 스테이지 테이블 ------------------------------------------
+# 항목: (요약 키, 게이트, 실행, 대상 발견 판정, 변경 판정). 나열 순서가 곧 실행 순서다.
+# 순서 제약(어기면 결과가 달라진다):
+#   · caption_embed → spacing (R034: 캡션 문단이 hp:caption으로 사라지면
+#     X→caption·caption→table 전환이 X→table 전환으로 바뀐다)
+#   · zero 게이트 그룹은 spacing 뒤 (R014: 콘텐츠 paraPr 여백 0화로 스페이서 단독 체계 유지)
+#   · always 게이트 4종은 플래그 무관 상시 적용 (R036·R042 표 폭 정합 등)
+# 판정이 None이면 그 축(found/changed)에 세지 않는다 — effective_gaps·layout은 보고 전용.
+_never = None
+
+
+def _banner_effect(r):
+    geo = r.get("geometry") or {}
+    return bool(r.get("injected") or geo.get("linespacing_fixed") or geo.get("textwidth_fixed"))
+
+
+STAGES = (
+    ("star_footnote", "star",
+     lambda c: apply_star_footnote(c["header"], c["secs"]),
+     lambda r: r["stars_found"] > 0, lambda r: r["runs_changed"] > 0),
+    ("caption_embed", "spacing",
+     lambda c: apply_caption_embed(c["header"], c["secs"]),
+     lambda r: r["embedded"] > 0, lambda r: r["embedded"] > 0),
+    ("spacing", "spacing",
+     lambda c: {k: v for k, v in apply_spacing(c["header"], c["secs"]).items()
+                if k in ("inserted", "modified", "events")},
+     lambda r: bool(r["events"]), lambda r: bool(r["events"])),
+    ("zero_margins", "zero",
+     lambda c: apply_zero_margins(c["header"], c["secs"]),
+     lambda r: r["count"] > 0, lambda r: r["count"] > 0),
+    ("effective_gaps", "zero",
+     lambda c: effective_gaps(c["header"], c["secs"]), _never, _never),
+    ("table_alignment", "zero",
+     lambda c: apply_table_alignment(c["header"], c["secs"]),
+     lambda r: any(r["aligned"].values()), lambda r: any(r["aligned"].values())),
+    ("space_hierarchy", "zero",
+     lambda c: apply_space_hierarchy(c["header"], c["secs"]),
+     lambda r: bool(r["prefixed"] or r["flattened"]),
+     lambda r: bool(r["prefixed"] or r["flattened"])),
+    ("body_justify", "zero",
+     lambda c: apply_body_justify(c["header"], c["secs"]),
+     lambda r: r["found"] > 0, lambda r: r["changed"] > 0),
+    ("highlight", "zero",
+     lambda c: apply_highlight(c["header"], c["secs"]),
+     lambda r: r["highlights"] > 0, lambda r: r["highlights"] > 0),
+    ("paren_small", "zero",
+     lambda c: apply_paren_small(c["header"], c["secs"]),
+     lambda r: r["paren_spans"] > 0, lambda r: r["paren_spans"] > 0),
+    ("superscript_star", "zero",
+     lambda c: apply_superscript_star(c["header"], c["secs"]),
+     lambda r: r["stars_superscripted"] > 0, lambda r: r["stars_superscripted"] > 0),
+    ("page_margins", "zero",
+     lambda c: apply_page_margins(c["secs"]),
+     lambda r: bool(r["attrs_changed"]), lambda r: bool(r["attrs_changed"])),
+    ("center_cells", "zero",
+     lambda c: apply_center_cell_text(c["header"], c["secs"]),
+     lambda r: r["tables"] > 0, lambda r: r["paragraphs"] > 0),
+    ("title_box", "zero",
+     lambda c: apply_title_box_borderless(c["header"], c["secs"]),
+     lambda r: bool(r["found"]), lambda r: r["fills_replaced"] > 0),
+    ("title_box_topgap", "zero",
+     lambda c: apply_title_box_topgap(c["header"], c["secs"]),
+     lambda r: bool(r["anchors_fixed"] or r["outmargins_fixed"]),
+     lambda r: bool(r["anchors_fixed"] or r["outmargins_fixed"])),
+    ("caption_table_font", "zero",
+     lambda c: apply_caption_table_font(c["header"], c["secs"]),
+     lambda r: bool(r["caption_runs_changed"] or r["cell_runs_changed"]),
+     lambda r: bool(r["caption_runs_changed"] or r["cell_runs_changed"])),
+    ("dae_bold", "zero",
+     lambda c: apply_dae_bold(c["header"], c["secs"]),
+     lambda r: r["dae_found"] > 0, lambda r: r["runs_changed"] > 0),
+    ("annex_banner", "zero",
+     lambda c: apply_annex_banner(c["header"], c["secs"]),
+     lambda r: r["banners"] > 0,
+     lambda r: r["cell_runs_changed"] > 0 or r["title_justified"] > 0),
+    ("sender_size", "sender",
+     lambda c: apply_sender_size(c["header"], c["secs"], c["sender_size"]),
+     lambda r: r["sending_found"] > 0, lambda r: r["runs_changed"] > 0),
+    ("header_banner", "banner",
+     lambda c: apply_header_banner(c["header"], c["secs"], c["data"]),
+     _banner_effect, _banner_effect),
+    ("table_pagination", "always",
+     lambda c: apply_table_pagination(c["secs"]),
+     _never, lambda r: r["attrs_fixed"] > 0),
+    ("formula_box", "always",
+     lambda c: apply_formula_box(c["header"], c["secs"]),
+     _never, lambda r: r["formula_boxes"] > 0),
+    ("line_fit", "always",
+     lambda c: apply_line_fit(c["header"], c["secs"]),
+     _never, lambda r: r["fitted"] > 0),
+    ("layout", "always",
+     lambda c: estimate_layout(c["header"], c["secs"]), _never, _never),
+    ("fit_page_width", "always",
+     lambda c: apply_fit_page_width(c["secs"]),
+     lambda r: bool(r.get("tables_fitted")), lambda r: bool(r.get("tables_fitted"))),
+)
+
+
 def process_file(path, star=False, spacing=False, sender_size=None,
                  header_banner=False):
     if not (star or spacing or sender_size is not None
@@ -2275,156 +2373,26 @@ def process_file(path, star=False, spacing=False, sender_size=None,
     any_change = False
     any_target_found = False
 
-    zero = spacing  # 스페이서 방식은 여백 0화와 한 몸 (원본 양식 정합)
+    gates = {
+        "star": star,
+        "spacing": spacing,
+        "zero": spacing,   # 스페이서 방식은 여백 0화와 한 몸 (원본 양식 정합)
+        "sender": sender_size is not None,
+        "banner": header_banner,
+        "always": True,
+    }
+    ctx = {"header": header_root, "secs": list(section_roots.values()),
+           "data": data, "sender_size": sender_size}
 
-    if star:
-        r = apply_star_footnote(header_root, list(section_roots.values()))
-        summary["star_footnote"] = r
-        if r["stars_found"] > 0:
+    for key, gate, run, found, changed in STAGES:
+        if not gates[gate]:
+            continue
+        r = run(ctx)
+        summary[key] = r
+        if found is not None and found(r):
             any_target_found = True
-        if r["runs_changed"] > 0:
+        if changed is not None and changed(r):
             any_change = True
-
-    if spacing:
-        # 캡션 내장(R034)은 스페이서 계산 전에 수행 — 캡션 문단이 사라지면
-        # X→caption·caption→table 전환이 X→table 전환으로 바뀐다
-        cer = apply_caption_embed(header_root, list(section_roots.values()))
-        summary["caption_embed"] = cer
-        if cer["embedded"] > 0:
-            any_target_found = True
-            any_change = True
-
-        r = apply_spacing(header_root, list(section_roots.values()))
-        summary["spacing"] = {"inserted": r["inserted"], "modified": r["modified"],
-                               "events": r["events"]}
-        if r["events"]:
-            any_target_found = True
-            any_change = True
-
-    if zero:
-        zr = apply_zero_margins(header_root, list(section_roots.values()))
-        summary["zero_margins"] = zr
-        if zr["count"] > 0:
-            any_target_found = True
-            any_change = True
-        summary["effective_gaps"] = effective_gaps(header_root, list(section_roots.values()))
-        cr = apply_table_alignment(header_root, list(section_roots.values()))
-        summary["table_alignment"] = cr
-        if any(cr["aligned"].values()):
-            any_target_found = True
-            any_change = True
-        sh = apply_space_hierarchy(header_root, list(section_roots.values()))
-        summary["space_hierarchy"] = sh
-        if sh["prefixed"] or sh["flattened"]:
-            any_target_found = True
-            any_change = True
-        bj = apply_body_justify(header_root, list(section_roots.values()))
-        summary["body_justify"] = bj
-        if bj["found"] > 0:
-            any_target_found = True
-        if bj["changed"] > 0:
-            any_change = True
-        hl = apply_highlight(header_root, list(section_roots.values()))
-        summary["highlight"] = hl
-        if hl["highlights"] > 0:
-            any_target_found = True
-            any_change = True
-        ps = apply_paren_small(header_root, list(section_roots.values()))
-        summary["paren_small"] = ps
-        if ps["paren_spans"] > 0:
-            any_target_found = True
-            any_change = True
-        ss = apply_superscript_star(header_root, list(section_roots.values()))
-        summary["superscript_star"] = ss
-        if ss["stars_superscripted"] > 0:
-            any_target_found = True
-            any_change = True
-        pm = apply_page_margins(list(section_roots.values()))
-        summary["page_margins"] = pm
-        if pm["attrs_changed"]:
-            any_target_found = True
-            any_change = True
-
-        ccr = apply_center_cell_text(header_root, list(section_roots.values()))
-        summary["center_cells"] = ccr
-        if ccr["tables"] > 0:
-            any_target_found = True
-        if ccr["paragraphs"] > 0:
-            any_change = True
-
-        tbr = apply_title_box_borderless(header_root, list(section_roots.values()))
-        summary["title_box"] = tbr
-        if tbr["found"]:
-            any_target_found = True
-        if tbr["fills_replaced"] > 0:
-            any_change = True
-
-        tgr = apply_title_box_topgap(header_root, list(section_roots.values()))
-        summary["title_box_topgap"] = tgr
-        if tgr["anchors_fixed"] or tgr["outmargins_fixed"]:
-            any_target_found = True
-            any_change = True
-
-        cfr = apply_caption_table_font(header_root, list(section_roots.values()))
-        summary["caption_table_font"] = cfr
-        if cfr["caption_runs_changed"] or cfr["cell_runs_changed"]:
-            any_target_found = True
-            any_change = True
-
-        dbr = apply_dae_bold(header_root, list(section_roots.values()))
-        summary["dae_bold"] = dbr
-        if dbr["dae_found"] > 0:
-            any_target_found = True
-        if dbr["runs_changed"] > 0:
-            any_change = True
-
-        abr = apply_annex_banner(header_root, list(section_roots.values()))
-        summary["annex_banner"] = abr
-        if abr["banners"] > 0:
-            any_target_found = True
-        if abr["cell_runs_changed"] > 0 or abr["title_justified"] > 0:
-            any_change = True
-
-    if sender_size is not None:
-        ssr = apply_sender_size(header_root, list(section_roots.values()), sender_size)
-        summary["sender_size"] = ssr
-        if ssr["sending_found"] > 0:
-            any_target_found = True
-        if ssr["runs_changed"] > 0:
-            any_change = True
-
-    if header_banner:
-        hbr = apply_header_banner(header_root, list(section_roots.values()), data)
-        summary["header_banner"] = hbr
-        if hbr.get("injected"):
-            any_target_found = True
-            any_change = True
-        geo = hbr.get("geometry") or {}
-        if geo.get("linespacing_fixed") or geo.get("textwidth_fixed"):
-            any_target_found = True
-            any_change = True
-
-    tp = apply_table_pagination(list(section_roots.values()))
-    summary["table_pagination"] = tp
-    if tp["attrs_fixed"] > 0:
-        any_change = True
-
-    fb = apply_formula_box(header_root, list(section_roots.values()))
-    summary["formula_box"] = fb
-    if fb["formula_boxes"] > 0:
-        any_change = True
-
-    lf = apply_line_fit(header_root, list(section_roots.values()))
-    summary["line_fit"] = lf
-    summary["layout"] = estimate_layout(header_root, list(section_roots.values()))
-    if lf["fitted"] > 0:
-        any_change = True
-
-    fit = apply_fit_page_width(list(section_roots.values()))
-    summary["fit_page_width"] = fit
-    if fit.get("tables_fitted"):
-        any_target_found = True
-        any_change = True
 
     data["Contents/header.xml"] = serialize_xml(header_root)
     for name, root in section_roots.items():
