@@ -17,7 +17,7 @@
   --faint:#3D4453;
   --accent:#7C8CF8;
   --accent-soft:rgba(124,140,248,.32);
-  --warn:#E0A458;              /* 실패·반려를 가리킬 때만. 액센트와 역할이 다르다 */
+  --warn:#E0A458;              /* 실패·반려 전용. 액센트와 역할이 다르다 */
   --ok:#5FB98F;
   --hair:rgba(226,232,245,.13);
   --hair-soft:rgba(226,232,245,.07);
@@ -32,8 +32,7 @@
 html,body{height:100%}
 body{
   background:var(--ground);color:var(--hi);font-family:var(--sans);
-  /* 한글은 어절 단위로 끊어야 읽힌다 — 없으면 낱말 가운데서 꺾인다 */
-  word-break:keep-all;overflow-wrap:anywhere;
+  word-break:keep-all;overflow-wrap:anywhere;   /* 한글은 어절 단위로 끊는다 */
   overflow:hidden;display:flex;align-items:center;justify-content:center;
 }
 
@@ -47,24 +46,23 @@ body{
     var(--ground);
 }
 .slide{
-  position:absolute;inset:0;display:grid;grid-template-columns:20cqw 1fr;
-  padding:4.4cqw 5cqw 4.4cqw 4cqw;
+  position:absolute;inset:0;display:grid;grid-template-columns:19cqw 1fr;
+  padding:4.6cqw 5cqw 4.6cqw 4cqw;
   opacity:0;visibility:hidden;transition:opacity .3s ease;
 }
 .slide[data-active]{opacity:1;visibility:visible}
 
-/* 등장 연출 — 읽는 순서의 표시다. 장식이 아니라 시선의 시작점을 매번 다시 잡아 준다 */
-.slide[data-active] .rise{animation:rise .48s cubic-bezier(.2,.7,.3,1) backwards}
+/* 등장 연출 — 읽는 순서의 표시다. 시선의 시작점을 매번 다시 잡아 준다 */
+.slide[data-active] .rise{animation:rise .46s cubic-bezier(.2,.7,.3,1) backwards}
 .slide[data-active] .rise:nth-child(1){animation-delay:.04s}
 .slide[data-active] .rise:nth-child(2){animation-delay:.1s}
 .slide[data-active] .rise:nth-child(3){animation-delay:.16s}
 .slide[data-active] .rise:nth-child(4){animation-delay:.22s}
 .slide[data-active] .rise:nth-child(5){animation-delay:.28s}
-.slide[data-active] .rise:nth-child(6){animation-delay:.34s}
 @keyframes rise{from{opacity:0;transform:translateY(1cqw)}to{opacity:1;transform:none}}
-.slide[data-active] .flow > *{animation:pop .32s ease backwards}
+.slide[data-active] .flow > *{animation:pop .3s ease backwards}
 @keyframes pop{from{opacity:0;transform:translateX(-.6cqw)}to{opacity:1;transform:none}}
-.slide[data-active] .chips > *{animation:pop .26s ease backwards}
+.slide[data-active] .chips > *{animation:pop .24s ease backwards}
 @media (prefers-reduced-motion:reduce){
   .slide,.slide[data-active] .rise,.slide[data-active] .flow > *,
   .slide[data-active] .chips > *,.bar{transition:none;animation:none}
@@ -75,9 +73,9 @@ body{
 .ident{font-family:var(--mono);font-size:.92cqw;letter-spacing:.18em;color:var(--low)}
 .ident b{display:block;font-weight:400;color:var(--mid)}
 .ident hr{border:0;border-top:1px solid var(--hair);margin:.8cqw 0;width:76%}
-.parts{list-style:none;display:flex;flex-direction:column;gap:1.05cqw}
+.parts{list-style:none;display:flex;flex-direction:column;gap:1.15cqw}
 .parts li{
-  font-family:var(--mono);font-size:.95cqw;letter-spacing:.14em;color:var(--faint);
+  font-family:var(--mono);font-size:.98cqw;letter-spacing:.14em;color:var(--faint);
   display:flex;gap:.7cqw;align-items:baseline;padding-left:.75cqw;
   border-left:1px solid transparent;transition:color .3s ease,border-color .3s ease;
 }
@@ -86,105 +84,84 @@ body{
 .parts li[data-on] span{opacity:1;color:var(--accent)}
 .stamp{font-family:var(--mono);font-size:.85cqw;letter-spacing:.14em;color:var(--faint)}
 
-/* ── 본문 공통 ─────────────────────────────────────────────── */
-.body{display:flex;flex-direction:column;justify-content:center;gap:1.9cqw;min-width:0}
+/* ── 본문 ──────────────────────────────────────────────────── */
+.body{display:flex;flex-direction:column;justify-content:center;gap:2cqw;min-width:0}
 .eyebrow{font-family:var(--mono);font-size:.95cqw;letter-spacing:.22em;color:var(--low);
          text-transform:uppercase}
 h1{font-size:4.9cqw;font-weight:800;letter-spacing:-.018em;line-height:1.14;
    text-wrap:balance;color:var(--hi)}
-h2{font-size:2.9cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
+h2{font-size:2.95cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
    text-wrap:balance;color:var(--hi)}
-.lede{font-size:1.65cqw;color:var(--mid);line-height:1.52;max-width:52cqw}
-.note{font-size:1.3cqw;color:var(--low);line-height:1.62;max-width:56cqw}
+.lede{font-size:1.62cqw;color:var(--mid);line-height:1.5;max-width:54cqw}
+.note{font-size:1.28cqw;color:var(--low);line-height:1.6;max-width:57cqw}
 .note b{color:var(--hi);font-weight:600}
-.note code,.lede code{font-family:var(--mono);font-size:.92em;color:var(--accent)}
+.note code,.lede code,.devices dd code{font-family:var(--mono);font-size:.92em;color:var(--accent)}
 .rule{border:0;border-top:1px solid var(--hair);width:100%;max-width:58cqw}
 
-/* 큰 숫자 */
 .figure{display:flex;align-items:baseline;gap:1.8cqw;flex-wrap:wrap}
-.num{font-family:var(--mono);font-size:11cqw;line-height:.9;font-weight:500;
+.num{font-family:var(--mono);font-size:10cqw;line-height:.9;font-weight:500;
      letter-spacing:-.03em;color:var(--accent);font-variant-numeric:tabular-nums}
 .num.muted{color:var(--faint)}
-.num.warn{color:var(--warn)}
-.arrow{font-family:var(--mono);font-size:3.6cqw;color:var(--low);line-height:1}
-.figcap{font-family:var(--sans);font-size:1.1cqw;letter-spacing:.01em;color:var(--low);
-        line-height:1.5}
+.figcap{font-size:1.08cqw;color:var(--low);line-height:1.5}
 
 /* 흐름도 */
 .flow{display:flex;align-items:center;flex-wrap:wrap;gap:0}
-.node{border:1px solid var(--hair);border-radius:.45cqw;padding:.85cqw 1.35cqw;
+.node{border:1px solid var(--hair);border-radius:.45cqw;padding:.85cqw 1.3cqw;
       font-family:var(--sans);font-size:1.12cqw;color:var(--mid);white-space:nowrap}
 .node[data-latin]{font-family:var(--mono);font-size:1cqw;letter-spacing:.12em}
 .node[data-hot]{border-color:var(--accent);color:var(--hi);box-shadow:0 0 0 1px var(--accent-soft)}
-.node[data-bad]{border-color:var(--warn);color:var(--warn)}
 .node small{display:block;font-size:.76cqw;color:var(--faint);letter-spacing:0;margin-top:.2cqw}
-.link{width:1.9cqw;height:1px;background:var(--hair);flex:none}
+.link{width:1.8cqw;height:1px;background:var(--hair);flex:none}
 .link.dash{background:repeating-linear-gradient(to right,var(--hair) 0 4px,transparent 4px 8px)}
 
-/* 코드·XML 조각 — 기술 슬라이드의 주인공 */
-.code{font-family:var(--mono);font-size:1.02cqw;line-height:1.7;color:var(--mid);
+/* 코드·XML 조각 */
+.code{font-family:var(--mono);font-size:1cqw;line-height:1.7;color:var(--mid);
       background:var(--sunken);border:1px solid var(--hair-soft);border-left:2px solid var(--accent);
-      border-radius:.3cqw;padding:1.1cqw 1.5cqw;max-width:60cqw;white-space:pre;overflow-x:auto}
+      border-radius:.3cqw;padding:1cqw 1.4cqw;max-width:60cqw;white-space:pre;overflow-x:auto}
 .code i{color:var(--faint);font-style:normal}
 .code b{color:var(--hi);font-weight:400}
 .code em{color:var(--accent);font-style:normal}
 .code s{color:var(--warn);text-decoration:none}
 
 /* 스테이지 칩 격자 — 25개를 한눈에 보여 규모 자체를 전달한다 */
-.chips{display:flex;flex-wrap:wrap;gap:.5cqw;max-width:62cqw}
-.chips span{font-family:var(--mono);font-size:.88cqw;letter-spacing:.02em;
-  color:var(--mid);border:1px solid var(--hair-soft);border-radius:.28cqw;
-  padding:.4cqw .7cqw;background:var(--sunken)}
+.chips{display:flex;flex-wrap:wrap;gap:.45cqw;max-width:62cqw}
+.chips span{font-family:var(--mono);font-size:.85cqw;color:var(--mid);
+  border:1px solid var(--hair-soft);border-radius:.26cqw;padding:.36cqw .62cqw;
+  background:var(--sunken)}
 .chips span[data-hot]{border-color:var(--accent-soft);color:var(--hi)}
 
 /* 2열 대비 */
 .split{display:grid;grid-template-columns:1fr 1fr;gap:2.6cqw;max-width:60cqw}
-.split.wide{grid-template-columns:1fr 1.15fr}
-.col h3{font-family:var(--mono);font-size:1.12cqw;letter-spacing:.11em;color:var(--hi);
-        font-weight:400;margin-bottom:.7cqw}
+.split.wide{grid-template-columns:1fr 1.1fr}
+/* 소제목은 기본이 한글(sans). 넓은 자간 모노는 라틴 식별자에만 준다 —
+   한글에 먹이면 어절 사이가 벌어져 늘어져 보인다. */
+.col h3{font-family:var(--sans);font-size:1.16cqw;letter-spacing:.01em;color:var(--hi);
+        font-weight:600;margin-bottom:.65cqw}
+.col h3.mono{font-family:var(--mono);font-size:1.1cqw;letter-spacing:.11em;font-weight:400}
 .col h3.bad{color:var(--warn)}
 .col h3.good{color:var(--ok)}
-.col p{font-size:1.28cqw;color:var(--mid);line-height:1.58}
+.col p{font-size:1.24cqw;color:var(--mid);line-height:1.58}
 .col em{color:var(--low);font-style:normal}
+.col code{font-family:var(--mono);font-size:.92em;color:var(--accent)}
 
 /* 정의 목록 */
-.devices{list-style:none;display:flex;flex-direction:column;gap:1.25cqw;max-width:60cqw}
-.devices li{display:grid;grid-template-columns:13cqw 1fr;gap:1.6cqw;align-items:baseline}
-.devices dt{font-size:1.3cqw;color:var(--hi);font-weight:600}
-.devices dd{font-size:1.26cqw;color:var(--mid);line-height:1.5}
+.devices{list-style:none;display:flex;flex-direction:column;gap:1.15cqw;max-width:60cqw}
+.devices li{display:grid;grid-template-columns:12cqw 1fr;gap:1.5cqw;align-items:baseline}
+.devices dt{font-size:1.26cqw;color:var(--hi);font-weight:600}
+.devices dd{font-size:1.22cqw;color:var(--mid);line-height:1.5}
 .devices dd em{color:var(--low);font-style:normal}
-.devices dd code{font-family:var(--mono);font-size:.92em;color:var(--accent)}
 
-/* 표 */
-.grid-tbl{width:100%;max-width:64cqw;border-collapse:collapse;font-size:1.14cqw}
-.grid-tbl th,.grid-tbl td{text-align:left;padding:.72cqw 1cqw;
-  border-bottom:1px solid var(--hair-soft);vertical-align:top;line-height:1.45}
-.grid-tbl thead th{font-family:var(--mono);font-size:.92cqw;letter-spacing:.12em;
-  color:var(--low);font-weight:400;border-bottom:1px solid var(--hair)}
-.grid-tbl tbody th{color:var(--hi);font-weight:600;white-space:nowrap}
-.grid-tbl td{color:var(--mid)}
-.grid-tbl td b{color:var(--hi);font-weight:600}
-.grid-tbl td code{font-family:var(--mono);font-size:.94em;color:var(--accent)}
-.grid-tbl .dim{color:var(--faint)}
-.grid-tbl .num-cell{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--hi)}
-
-/* 계측 대비 — 실측값 before/after */
-.metrics{display:flex;gap:3.2cqw;flex-wrap:wrap}
-.metric{display:flex;flex-direction:column;gap:.35cqw}
-.metric b{font-family:var(--mono);font-size:2.9cqw;font-weight:500;line-height:1;
+/* 계측 대비 */
+.metrics{display:flex;gap:3cqw;flex-wrap:wrap}
+.metric{display:flex;flex-direction:column;gap:.3cqw}
+.metric b{font-family:var(--mono);font-size:2.7cqw;font-weight:500;line-height:1;
   color:var(--hi);font-variant-numeric:tabular-nums}
 .metric b.bad{color:var(--warn)}
 .metric b.good{color:var(--ok)}
-.metric span{font-size:1cqw;color:var(--low)}
+.metric span{font-size:.98cqw;color:var(--low)}
 
-.tree{font-family:var(--mono);font-size:1.02cqw;line-height:1.7;color:var(--mid);
-      max-width:58cqw;white-space:pre}
-.tree i{color:var(--faint);font-style:normal}
-.tree b{color:var(--accent);font-weight:400}
-
-.closing{display:flex;flex-direction:column;gap:1.4cqw;max-width:58cqw}
-.closing p{font-size:1.85cqw;line-height:1.45;color:var(--hi);font-weight:500}
-.closing p.sub{font-size:1.4cqw;color:var(--mid);font-weight:400}
+.closing{display:flex;flex-direction:column;gap:1.3cqw;max-width:58cqw}
+.closing p{font-size:1.8cqw;line-height:1.45;color:var(--hi);font-weight:500}
 .closing strong{color:var(--accent);font-weight:500}
 .repo{font-family:var(--mono);font-size:.9cqw;letter-spacing:.13em;color:var(--faint)}
 
@@ -205,6 +182,7 @@ h2{font-size:2.9cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
 .notes[hidden]{display:none}
 .notes b{display:block;font-family:var(--mono);font-size:.66rem;letter-spacing:.15em;
   color:var(--low);margin-bottom:.4rem;font-weight:400}
+.notes i{color:var(--accent);font-style:normal}
 </style>
 </head>
 <body>
@@ -212,422 +190,202 @@ h2{font-size:2.9cqw;font-weight:700;letter-spacing:-.015em;line-height:1.22;
 <div class="bar" id="bar" style="width:0"></div>
 <main class="stage" id="stage" tabindex="0" aria-label="발표 슬라이드">
 
-<!-- ══ 00 · 제약 ═══════════════════════════════════════════════ -->
-
-  <section class="slide" data-id="S1" data-part="">
+  <!-- S1 · 타이틀 — 0:00 -->
+  <section class="slide" data-id="S1" data-time="0:00" data-part="">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">Report pipeline for an air-gapped desk</p>
-      <h1 class="rise">망분리 환경에서<br>보고서를 기계로 찍어내기</h1>
-      <p class="lede rise">md 하나를 원본으로 삼아 기관 양식 <code>.hwpx</code>까지 —
-      변환·검증·배포를 전부 stdlib으로</p>
+      <p class="eyebrow rise">Air-gapped desk · md → hwpx</p>
+      <h1 class="rise">보고서를 기계로<br>찍어내기</h1>
+      <p class="lede rise">마크다운 하나를 원본으로 기관 양식 <code>.hwpx</code>까지 —
+      변환·검증·배포를 전부 표준 라이브러리로</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S2" data-part="1">
+  <!-- S2 · 제약 — 0:09 -->
+  <section class="slide" data-id="S2" data-time="0:09" data-part="1">
     <div class="rail"></div>
     <div class="body">
       <p class="eyebrow rise">The constraint came first</p>
-      <h2 class="rise">제약이 설계를 정했다</h2>
+      <h2 class="rise">제약이 설계를 먼저 잘랐다</h2>
       <div class="devices rise">
-        <li><dt>망분리</dt><dd>조사·작성은 인터넷망, 업무망으로 넘어가는 건 <b>완성된 파일 하나</b></dd></li>
-        <li><dt>VDI</dt><dd>개발 환경을 설치할 수 없다 → <b>전 구간 파이썬 표준 라이브러리</b>, <code>pip</code> 금지</dd></li>
-        <li><dt>기관 양식</dt><dd>개조식 계층 <code>□ → ㅇ → -</code>, 지정 서체·줄간격·표 폭·머리말 배너</dd></li>
+        <li><dt>망분리</dt><dd>조사·작성은 인터넷망. 업무망으로 넘어가는 건 <b>완성된 파일 하나</b></dd></li>
+        <li><dt>VDI</dt><dd>개발 환경을 깔 수 없다 → <b>전 구간 stdlib</b>, <code>pip</code> 금지</dd></li>
+        <li><dt>기관 양식</dt><dd>개조식 <code>□ → ㅇ → -</code> · 지정 서체 · 표 폭 · 머리말 배너</dd></li>
       </div>
-      <p class="note rise">이 셋이 "무엇을 만들 수 있는가"를 먼저 잘라냈다.
-      웹앱 샌드박스에서 <code>pip</code> 없이 돌아야 한다는 조건 하나가 의존성 선택을 전부 결정했다.</p>
+      <p class="note rise"><code>pip</code>을 못 쓴다는 조건 하나가 나머지 선택을 전부 결정했다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S3" data-part="1">
+  <!-- S3 · 구조 — 0:34 -->
+  <section class="slide" data-id="S3" data-time="0:34" data-part="2">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">And then it got rejected</p>
-      <h2 class="rise">멀쩡한 hwpx가 반입에서 반려됐다</h2>
-      <div class="code rise"><i># 자료교환 시스템 판정</i>
-파일   : 보고서.hwpx
-판정   : <s>application/octet-stream</s>  <i>← hwpx로 인식하지 못함</i>
-사유   : <s>등록되지 않은 확장자</s>
-</div>
-      <p class="note rise">변환기가 낸 패키지에 <code>version.xml</code>이 없었다.
-      <code>mimetype</code> + <code>container.xml</code>만 있는 최소 OCF는 <b>EPUB류와 지문이 같다</b> —
-      압축 내부까지 검사하는 반입 엔진이 hwpx로 판별하지 못한다.
-      같은 시스템에서 다른 hwpx는 정상 유통됐으니 시스템이 아니라 산출물 문제였다.</p>
-    </div>
-  </section>
-
-<!-- ══ 01 · 파이프라인 ═════════════════════════════════════════ -->
-
-  <section class="slide" data-id="S4" data-part="2">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">Architecture</p>
-      <h2 class="rise">위키가 출발점이면서 도착점이다</h2>
+      <p class="eyebrow rise">Four stages · one principle</p>
+      <h2 class="rise">판단은 문서로, 실행은 스크립트로</h2>
       <div class="flow rise">
-        <div class="node" data-hot>claudian<small>LLM 위키</small></div><div class="link"></div>
-        <div class="node">① research</div><div class="link"></div>
-        <div class="node">② analyze</div><div class="link"></div>
-        <div class="node">③ draft<small>게이트 ⓪①②</small></div><div class="link"></div>
-        <div class="node">④ export</div><div class="link"></div>
+        <div class="node">① 조사</div><div class="link"></div>
+        <div class="node">② 분석</div><div class="link"></div>
+        <div class="node">③ 초안<small>게이트 ⓪①②</small></div><div class="link"></div>
+        <div class="node">④ 변환</div><div class="link"></div>
         <div class="node" data-latin>.hwpx</div>
       </div>
-      <p class="note rise">조사는 위키를 먼저 뒤지고 없는 것만 새로 찾는다.
-      새로 찾은 것도 <b>사람이 승인한 것만</b> 위키로 돌아간다 — 출처 불명은 거기서 걸러진다.
-      쓸수록 왼쪽이 두꺼워지고 오른쪽에서 찾을 게 줄어든다.</p>
-    </div>
-  </section>
-
-  <section class="slide" data-id="S5" data-part="2">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">The core split</p>
-      <h2 class="rise">판단은 문서로, 실행은 스크립트로</h2>
       <div class="split wide rise">
         <div class="col">
-          <h3>references/ — LLM이 읽는다</h3>
-          <p><code>style-guide.md</code> 실보고서 34건 코퍼스<br>
-             <code>md-profile.md</code> 변환 가능 문법 + 린트 20종<br>
-             <code>format-profile.kca.md</code> 양식 실측 프로파일<br>
-             <code>hwpx-recipe.md</code> 변환 절차서<br>
-             <code>rules-seed.md</code> 회귀 규칙 70건</p>
+          <h3 class="mono">references/</h3><p style="font-size:1.02cqw;color:var(--low);margin-bottom:.5cqw">LLM이 읽고 판단한다</p>
+          <p>문체 관례 · 양식 프로파일 · 변환 가능 문법 · 회귀 규칙 70건</p>
         </div>
         <div class="col">
-          <h3>scripts/ — 판단이 끼면 안 된다</h3>
-          <p><code>postprocess_hwpx.py</code> 양식 정합 2,499줄<br>
-             <code>validate_hwpx.py</code> 구조·대조·수치<br>
-             <code>lint_md_profile.py</code> 초안 규격<br>
-             <code>prep_report_md.py</code> 변환 전 정규화<br>
-             <code>consolidate_rules.py</code> 규칙 통폐합</p>
+          <h3 class="mono">scripts/</h3><p style="font-size:1.02cqw;color:var(--low);margin-bottom:.5cqw">판단이 끼면 안 된다</p>
+          <p>양식 정합 · 구조 검증 · 초안 린트 20종 · 규칙 통폐합</p>
         </div>
       </div>
-      <p class="note rise">양식 정합처럼 <b>매번 똑같아야 하는 일</b>은 전부 스크립트로 내려 LLM 편차를 없앴다.
-      판단이 필요한 일만 문서로 남겨 LLM이 읽게 한다.</p>
+      <p class="note rise">각 단계는 <b>작업폴더를 인터페이스로</b> 읽고 쓴다. 세션이 아니라 폴더가 맥락을 갖는다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S6" data-part="2">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">Four stages, one folder as the interface</p>
-      <h2 class="rise">단계는 폴더를 읽고 쓴다</h2>
-      <table class="grid-tbl rise">
-        <thead><tr><th>단계</th><th>입력</th><th>산출물</th><th class="num-cell">기계 시간</th></tr></thead>
-        <tbody>
-          <tr><th>① research</th><td>주제 · 제공자료</td>
-              <td><code>research/</code> + <code>_manifest.jsonl</code></td><td class="dim">—</td></tr>
-          <tr><th>② analyze</th><td>research/ · 기존 초안</td>
-              <td><code>05_analysis.md</code> 논지 후보 · 근거 공백</td><td class="num-cell">5분</td></tr>
-          <tr><th>③ draft</th><td>05_analysis</td>
-              <td><code>10_outline.md</code> → <code>20_draft.md</code></td><td class="num-cell">10분</td></tr>
-          <tr><th>④ export</th><td>승인된 20_draft</td>
-              <td><code>final/{제목}.hwpx</code> + <code>40_qa.md</code></td><td class="num-cell">5분</td></tr>
-        </tbody>
-      </table>
-      <p class="note rise">세션이 아니라 <b>폴더가 맥락을 갖는다</b>. 세션이 끊겨도 "이어서 해줘" 한 마디면
-      폴더 상태를 읽고 그 지점부터 잇는다 — 새 폴더를 만들지 않는다.
-      필요한 구간만 골라 진입할 수도 있다(자료가 있으면 ②부터, 초안이 있으면 ④만).</p>
-    </div>
-  </section>
-
-<!-- ══ 02 · 변환 엔진 ══════════════════════════════════════════ -->
-
-  <section class="slide" data-id="S7" data-part="3">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">The conversion is not the hard part</p>
-      <h2 class="rise">변환기가 낸 hwpx는 아직 양식이 아니다</h2>
-      <div class="code rise"><i># ④ export 실제 호출 순서</i>
-prep_report_md.py      <i>정규화 — 모호한 입력은 exit 2로 거부</i>
-  ↓
-<b>md → hwpx 생성</b>          <i>계층·표·이미지 마커 반영</i>
-  ↓
-<em>postprocess_hwpx.py --all</em>   <i>★ 양식 정합 25스테이지 (여기가 본체)</i>
-  ↓
-validate_hwpx.py structural   <i>OCF 시그니처·필수 멤버</i>
-roundtrip + compare           <i>되읽어 내용 대조</i>
-</div>
-      <p class="note rise">생성기는 계층과 표를 만들 뿐, 서체·간격·정렬·표 폭·머리말은 손대지 않는다.
-      <b>후처리를 건너뛰면 규칙 위반본이 그대로 나간다.</b></p>
-    </div>
-  </section>
-
-  <section class="slide" data-id="S8" data-part="3">
+  <!-- S4 · 후처리 — 1:02 -->
+  <section class="slide" data-id="S4" data-time="1:02" data-part="3">
     <div class="rail"></div>
     <div class="body">
       <p class="eyebrow rise">postprocess_hwpx.py — 2,499 lines</p>
-      <h2 class="rise">hwpx XML을 직접 고치는 25스테이지</h2>
+      <h2 class="rise">변환기가 낸 hwpx는 아직 양식이 아니다</h2>
       <div class="chips rise">
         <span data-hot>star_footnote</span><span data-hot>caption_embed</span><span>spacing</span>
-        <span>zero_margins</span><span>effective_gaps</span><span>table_alignment</span>
-        <span>space_hierarchy</span><span>body_justify</span><span>highlight</span>
-        <span data-hot>paren_small</span><span>superscript_star</span><span>page_margins</span>
-        <span>center_cells</span><span>title_box</span><span>title_box_topgap</span>
-        <span>caption_table_font</span><span>dae_bold</span><span>annex_banner</span>
-        <span>sender_size</span><span>header_banner</span><span>table_pagination</span>
-        <span>formula_box</span><span data-hot>line_fit</span><span>layout</span>
-        <span data-hot>fit_page_width</span>
+        <span>zero_margins</span><span>table_alignment</span><span>space_hierarchy</span>
+        <span>body_justify</span><span>highlight</span><span data-hot>paren_small</span>
+        <span>superscript_star</span><span>page_margins</span><span>center_cells</span>
+        <span>title_box</span><span>title_box_topgap</span><span>caption_table_font</span>
+        <span>dae_bold</span><span>annex_banner</span><span>sender_size</span>
+        <span>header_banner</span><span>table_pagination</span><span>formula_box</span>
+        <span data-hot>line_fit</span><span data-hot>fit_page_width</span>
       </div>
-      <p class="note rise">스테이지는 <b>선언 테이블</b>이다 — 각 항목이 (요약 키, 게이트, 실행, 발견 판정, 변경 판정)을
-      들고 있어 순서 제약이 코드가 아니라 데이터로 남는다.
-      예: <code>caption_embed</code>는 반드시 <code>spacing</code> 앞이다 — 캡션 문단이 <code>hp:caption</code>으로
-      들어가면서 사라지면 계층 전환 간격 계산이 통째로 달라진다.</p>
+      <p class="note rise">서체·간격·정렬·캡션·표 폭·머리말을 <b>hwpx XML을 직접 고쳐</b> 맞춘다.
+      스테이지는 선언 테이블이라 순서 제약이 코드가 아니라 데이터로 남는다 —
+      <code>caption_embed</code>는 반드시 <code>spacing</code> 앞이다. 캡션 문단이
+      <code>hp:caption</code>으로 들어가며 사라지면 계층 전환 간격이 통째로 달라진다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S9" data-part="3">
+  <!-- S5 · R043 — 1:27 -->
+  <section class="slide" data-id="S5" data-time="1:27" data-part="3">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">Example: what one stage actually does</p>
-      <h2 class="rise">계층 간격은 '빈 문단'으로 만든다</h2>
-      <div class="split rise">
-        <div class="col">
-          <h3 class="bad">문단 여백으로 주면</h3>
-          <p>한컴이 인접 문단 여백을 합산·상쇄해 양식 실측값과 어긋난다<br>
-          <em>검증도 스페이서 개수로는 못 한다</em></p>
-        </div>
-        <div class="col">
-          <h3 class="good">양식 원형의 방식</h3>
-          <p>글자 크기를 줄인 <b>빈 문단</b>을 전환 지점마다 끼운다<br>
-          <em>발신→□ 12pt · □→ㅇ 6pt · ＊→표 10pt</em></p>
-        </div>
-      </div>
-      <div class="code rise"><i># apply_spacing — 전환 지점을 찾아 스페이서 문단을 삽입/치환</i>
-TRANSITIONS[("sending","dae")] = <em>1200</em>   <i>HWPUNIT (12pt × 100)</i>
-BLOCK_BOUNDARY_HEIGHT         = <em>1500</em>   <i>두 번째 이후 □ 상단</i>
-<i># 콘텐츠 문단의 paraPr prev/next 여백은 0화 — 스페이서 단독 체계 유지</i>
-</div>
-      <p class="note rise">이 값들은 <b>기관 양식 바이너리를 뜯어 실측</b>한 것이고,
-      프로파일 문서와 코드 상수가 어긋나면 테스트가 실패한다.</p>
-    </div>
-  </section>
-
-  <section class="slide" data-id="S10" data-part="3">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">R043 — the rejection, solved</p>
-      <h2 class="rise">패키지를 한컴 정본 지문으로 맞춘다</h2>
+      <p class="eyebrow rise">R043 — rejected at the gateway</p>
+      <h2 class="rise">멀쩡한 hwpx가 반입에서 반려됐다</h2>
       <div class="split wide rise">
         <div class="col">
           <h3 class="bad">생성기 최소 패키지</h3>
-          <p><code>mimetype</code> · <code>container.xml</code><br>
-             <code>content.hpf</code> · header · section<br>
-             <em>디렉터리 엔트리 3개 · 전량 STORED</em><br>
-             <em>→ EPUB류와 지문 동일</em></p>
+          <p><code>mimetype</code> · <code>container.xml</code> · header · section<br>
+          <em>디렉터리 엔트리 3개 · 전량 STORED</em><br>
+          <em>→ EPUB류와 지문이 같다</em><br>
+          <s style="color:var(--warn);text-decoration:none">판정: octet-stream · 미등록 확장자</s></p>
         </div>
         <div class="col">
-          <h3 class="good">canonicalize_package</h3>
+          <h3 class="good mono">canonicalize_package</h3>
           <p>+ <code>version.xml</code> <em>hwpx 확정 마커</em><br>
-             + <code>settings.xml</code> · <code>META-INF/manifest.xml</code> · <code>container.rdf</code><br>
-             − 디렉터리 엔트리 · <code>Scripts/</code> 스텁<br>
-             엔트리 순서·압축 프로파일 정품 일치</p>
+          + <code>settings.xml</code> · <code>manifest.xml</code> · <code>container.rdf</code><br>
+          − 디렉터리 엔트리 · <code>Scripts/</code> 스텁<br>
+          엔트리 순서·압축 프로파일 정품 일치</p>
         </div>
       </div>
-      <p class="note rise">한글에서 재저장하면 빈 JScript 스텁(<code>Scripts/headerScripts</code>)이 삽입되는데,
-      확장자 없는 멤버 + <code>application/x-javascript</code> 등재라 이것도 반려 사유가 된다 — 함께 제거한다.
-      <b>플래그와 무관하게 매 실행 적용</b>되고 멱등이다. 구조 검증이 OCF 시그니처까지 확인해 회귀를 막는다.</p>
+      <p class="note rise">한컴 정품을 뜯어 지문을 맞췄다. 플래그와 무관하게 매 실행 적용되고 멱등이다.
+      한글에서 재저장하면 삽입되는 빈 JScript 스텁도 반려 사유라 함께 지운다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S11" data-part="3">
+  <!-- S6 · R042 — 1:58 -->
+  <section class="slide" data-id="S6" data-time="1:58" data-part="3">
     <div class="rail"></div>
     <div class="body">
       <p class="eyebrow rise">R042 — the bug that came from fitting exactly</p>
       <h2 class="rise">넘쳐서가 아니라 <em style="color:var(--accent);font-style:normal">딱 맞아서</em> 생긴 여백</h2>
-      <p class="lede rise">표 폭을 본문 폭과 <b>정확히 같게</b> 맞췄더니, 같은 문단에 선행 요소가 있으면
-      한컴 엔진이 표를 다음 줄로 내리면서 표 위에 <b>15pt 빈 줄</b>이 생겼다.</p>
+      <p class="lede rise">표 폭을 본문 폭과 <b>정확히 같게</b> 맞췄더니, 한컴 엔진이 표를 다음 줄로 내리면서
+      표 위에 15pt 빈 줄이 생겼다.</p>
       <div class="metrics rise">
         <div class="metric"><b class="bad">30.29mm</b><span>slack 0 — 제목표 상단</span></div>
         <div class="metric"><b class="good">25.02mm</b><span>slack 283 hu 적용 후</span></div>
-        <div class="metric"><b>283<span style="font-size:.5em"> hu</span></b><span>= 1.0mm · 문서 그리드 최소 단위</span></div>
+        <div class="metric"><b>283<span style="font-size:.5em"> hu</span></b><span>= 1.0mm</span></div>
       </div>
-      <p class="note rise">사용자가 여섯 번 보고한 "제목표 위 여백"의 정체였다.
-      정적 XML로는 판정이 불가능해 <b>실기동 픽셀 계측</b>으로 잡았다.
-      표를 줄일 때 내부 그림의 <code>scaMatrix</code>·<code>rotationInfo</code> 파생 캐시도 함께 재계산한다 —
-      안 하면 도너 원본 값이 남아 조용히 어긋난다.</p>
+      <p class="note rise">정적 XML로는 판정이 불가능해 <b>실기동 픽셀 계측</b>으로 잡았다.
+      표를 줄일 때 내부 그림의 <code>scaMatrix</code> 파생 캐시도 함께 재계산한다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S12" data-part="3">
+  <!-- S7 · 검증 — 2:23 -->
+  <section class="slide" data-id="S7" data-time="2:23" data-part="3">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">Verification, three layers</p>
+      <p class="eyebrow rise">Verification</p>
       <h2 class="rise">조용히 틀린 걸 내주지 않는다</h2>
       <div class="devices rise">
-        <li><dt>구조</dt><dd><code>validate_hwpx structural</code> — OCF 시그니처(첫 엔트리 <code>mimetype</code>·STORED·offset 0), 필수 멤버, 디렉터리 엔트리 부재</dd></li>
-        <li><dt>왕복</dt><dd>hwpx를 다시 md로 되읽어 <code>compare</code>로 내용 대조. 어긋나면 2회까지 재변환</dd></li>
-        <li><dt>수치</dt><dd><code>validate_hwpx numbers</code> — 초안의 수치를 조사 폴더와 대조해 근거 없는 값을 잡는다</dd></li>
+        <li><dt>구조</dt><dd>OCF 시그니처 · 필수 멤버 · 디렉터리 엔트리 부재</dd></li>
+        <li><dt>왕복</dt><dd>hwpx를 다시 md로 되읽어 내용 대조. 어긋나면 2회까지 재변환</dd></li>
+        <li><dt>수치</dt><dd>초안의 수치를 조사 폴더와 대조해 근거 없는 값을 잡는다</dd></li>
       </div>
-      <div class="code rise"><i># assert_postprocess — 침묵 실패 차단. 후처리는 대상 0건이어도 exit 0이다</i>
-title_box.found            <b>must be True</b>
-sender_size.runs_changed   <b>== 1</b>
-dae_bold.runs_changed      <b>== md의 □ 개수</b>
-table.column_width_inverted <b>== 0</b>   <i>열 폭이 내용과 역행하지 않는가</i>
+      <div class="code rise"><i># 후처리는 대상이 0건이어도 exit 0 이다 — 침묵 실패를 따로 막는다</i>
+title_box.found             <b>must be True</b>
+dae_bold.runs_changed       <b>== md의 □ 개수</b>
+table.column_width_inverted <b>== 0</b>
 </div>
-      <p class="note rise">그래도 어긋난 게 남으면 <b>목록을 밝힌 뒤 마크다운 초안을 넘긴다.</b>
-      틀린 hwpx를 조용히 내주는 것보다 낫다. 추가로 <code>PostToolUse</code> 훅이 hwpx 생성을 감지하면
-      구조 검증을 강제 실행한다 — 모델의 협조 없이 걸리는 마지막 안전망이다.</p>
+      <p class="note rise">그래도 어긋난 게 남으면 <b>목록을 밝히고 마크다운을 넘긴다.</b>
+      틀린 hwpx를 조용히 내주는 것보다 낫다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S13" data-part="3">
+  <!-- S8 · 웹앱 — 2:45 -->
+  <section class="slide" data-id="S8" data-time="2:45" data-part="4">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">The web version owns the whole conversion</p>
+      <p class="eyebrow rise">Reaching people without terminals</p>
       <h2 class="rise">MCP 없이 자립하는 변환기</h2>
       <div class="flow rise">
         <div class="node" data-latin>md</div><div class="link"></div>
-        <div class="node">parse<small>md-profile 서브셋</small></div><div class="link"></div>
+        <div class="node">parse</div><div class="link"></div>
         <div class="node">render<small>section0.xml 직접 조립</small></div><div class="link"></div>
         <div class="node" data-hot>동결 header.xml<small>charPr 44 · paraPr 34 · borderFill 30</small></div>
-        <div class="link"></div><div class="node" data-latin>.hwpx</div>
+        <div class="link dash"></div><div class="node">VDI 브라우저</div>
       </div>
-      <p class="note rise">검증된 산출물에서 <code>header.xml</code>(93KB)만 뽑아 자산으로 동결하고,
-      생성기는 <b>고정 id를 참조하는 <code>section0.xml</code>만</b> 쓴다. 스타일 id 맵은 실측 확정값이다
-      (□ = paraPr 8 / charPr 11, ㅇ = 9 / 0 볼드, ※ = 20 / 13 …).</p>
-      <p class="note rise">열 폭도 다시 짰다. 기존 변환기는 34폭 열에 18.3mm를 줘서 <b>4줄로 깨졌는데</b>,
-      셀 표시폭 기반으로 하한(헤더 폭·8폭)·상한(전체의 40%)을 클램프하고 비례 재분배해 <b>2줄</b>로 떨어뜨린다.</p>
+      <p class="note rise">검증된 산출물에서 헤더만 뽑아 자산으로 동결하고, 생성기는
+      <b>고정 id를 참조하는 본문 XML만</b> 쓴다. 실무자는 스킬 파일 하나만 올리면 된다 —
+      터미널도 git도 MCP도 필요 없다.</p>
+      <p class="note rise">열 폭도 다시 짰다. 기존 변환기가 34폭 열에 18.3mm를 줘서 <b>4줄로 깨지던</b> 표를
+      셀 표시폭 기반 클램프·비례 재분배로 <b>2줄</b>에 넣는다.</p>
     </div>
   </section>
 
-<!-- ══ 03 · 축적 ═══════════════════════════════════════════════ -->
-
-  <section class="slide" data-id="S14" data-part="4">
+  <!-- S9 · 축적 — 3:10 -->
+  <section class="slide" data-id="S9" data-time="3:10" data-part="4">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">Compounding</p>
-      <h2 class="rise">같은 지적을 두 번 받으면 규칙이 된다</h2>
+      <p class="eyebrow rise">Compounding, with brakes</p>
+      <h2 class="rise">쌓기만 하면 무너진다</h2>
       <div class="flow rise">
         <div class="node">게이트 피드백</div><div class="link"></div>
-        <div class="node">lessons 1줄</div><div class="link"></div>
         <div class="node">2회 반복</div><div class="link"></div>
         <div class="node" data-hot>규칙 승격</div><div class="link"></div>
-        <div class="node">프리플라이트 자동 적용</div>
+        <div class="node">다음 건부터 자동</div>
       </div>
-      <p class="note rise">규칙에는 단계 태그(<code>[research]</code>·<code>[draft]</code>·<code>[export]</code>)가 붙고,
-      각 단계는 <code>grep</code>으로 자기 태그만 읽는다. 첫 실행 때 시드 70건이 복사돼 출발점이 된다.
-      승격된 규칙 중 상당수는 <b>스크립트·린트로 내려가</b> 텍스트 규범이 아니라 기계 검사가 된다.</p>
+      <p class="lede rise">검증 없이 박아둔 값 하나(<span style="color:var(--faint)">1줄 75자</span> →
+      실측 <b style="color:var(--accent)">35자</b>)가 넉 달간 모든 문서를 늘어지게 했다.</p>
+      <p class="note rise">그래서 상한 세 개를 <b>테스트에 배선</b>했다 —
+      근거 등급 없이 승격 금지 · 값 드리프트 대조 · 10건 늘면 통폐합 강제.
+      자동 병합은 하지 않는다. 기계 판정의 한계는 피참조 0건까지다.</p>
     </div>
   </section>
 
-  <section class="slide" data-id="S15" data-part="4">
+  <!-- S10 · 마무리 — 3:33 -->
+  <section class="slide" data-id="S10" data-time="3:33" data-part="">
     <div class="rail"></div>
     <div class="body">
-      <p class="eyebrow rise">Accumulation eats itself</p>
-      <div class="figure rise">
-        <span class="num muted">75</span><span class="arrow">→</span>
-        <span class="num" data-count="35">35</span>
-        <span class="figcap">1줄 자수 · 검증 없는 추정 → SVG 렌더 실측<br>(중앙값 35 · 최대 47)</span>
+      <div class="closing rise">
+        <p>보고서는 결국 <strong>"이 숫자 어디서 나왔냐"</strong>를 묻는다.</p>
+        <hr class="rule">
+        <p style="font-size:1.5cqw;color:var(--mid);font-weight:400">
+        조사에 원출처 · 인용에 확정/미확정 · 초안에 수치 대조 ·
+        변환에 왕복 검증 · 회귀에 규칙 승격 —<br>
+        <b style="color:var(--hi)">근거가 문서에 붙어서 나온다.</b></p>
+        <p class="repo">github.com/kca-deep/report-harness · MIT</p>
       </div>
-      <hr class="rule rise">
-      <p class="lede rise">그 규칙이 넉 달을 살아 있었다. 전 문서가 한 문단 3~4줄로 늘어졌고 쪽수가 두 배가 됐다.</p>
-      <p class="note rise">규칙이 <b>안 지켜져서</b> 난 사고가 아니다. <b>틀린 규칙이 아주 성실하게 지켜져서</b> 난 사고다.
-      규칙이 두 달에 43건까지 늘자 길어서 안 읽히고, 안 읽히니 안 지켜지고, 그래서 같은 실수가 또 박제됐다.</p>
-    </div>
-  </section>
-
-  <section class="slide" data-id="S16" data-part="4">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">Brakes, wired to the test suite</p>
-      <h2 class="rise">축적에 상한을 건다 — 테스트로</h2>
-      <div class="devices rise">
-        <li><dt>근거 등급</dt><dd><code>[실측]</code> / <code>[추론]</code> / <code>[관례]</code> 없이는 승격 금지.
-          '75자'가 딱 등급 없는 추측이었다</dd></li>
-        <li><dt>드리프트 탐지</dt><dd>같은 값이 문서·코드 8곳까지 복제된다.
-          <code>format-profile</code>을 단일 출처로 코드 상수를 테스트가 대조한다</dd></li>
-        <li><dt>정기 통폐합</dt><dd>마커 대비 10건 늘면 테스트가 실패한다.
-          <b>자동 병합은 하지 않는다</b> — 기계 판정의 한계는 피참조 0건까지다</dd></li>
-      </div>
-      <p class="note rise">폐지된 규칙은 번호를 재사용하지 않고 결번으로 남긴다. 판단 근거를 지우면 같은 실수가 돌아온다.
-      배포 시드와 운영 축적본이 <b>본문까지</b> 일치하는지도 테스트가 본다 — ID만 비교하던 때 60건이 갈라져 있었다.</p>
-    </div>
-  </section>
-
-<!-- ══ 04 · 배포 ═══════════════════════════════════════════════ -->
-
-  <section class="slide" data-id="S17" data-part="5">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">Who uses which</p>
-      <h2 class="rise">세 조각, 서로 다른 사람이 쓴다</h2>
-      <table class="grid-tbl rise">
-        <thead><tr><th></th><th>C. claudian</th><th>B. report-harness</th><th>A. kca-report-hwpx</th></tr></thead>
-        <tbody>
-          <tr><th>역할</th><td>지식을 쌓고 재인용</td><td>조사→분석→초안→변환</td><td>초안 + hwpx 변환</td></tr>
-          <tr><th>대상</th><td>자료를 계속 다루는 사람</td><td>운영자</td><td><b>실무자</b></td></tr>
-          <tr><th>쓰는 곳</th><td>노트북 · Obsidian</td><td>노트북 · Claude Code</td><td><b>VDI 브라우저</b></td></tr>
-          <tr><th>설치</th><td>저장소 클론</td><td>플러그인 + MCP</td><td><b>스킬 파일 하나</b></td></tr>
-          <tr><th>축적</th><td><b>지식</b> acquired→wiki</td><td><b>규칙</b> lessons→rules</td><td class="dim">없음 (정적)</td></tr>
-        </tbody>
-      </table>
-      <p class="note rise">VDI 실무자에게는 <b>A만</b> 주면 된다 — 터미널도 git도 MCP도 필요 없다.
-      A와 B를 겹쳐 쓰는 게 정상 운영이다. 웹앱판은 세션 사이에 아무것도 기억하지 못해서,
-      <b>재배포가 축적을 실무자에게 전달하는 유일한 경로다.</b></p>
-    </div>
-  </section>
-
-  <section class="slide" data-id="S18" data-part="5">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">The build gate</p>
-      <h2 class="rise">기준 9종을 전부 통과해야 패키지가 나온다</h2>
-      <div class="chips rise">
-        <span data-hot>룰 최신성 — 매 빌드 재생성</span><span>범위 필터 [draft]·[export]</span>
-        <span data-hot>드리프트 0 — 바이트 동일</span><span>dangling 참조 0</span>
-        <span>사장 자산 0</span><span>서드파티 고지·LICENSE</span>
-        <span>루트 SKILL.md 단일</span><span>출처 고정 — 전 파일 해시</span>
-        <span data-hot>PII 0</span>
-      </div>
-      <div class="code rise">python3 scripts/build_webapp_skill.py --target all
-  → dist/kca-report-hwpx-<b>claude</b>.skill
-  → dist/kca-report-hwpx-<b>chatgpt</b>.zip
-  → dist/kca-report-hwpx-<b>gemini</b>.zip   <i>바이너리 금지 → 배너를 base64로</i>
-</div>
-      <p class="note rise">하나라도 걸리면 <code>exit 1</code>이다. 손으로 만든 룰 사본을 싣는 사고를 구조적으로 차단하려고
-      <b>룰 파일을 매 빌드 재생성</b>하고, 하네스에서 복사한 스크립트 4종·문서 3종은 원본과 바이트 동일해야 한다.</p>
-    </div>
-  </section>
-
-  <section class="slide" data-id="S19" data-part="5">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">Research: contract, not method</p>
-      <h2 class="rise">조사는 방법을 강제하지 않는다</h2>
-      <div class="code rise"><i># research/fetched/{주제}/{자료}.md — 프론트매터 필수</i>
-source_url: https://example.go.kr/notice/123
-fetched_at: 2026-07-22T10:31:00+09:00
-tool:       WebFetch
-confidence: <em>확정</em>        <i>원출처 직접 대조 가능 / 아니면 추정</i>
-
-<i># 같은 내용을 _manifest.jsonl 에 산출물 1건당 1줄 append</i>
-</div>
-      <p class="note rise">어떤 도구로 조사하든 상관없다 — 환경에 있는 걸 골라 쓰고 없으면 건너뛴다.
-      강제되는 건 <b>산출물이 계약대로 쌓이는 것</b>뿐이다.
-      그래서 도구가 하나도 없어도 파이프라인이 멈추지 않는다.
-      원문 발췌로 수집하고(의역 금지), 이미 확보한 근거는 다시 조사하지 않는다.</p>
-    </div>
-  </section>
-
-<!-- ══ 05 · 마무리 ═════════════════════════════════════════════ -->
-
-  <section class="slide" data-id="S20" data-part="">
-    <div class="rail"></div>
-    <div class="body">
-      <p class="eyebrow rise">"이 숫자 어디서 나왔냐"</p>
-      <h2 class="rise">근거를 다섯 지점에서 붙든다</h2>
-      <table class="grid-tbl rise">
-        <thead><tr><th>지점</th><th>무엇을 하나</th></tr></thead>
-        <tbody>
-          <tr><th>조사</th><td>산출물마다 원출처 프론트매터 + manifest. 출처 불명 자료는 아예 적재하지 않는다</td></tr>
-          <tr><th>위키 인용</th><td>원출처가 추적되면 <b>[확정]</b>, 위키에만 있으면 <b>[미확정]</b></td></tr>
-          <tr><th>초안</th><td>초안의 수치를 조사 폴더와 대조해 근거 없는 값을 잡아낸다</td></tr>
-          <tr><th>변환</th><td>구조 검증 + 왕복 대조. 어긋난 게 남으면 조용히 내주지 않는다</td></tr>
-          <tr><th>회귀</th><td>같은 지적이 반복되면 규칙으로 승격돼 다음 보고서에 자동으로 걸린다</td></tr>
-        </tbody>
-      </table>
-      <p class="note rise">옮기는 수고를 줄이려고 시작했는데, 줄이고 보니 남는 게 하나 더 있었다 —
-      <b>근거가 문서에 붙어서 나온다.</b> 손으로 옮길 때는 출처가 중간에 떨어져 나갔다.</p>
-      <p class="repo rise">github.com/kca-deep/report-harness · MIT</p>
     </div>
   </section>
 </main>
@@ -635,76 +393,57 @@ confidence: <em>확정</em>        <i>원출처 직접 대조 가능 / 아니면
 <div class="notes" id="notes" hidden><b>발표자 노트</b><span id="notesBody"></span></div>
 
 <footer class="hud">
-  <span><b id="pos">1</b> / <span id="total">20</span></span>
+  <span><b id="pos">1</b> / 10</span>
+  <span id="tc">0:00</span>
   <span id="partName"></span>
   <button id="notesBtn" type="button">N 노트</button>
   <span class="grow" id="msg"></span>
-  <span>← → 이동 · N 노트 · 숫자키 1~5 파트 점프</span>
+  <span>← → 이동 · N 노트 · 1~4 파트 점프</span>
 </footer>
 
 <script>
-const PARTS = [["1","CONSTRAINT"],["2","PIPELINE"],["3","ENGINE"],["4","ACCUMULATION"],["5","DELIVERY"]];
+const PARTS = [["1","CONSTRAINT"],["2","STRUCTURE"],["3","ENGINE"],["4","REACH"]];
+/* 대본 — docs/talk/2026-08-09-4min-script.md 와 같은 원본. 낭독 1,150자 ≈ 3분 50초 */
 const NOTES = {
-  S1:"망분리 환경에서 기관 보고서를 md 하나에서 hwpx까지 기계로 뽑는 파이프라인입니다. 오늘은 그 안에서 실제로 무엇을 만들어야 했는지를 이야기하겠습니다.",
-  S2:"먼저 제약입니다. 조사와 작성은 인터넷망에서 하고 업무망으로는 완성된 파일 하나만 넘어갑니다. 그런데 대부분 VDI에서 일하니 개발 환경을 설치할 수가 없어요. 그래서 전 구간을 파이썬 표준 라이브러리로만 짰습니다. pip을 못 쓴다는 조건 하나가 의존성 선택을 전부 결정했습니다.",
-  S3:"그리고 완성한 hwpx가 업무망 반입에서 반려됐습니다. 파일은 멀쩡한데 자료교환 시스템이 hwpx로 알아보지 못했어요. 패키지 안에 version.xml이 없어서 일반 압축파일로 판정된 겁니다. mimetype과 container.xml만 있는 최소 OCF는 EPUB류와 지문이 같거든요.",
-  S4:"구조는 이렇습니다. 위키가 출발점이면서 도착점입니다. 조사는 위키를 먼저 뒤지고 없는 것만 새로 찾고, 새로 찾은 것도 사람이 승인한 것만 위키로 돌아갑니다.",
-  S5:"설계 원칙은 하나입니다. 판단은 문서로, 실행은 스크립트로. references는 LLM이 읽고 판단하는 기준이고, scripts는 판단이 끼어들면 안 되는 일을 합니다. 양식 정합처럼 매번 똑같아야 하는 건 전부 스크립트로 내려 LLM 편차를 없앴습니다.",
-  S6:"네 단계는 각각 작업폴더를 인터페이스로 읽고 씁니다. 중요한 건 세션이 아니라 폴더가 맥락을 갖는다는 점입니다. 세션이 끊겨도 이어서 해줘 한 마디면 폴더 상태를 읽고 그 지점부터 잇습니다.",
-  S7:"여기서부터가 실제로 어려웠던 부분입니다. 변환기가 낸 hwpx는 아직 양식이 아닙니다. 생성기는 계층과 표를 만들 뿐이고 서체, 간격, 정렬, 표 폭, 머리말은 손대지 않아요. 후처리를 건너뛰면 규칙 위반본이 그대로 나갑니다.",
-  S8:"후처리는 2,499줄이고 스테이지가 스물다섯 개입니다. 스테이지를 선언 테이블로 두면 순서 제약이 코드가 아니라 데이터로 남습니다. 예를 들어 캡션 내장은 반드시 간격 계산 앞이어야 합니다. 캡션 문단이 hp:caption으로 들어가면서 사라지면 계층 전환 간격이 통째로 달라지거든요.",
-  S9:"스테이지 하나를 예로 들면 이렇습니다. 계층 간격을 문단 여백으로 주면 한컴이 인접 여백을 합산하고 상쇄해서 실측값과 어긋납니다. 양식 원형은 글자 크기를 줄인 빈 문단을 끼우는 방식이라 그걸 그대로 재현했습니다. 이 값들은 양식 바이너리를 뜯어 실측한 것이고, 프로파일 문서와 코드 상수가 어긋나면 테스트가 실패합니다.",
-  S10:"반려 문제로 돌아가면, 해법은 패키지를 한컴 정본 지문으로 맞추는 것이었습니다. version.xml을 비롯한 필수 멤버를 보강하고 디렉터리 엔트리를 지우고 압축 프로파일을 정품과 일치시켰습니다. 한글에서 재저장하면 빈 JScript 스텁이 삽입되는데 그것도 반려 사유라 함께 제거합니다.",
-  S11:"이건 제가 제일 오래 헤맨 버그입니다. 표 폭을 본문 폭과 정확히 같게 맞췄더니 표 위에 15pt 빈 줄이 생겼어요. 넘쳐서가 아니라 딱 맞아서 생긴 문제였습니다. 정적 XML로는 판정이 안 돼서 실기동 픽셀 계측으로 잡았고, 1.0밀리미터 여유를 두니 30.29가 25.02로 떨어졌습니다.",
-  S12:"검증은 세 층입니다. 구조, 왕복 대조, 수치. 그리고 후처리는 대상이 0건이어도 exit 0을 내기 때문에 침묵 실패를 따로 차단합니다. 그래도 어긋난 게 남으면 목록을 밝힌 뒤 마크다운 초안을 넘깁니다. 틀린 hwpx를 조용히 내주는 것보다 낫습니다.",
-  S13:"웹앱판은 MCP 없이 자립해야 해서 변환을 직접 소유합니다. 검증된 산출물에서 header.xml만 뽑아 동결하고 생성기는 고정 id를 참조하는 section0.xml만 씁니다. 열 폭 알고리즘도 다시 짰는데, 기존 변환기가 34폭 열에 18.3밀리미터를 줘서 네 줄로 깨지던 걸 두 줄로 떨어뜨렸습니다.",
-  S14:"축적 쪽입니다. 게이트에서 받은 피드백을 한 줄씩 쌓고 두 번 이상 반복되면 규칙으로 승격시킵니다. 승격된 규칙 중 상당수는 스크립트나 린트로 내려가서 텍스트 규범이 아니라 기계 검사가 됩니다.",
-  S15:"그런데 축적이 자기를 무너뜨립니다. 한 줄은 대략 일흔다섯 자라고 적어뒀는데 아무도 재본 적이 없었어요. 실제로 렌더해서 세어 보니 서른다섯 자였습니다. 그 규칙이 넉 달을 살아 있었고 쪽수가 두 배가 됐습니다. 규칙이 안 지켜져서 난 사고가 아니라 틀린 규칙이 성실하게 지켜져서 난 사고입니다.",
-  S16:"그래서 상한을 테스트로 걸었습니다. 근거 등급 없이는 승격을 막고, 값 드리프트를 테스트가 대조하고, 10건 늘면 통폐합을 강제합니다. 자동 병합은 하지 않습니다 — 기계가 판정할 수 있는 건 피참조 0건까지고, 내용이 흡수됐는지는 사람이 읽어야 압니다.",
-  S17:"배포는 세 조각으로 갈립니다. VDI 실무자에게는 웹앱 스킬만 주면 됩니다. 터미널도 git도 MCP도 필요 없어요. 웹앱판은 세션 사이에 아무것도 기억하지 못해서 재배포가 축적을 전달하는 유일한 경로입니다.",
-  S18:"그 배포에는 기준 아홉 개가 걸려 있습니다. 하나라도 걸리면 빌드가 실패합니다. 특히 룰 파일은 매 빌드 재생성해서 손으로 만든 사본이 실리는 사고를 구조적으로 막습니다.",
-  S19:"조사 단계는 방법을 강제하지 않습니다. 강제되는 건 산출물이 계약대로 쌓이는 것뿐이에요. 그래서 도구가 하나도 없어도 파이프라인이 멈추지 않습니다.",
-  S20:"결국 보고서를 올리면 이 숫자 어디서 나왔냐는 질문을 받습니다. 다섯 지점에서 근거를 붙들어 뒀습니다. 옮기는 수고를 줄이려고 시작했는데, 줄이고 보니 근거가 문서에 붙어서 나오더군요. 감사합니다."
+  S1:"망분리 환경에서 기관 보고서를 마크다운 하나로 한글 파일까지 뽑는 파이프라인을 만들었습니다.",
+  S2:"제약이 설계를 먼저 잘랐습니다. 조사와 작성은 인터넷망에서 하고 업무망으로는 파일 하나만 넘어갑니다. 그런데 대부분 VDI에서 일하니 개발 환경을 못 깝니다. 그래서 전 구간을 파이썬 표준 라이브러리로만 짰어요. pip을 못 쓴다는 조건 하나가 나머지를 다 결정했습니다.",
+  S3:"구조는 네 단계입니다. 조사, 분석, 초안, 변환. 각 단계는 작업폴더를 인터페이스로 읽고 씁니다. 원칙은 하나예요. 판단은 문서로, 실행은 스크립트로. 문체 관례처럼 판단이 필요한 건 문서로 두고, 양식 정합처럼 매번 똑같아야 하는 건 전부 스크립트로 내렸습니다. LLM한테 맡기면 매번 조금씩 달라지니까요.",
+  S4:"여기서부터가 실제 작업입니다. 변환기가 낸 hwpx는 아직 양식이 아닙니다. 서체도 간격도 표 폭도 안 맞아요. 그래서 뒤에 후처리를 붙였습니다. 2,499줄에 스테이지가 스물다섯 개입니다. 스테이지를 선언 테이블로 두면 순서 제약이 코드가 아니라 데이터로 남습니다. <i>[캡션 내장이 간격 계산 앞이어야 하는 이유를 한 문장 곁들일 것]</i>",
+  S5:"가장 값비쌌던 건 이겁니다. 완성한 파일이 업무망 반입에서 반려됐어요. 파일은 멀쩡한데 시스템이 hwpx로 알아보지 못했습니다. 패키지에 version.xml이 없어서 일반 압축파일로 판정된 겁니다. 한컴 정품을 뜯어 지문을 맞췄어요. 필수 멤버를 보강하고 디렉터리 엔트리를 지우고 압축 프로파일을 정품과 일치시켰습니다.",
+  S6:"제일 오래 헤맨 버그는 이겁니다. 표 폭을 본문 폭과 정확히 같게 맞췄더니 표 위에 빈 줄이 생겼어요. 넘쳐서가 아니라 딱 맞아서 생긴 문제였습니다. 정적 XML로는 판정이 안 돼서 실기동 픽셀로 쟀습니다. 1밀리미터 여유를 두니 30.29가 25.02로 떨어졌어요. <i>[여기서 한 박자]</i>",
+  S7:"검증은 세 층입니다. 구조, 왕복 대조, 수치 근거. 후처리는 대상이 0건이어도 정상 종료하기 때문에 침묵 실패를 따로 막습니다. 그래도 어긋난 게 남으면 목록을 밝히고 마크다운을 넘깁니다. 틀린 한글 파일을 조용히 내주는 것보다 낫습니다.",
+  S8:"웹앱판은 MCP 없이 자립해야 해서 변환을 직접 소유합니다. 검증된 산출물에서 헤더만 뽑아 동결하고 본문 XML만 조립합니다. 실무자는 스킬 파일 하나만 올리면 돼요. 열 폭도 다시 짰습니다. 기존 변환기가 넓은 열에 좁은 폭을 줘서 네 줄로 깨지던 걸 두 줄로 떨어뜨렸습니다.",
+  S9:"쓸수록 좋아지게도 만들었습니다. 같은 지적을 두 번 받으면 규칙으로 승격되고 다음 건부터 자동으로 걸립니다. 다만 쌓기만 하면 무너집니다. 검증 없이 박아둔 값 하나가 넉 달간 모든 문서를 늘어지게 했어요. 그래서 상한 세 개를 테스트에 배선했습니다.",
+  S10:"결국 보고서는 이 숫자 어디서 나왔냐는 질문을 받습니다. 다섯 지점에서 근거를 붙들어 뒀습니다. 감사합니다."
 };
 
 const slides = [...document.querySelectorAll(".slide")];
 const stage = document.getElementById("stage"), notes = document.getElementById("notes");
 const notesBody = document.getElementById("notesBody");
 let i = 0;
-document.getElementById("total").textContent = slides.length;
 
 slides.forEach((s, k) => {
   s.querySelector(".rail").innerHTML =
     '<div class="ident">REPORT-HARNESS<hr><b>SHEET ' + String(k + 1).padStart(2,"0") +
-      " / " + String(slides.length).padStart(2,"0") + '</b></div>' +
+      " / 10</b></div>" +
     "<ul class='parts'>" + PARTS.map(([n,l]) =>
         "<li" + (n === s.dataset.part ? " data-on" : "") + "><span>0" + n + "</span>" + l + "</li>"
       ).join("") + "</ul>" +
-    '<div class="stamp">망분리 · md → hwpx</div>';
+    '<div class="stamp">md → hwpx</div>';
 });
-
-function countUp(el){
-  const target = +el.dataset.count, dur = 600, t0 = performance.now();
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches){ el.textContent = target; return; }
-  (function step(now){
-    const k = Math.min(1, (now - t0) / dur);
-    el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
-    if (k < 1) requestAnimationFrame(step);
-  })(t0);
-}
 
 function show(n, push){
   i = Math.max(0, Math.min(slides.length - 1, n));
   slides.forEach((s, k) => k === i ? s.setAttribute("data-active","") : s.removeAttribute("data-active"));
   const s = slides[i];
   document.getElementById("pos").textContent = i + 1;
+  document.getElementById("tc").textContent = s.dataset.time;
   const p = PARTS.find(([n2]) => n2 === s.dataset.part);
   document.getElementById("partName").textContent = p ? "0" + p[0] + " " + p[1] : "";
   document.getElementById("bar").style.width = ((i + 1) / slides.length * 100) + "%";
-  notesBody.textContent = NOTES[s.dataset.id] || "";
-  s.querySelectorAll(".flow > *").forEach((el, k) => el.style.animationDelay = (.18 + k * .06) + "s");
-  s.querySelectorAll(".chips > *").forEach((el, k) => el.style.animationDelay = (.2 + k * .022) + "s");
-  s.querySelectorAll("[data-count]").forEach(countUp);
+  notesBody.innerHTML = NOTES[s.dataset.id] || "";
+  s.querySelectorAll(".flow > *").forEach((el, k) => el.style.animationDelay = (.16 + k * .06) + "s");
+  s.querySelectorAll(".chips > *").forEach((el, k) => el.style.animationDelay = (.18 + k * .02) + "s");
   if (push !== false && location.hash.slice(1) !== s.dataset.id){
     history.replaceState(null, "", "#" + s.dataset.id);
   }
@@ -718,7 +457,7 @@ addEventListener("keydown", e => {
   else if (e.key === "Home"){ show(0); }
   else if (e.key === "End"){ show(slides.length - 1); }
   else if (k === "n"){ notes.hidden = !notes.hidden; }
-  else if (/^[1-5]$/.test(e.key)){          // 파트 첫 슬라이드로 점프
+  else if (/^[1-4]$/.test(e.key)){
     const t = slides.findIndex(s => s.dataset.part === e.key);
     if (t >= 0) show(t);
   }

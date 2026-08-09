@@ -20,7 +20,7 @@ import sys
 import wave
 
 HERE = pathlib.Path(__file__).resolve().parent
-SCRIPT = HERE / "2026-08-09-5min-script.md"
+SCRIPT = HERE / "2026-08-09-4min-script.md"
 AUDIO = HERE / "audio"
 REACH = pathlib.Path.home() / "workspace" / "reach-mini"
 VENV_PY = REACH / ".venv" / "bin" / "python"

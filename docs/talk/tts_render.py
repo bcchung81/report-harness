@@ -34,7 +34,7 @@ import urllib.request
 import wave
 
 HERE = pathlib.Path(__file__).resolve().parent
-SCRIPT = HERE / "2026-08-09-5min-script.md"
+SCRIPT = HERE / "2026-08-09-4min-script.md"
 OUT = HERE / "audio"
 URL = "http://127.0.0.1:8099/v1/audio/speech"
 
