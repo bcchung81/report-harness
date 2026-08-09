@@ -86,19 +86,31 @@ def render_slide(paras, speed, voice, gap_s=0.22, para_gap_s=0.5):
     """문장마다 따로 합성해 무음을 끼워 이어 붙인다.
 
     무음은 환각 방지의 부수효과가 아니라 낭독 호흡이기도 하다 — 문장 사이 0.22초,
-    문단 사이 0.5초는 발표자가 실제로 쉬는 간격에 맞춘 값이다."""
-    frames, params = [], None
+    문단 사이 0.5초는 발표자가 실제로 쉬는 간격에 맞춘 값이다.
+
+    문장별 [시작, 끝] 초를 큐로 함께 돌려준다 — 문장 단위로 합성하니 경계를
+    이미 알고 있고, 덱의 자동 하이라이트(data-cue)가 이 값으로 동기화한다."""
+    frames, params, cues = [], None, []
+    cursor = 0.0
+
+    def sec(b, p):
+        return len(b) / (p.framerate * p.sampwidth * p.nchannels)
+
     for pi, para in enumerate(paras):
         for si, sent in enumerate(para):
             data, p = pcm_of(synth(sent, speed, voice))
             params = params or p
             frames.append(data)
-            last_sent = si == len(para) - 1
-            if not last_sent:
+            d = sec(data, params)
+            cues.append([round(cursor, 2), round(cursor + d, 2)])
+            cursor += d
+            if si != len(para) - 1:
                 frames.append(silence(params, gap_s))
+                cursor += gap_s
         if pi != len(paras) - 1:
             frames.append(silence(params, para_gap_s))
-    return b"".join(frames), params
+            cursor += para_gap_s
+    return b"".join(frames), params, cues
 
 
 def silence(params, seconds):
@@ -135,18 +147,22 @@ def main(argv):
         return 2
 
     OUT.mkdir(parents=True, exist_ok=True)
+    cues_path = OUT / "cues.json"
+    cues_all = json.loads(cues_path.read_text()) if cues_path.exists() else {}
     total = 0.0
     print(f"{'슬라이드':<6} {'제목':<16} {'문장':>4} {'대본':>5} {'음성':>7}  {'배정':<12}")
     print("─" * 64)
     for sid, title, timecode, paras in items:
         try:
-            frames, params = render_slide(paras, a.speed, a.voice)
+            frames, params, cues = render_slide(paras, a.speed, a.voice)
         except urllib.error.URLError as e:
             print(f"{sid}: 합성 실패 — {e}. TTS 서버(:8099)가 떠 있는지 확인하세요",
                   file=sys.stderr)
             return 1
         path = OUT / f"{sid}.wav"
         write_wav(path, frames, params)
+        cues_all[sid] = cues
+        cues_path.write_text(json.dumps(cues_all, ensure_ascii=False, indent=1))
         sec = duration(path)
         total += sec
         nsent = sum(len(p) for p in paras)
