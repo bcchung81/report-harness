@@ -96,6 +96,9 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 
 /* 실물 캡처 블록 */
 .cap2{display:grid;grid-template-columns:1fr 1fr;gap:2.2cqw;max-width:64cqw}
+/* 도식의 두 축 아래에 그대로 붙는 캡션 열 — 붙여 쓰면 서식과 맥락이 뒤섞인다 */
+.axis2{display:grid;grid-template-columns:1.7fr 1fr;gap:2.6cqw;max-width:66cqw}
+.axis2 .cap{max-width:none}
 .shot{font-family:var(--mono);font-size:.92cqw;line-height:1.62;color:var(--mid);
   background:var(--sunken);border:1px solid var(--hair-soft);border-radius:.3cqw;
   padding:.9cqw 1.1cqw;white-space:pre;overflow-x:auto}
@@ -419,9 +422,12 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
       </svg>
       <figcaption>변환 자체는 기존 스킬도 한다. 갈리는 곳은 그 위 다섯 층 — 실측값·표·패키지·검증·축적이다.</figcaption>
     </figure>
-    <p class="cap rise"><b>서식</b> — 실측값을 프로파일 한 곳에 박아 두고 후처리가 매번 같게 적용한다.
-    어긋나면 검증이 잡으니 수정 왕복이 사라진다. <b>맥락</b> — 한 번 확인한 기관 지식은 다시 찾지 않고,
-    원출처가 붙어 있어 오인식이 걸러진다.</p>
+    <div class="axis2 rise">
+      <p class="cap"><b>서식</b> — 실측값을 프로파일 한 곳에 박아 두고 후처리가 매번 같게 적용한다.
+      어긋나면 검증이 잡으니 <b>수정 왕복이 사라진다.</b></p>
+      <p class="cap"><b>맥락</b> — 한 번 확인한 기관 지식은 다시 찾지 않는다.
+      원출처가 붙어 있어 <b>오인식이 걸러진다.</b></p>
+    </div>
     <p class="cap rise"><b>시간 말고 줄인 것</b> — 담당자별 편차와 수정 왕복.
     양식이 바뀌면 고칠 자리는 <code>format-profile</code> 한 곳으로 특정된다.
     <span class="todo">양식 개정 시 담당·인수인계 주체</span></p>
