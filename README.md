@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.3.1-green.svg)
+![version](https://img.shields.io/badge/version-0.4.0-green.svg)
 
 ---
 
@@ -243,7 +243,7 @@ report-harness/
 │
 ├── docs/                    설치·라이선스·개발자 문서
 ├── scripts/                 배포 가드 + 3플랫폼 패키지 빌드
-└── tests/                   pytest 12종 197건
+└── tests/                   pytest 회귀 스위트 — CI가 매 push 실행
 ```
 
 ## 설계 원칙 셋

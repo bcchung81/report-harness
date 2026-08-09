@@ -1,6 +1,38 @@
 # Changelog
 
-## Unreleased (2026-08-04)
+## 0.4.0 (2026-08-09)
+
+> 0.3.1 이후 흩어져 있던 'Unreleased' 절 5개를 통합한 릴리스다. 릴리스된 적 없는 변경은
+> 전부 여기 담기며, 아래 소절은 작업일 내림차순이다.
+
+### 2026-08-05 ~ 08-09 — 웹앱 배포판·안전망·검증 체계
+
+- **웹앱 배포판 `webapp/kca-report-hwpx` 수록** — MCP 없이 자립하는 ③초안+④변환 스킬.
+  md2hwpx(동결 헤더 + section0 직접 조립)·assert_postprocess(침묵실패 차단)·roundtrip_md
+  (python-hwpx→stdlib 폴백) 신규 3종 + 하네스 스크립트 4종 무수정 복사.
+  `scripts/build_webapp_skill.py`가 3플랫폼(claude `.skill`·chatgpt/gemini `.zip`) 패키지를
+  빌드하며 기준 9종(룰 최신성·범위 필터·드리프트 0·dangling 0·사장 자산 0·출처 고정·서드파티
+  고지·SKILL.md 단일·PII 0)을 전부 통과해야 산출한다. `dist/`는 gitignore — 배포는 재빌드로.
+- **`hooks/verify_hwpx_hook.py` 수록** — hwpx 생성 직후 구조 검증을 강제하는 PostToolUse
+  훅('26.8.7 검증 우회 산출 사고 재발 방지, 모델 협조 없이 걸리는 결정론 안전망).
+- **`/report-doctor` 자가진단** — 환경·의존·규칙 체계 7항목 점검(`doctor.py`).
+- **CI 신설(`.github/workflows/test.yml`)** — fresh clone에서 pytest·배포 가드·웹앱 빌드를
+  매 push/PR 검증. 테스트의 `report/_harness` 하드 의존을 시드 폴백·skipif로 제거해
+  '로컬에서만 초록'을 해소.
+- **시드 완전 동기화 + 본문 비교 가드** — rules-seed가 운영본과 본문까지 일치(근거 등급 누락
+  59건·중복 헤더·통합 마커 부재 해소). `test_seed_carries_every_operational_rule`을 ID 비교 →
+  본문 비교로 강화. R050 결번 기록을 `references/rules-history.md`(배포 시드)로 승격.
+- **R018 발신 줄 12pt를 `--all` 기본값으로 승격** — `--sender-size 12` 문자열이 문서 9곳에
+  복제되고 누락 시 규칙 위반본이 나가던 구조를 `SENDER_SIZE_PT` 상수 + 프로파일 대조
+  테스트로 교체. `--sender-size PT`는 재정의 전용.
+- **전수 팩트체크·이미지 차용 기준을 `references/factcheck.md`로 승격** — 배포되지 않는
+  설계문서 §7-1·§7-2를 가리키던 dangling 앵커 5곳 해소. webapp SKILL 게이트 수 자기모순
+  (description 2회 vs 본문 3회)을 '최대 3회'로 통일.
+- **PII 가드 관할 확장** — 웹앱 빌드에 PII 검사 필수 편입(위반 시 rules.md 원복),
+  package_check 금지 목록에 `report/` 추가, 스캔 범위를 webapp·hooks·scripts·docs로 확장.
+- **문서 4종 신설**(developing·install-harness·install-webapp·licenses) + README 서사 재작성.
+
+### 2026-08-04 — 시드 동기화 부채·룰 번호 사고·실무 개선본 성문화
 - **배포 시드 동기화 부채 해소 + 룰 번호 사고 수습**. `report/`를 gitignore한 뒤(R048) 운영
   `rules.md`가 저장소에서 빠지면서, 코드(린트)는 반영됐는데 **룰 텍스트는 R043까지만 배포**되는
   상태가 됐다 — 신규 설치자가 R044~R059(16종)를 못 받는다. rules-seed.md에 전량 승계.
@@ -44,7 +76,7 @@
 - **table-pool 부품 3종 등재** — 3-A 과제개요 표, 3-B 화면 캡처 표(사용자 제공 전제),
   3-C 진화 이력 표(버린 안과 채택한 안을 같은 축으로 비교).
 
-## Unreleased (2026-07-30)
+### 2026-07-30 — R045~R047
 - **R045: 상위 계층 하나에 딸리는 하위 계층은 최대 2개**. ㅇ 아래 대시 4개를 나란히 다는 밀도는
   코퍼스에 없으며 계층이 목록으로 전락한다(사용자 확정). 핵심은 **개수를 쳐내는 것이 아니라
   문장을 합치는 것** — 하위가 3개 이상이면 성격이 가까운 항목끼리 연결어(~하고·~하며·~와 함께)로
@@ -58,7 +90,7 @@
   통과분만 쓰되 과잉정밀·단발측정치를 구간화(단발 curl `0.59초` → `1초 이내`) — 경량 팩트체크는
   근거 유무만 보므로 과잉정밀은 집필 단계 판단 사항.
 
-## Unreleased (2026-07-29)
+### 2026-07-29 — R043 패키지 정합
 - **R043: hwpx 패키지 정합 — 내부망 자료교환 반입 거부 해소**. kordoc 산출물은 hwpx 최소
   패키지(version.xml 부재·디렉터리 엔트리 3개·전량 STORED)라서 mimetype+container.xml만으로는
   EPUB류 일반 OCF와 지문이 같아, 심층 구조 검사를 하는 반입 시스템이 hwpx로 판별하지 못하고
@@ -76,7 +108,21 @@
   canonicalize가 Scripts/ 전량 제거 + hpf item/itemref 등재 철회 동반 수행(스텁은 기능 0).
   테스트 152 → 161
 
-## Unreleased (2026-07-28)
+### 2026-07-29 — 배포 정리 (구 'Unreleased' 표류분, 0.2.0 아래에 있던 절)
+- 제거: `inject_images.py` — SKILL.md·commands·references·tests 어디서도 호출되지 않는 고아
+  스크립트(참조 0곳, 131줄 전량 미실행). repo·installed 양쪽 삭제. 이미지 주입이 필요해지면
+  `/tmp/_hwpx` 무조건 rmtree(:66-67,:144)와 재실행 시 zip 엔트리 중복(:124-130)을 고친 뒤
+  파이프라인에 배선해 재도입한다 (이력: `git show 9312f63:skills/report-pipeline/scripts/inject_images.py`)
+- 배포 제외 확대: `form/` 전체를 추적 해제(12.6MB, 배포 페이로드의 94.9%) — 런타임 참조 0곳이고
+  양식 자산은 `assets/` 번들 사본(양식 hwp md5 동일·도식Pool 경량본)으로 충족. `.gitignore`·
+  README §5·`package_check.sh` 가드 동기화. 로컬 원본은 유지, 과거 추적분은 git 이력에 보존
+- **축적룰 전량 승계: `rules-seed.md` R001~R006 → R001~R042**. 그간 승격분 36종(R007~R042)이
+  운영 `state_dir/rules.md`에만 있어 신규 설치자는 6종만 받던 격차를 해소 — 실제 운영 기준으로
+  배포. 이후 승격은 운영 파일에 먼저 반영하고 배포 전 시드로 동기화한다
+- 문서 정정: README `state_dir` 기본값 `~/.claude/report-harness-state/` → 실제값
+  `{cwd}/.report-harness` (`harness_config.py:23`)
+
+### 2026-07-28 — R038~R042
 - R038: ※·＊ 단서/각주 뒤 ㅇ 복귀 전환 6pt 스페이서 추가 (postprocess TRANSITIONS cham→yo·star→yo)
 - R039: 본문 괄호 13pt(R033)를 문단 전체 텍스트 기준 run 분할로 개정 — 문장 안 볼드로 run이 쪼개진 괄호도 처리(볼드 보존), cross_run_skipped 32→0
 - R040: `==문구==` 노란 음영 하이라이트 도입 — md-profile §1-3 문법·lint `highlight-unpaired`(8종째)·postprocess `apply_highlight`(shadeColor=#FFFF00+볼드, 260331 실무본 실측)·compare `==` 잔존 검출
@@ -116,20 +162,6 @@
   두 매니페스트 버전이 어긋나면 설치본과 카탈로그가 불일치하므로 테스트로 고정
 - R036 원문 정정: `apply_fit_page_width`의 '--all 포함' → '플래그와 무관하게 항상 실행'
   (코드 실측). 배포 시드와 운영 `state_dir/rules.md` 양쪽 동시 반영해 42종 동기화 유지
-
-## Unreleased (2026-07-29)
-- 제거: `inject_images.py` — SKILL.md·commands·references·tests 어디서도 호출되지 않는 고아
-  스크립트(참조 0곳, 131줄 전량 미실행). repo·installed 양쪽 삭제. 이미지 주입이 필요해지면
-  `/tmp/_hwpx` 무조건 rmtree(:66-67,:144)와 재실행 시 zip 엔트리 중복(:124-130)을 고친 뒤
-  파이프라인에 배선해 재도입한다 (이력: `git show 9312f63:skills/report-pipeline/scripts/inject_images.py`)
-- 배포 제외 확대: `form/` 전체를 추적 해제(12.6MB, 배포 페이로드의 94.9%) — 런타임 참조 0곳이고
-  양식 자산은 `assets/` 번들 사본(양식 hwp md5 동일·도식Pool 경량본)으로 충족. `.gitignore`·
-  README §5·`package_check.sh` 가드 동기화. 로컬 원본은 유지, 과거 추적분은 git 이력에 보존
-- **축적룰 전량 승계: `rules-seed.md` R001~R006 → R001~R042**. 그간 승격분 36종(R007~R042)이
-  운영 `state_dir/rules.md`에만 있어 신규 설치자는 6종만 받던 격차를 해소 — 실제 운영 기준으로
-  배포. 이후 승격은 운영 파일에 먼저 반영하고 배포 전 시드로 동기화한다
-- 문서 정정: README `state_dir` 기본값 `~/.claude/report-harness-state/` → 실제값
-  `{cwd}/.report-harness` (`harness_config.py:23`)
 
 ## 이력 백필 — R007~R037 (2026-07-22 ~ 07-28 승격분)
 

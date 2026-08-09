@@ -46,6 +46,25 @@ def test_marketplace_version_matches_plugin():
         f"marketplace.json {entry['version']} != plugin.json {plugin['version']}"
     )
 
+def test_version_consistent_across_changelog_and_readme():
+    """plugin.json 버전이 CHANGELOG 최신 릴리스·README 배지와 일치한다.
+
+    실사고: 0.3.1 배지인 채 CHANGELOG에 'Unreleased' 절이 5개까지 쌓이고 릴리스가
+    두 달 밀렸다 — 버전을 올리려면 세 곳을 함께 움직여야 통과한다."""
+    import re
+    plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    releases = re.findall(r"^## (\d+\.\d+\.\d+) \(", changelog, re.M)
+    assert releases and releases[0] == plugin["version"], (
+        f"CHANGELOG 최신 릴리스 {releases[:1]} != plugin.json {plugin['version']}")
+    assert not re.search(r"^## Unreleased", changelog, re.M), \
+        "CHANGELOG에 Unreleased 절 잔존 — 릴리스에 귀속시킬 것"
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"badge/version-(\d+\.\d+\.\d+)-", readme)
+    assert m and m.group(1) == plugin["version"], (
+        f"README 배지 {m and m.group(1)} != plugin.json {plugin['version']}")
+
+
 def test_research_skill_exists():
     t = (ROOT / "skills/report-research/SKILL.md").read_text(encoding="utf-8")
     assert t.startswith("---") and "name: report-research" in t

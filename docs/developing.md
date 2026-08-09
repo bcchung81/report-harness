@@ -46,7 +46,8 @@ bash scripts/package_check.sh
 python3 -m pytest -q
 ```
 
-**11종 179건.** 참조 문서 간 정합성(`test_references_consistency.py`), 플러그인·마켓플레이스
+건수는 `pytest`가 세는 값이 정본이다(문서에 박아두면 곧 낡는다 — 실제로 세 문서가 세 숫자를
+말하던 드리프트를 겪었다). 참조 문서 간 정합성(`test_references_consistency.py`), 플러그인·마켓플레이스
 매니페스트 구조와 버전 일치(`test_plugin_structure.py`), 후처리 규칙 회귀
 (`test_postprocess_hwpx.py`)에 더해 규칙 체계 자체를 지키는 둘이 있다.
 
