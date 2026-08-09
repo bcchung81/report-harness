@@ -60,6 +60,7 @@ def test_pipeline_skill_references_exist():
         assert (ROOT / "skills/report-pipeline/references" / f).is_file()
 
 def test_commands_and_bundle():
-    for c in ["report-research", "report-analyze", "report-draft", "report-export"]:
+    for c in ["report-research", "report-analyze", "report-draft", "report-export",
+              "report-doctor"]:
         assert (ROOT / "commands" / f"{c}.md").is_file()
     assert (ROOT / "skills/humanizer/SKILL.md").is_file()
