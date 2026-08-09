@@ -33,9 +33,18 @@ def test_rules_seed_has_no_duplicate_ids():
 
 
 def test_rules_seed_ids_are_contiguous():
-    """룰 번호는 R001부터 빈틈없이 이어져야 한다 — 누락은 시드 동기화 실패 신호다."""
+    """룰 번호는 R001부터 이어져야 한다 — 누락은 시드 동기화 실패 신호다.
+
+    예외: 통폐합으로 폐지된 번호는 `rules-history.md`에 이관 기록이 있으면 허용한다
+    (R068 정기 통폐합 — 번호를 재사용하면 과거 참조가 깨지므로 결번으로 남긴다).
+    """
     import re
     text = (REF / "rules-seed.md").read_text(encoding="utf-8")
+    # 결번 기록은 추적되는 시드 이력에서 읽는다 — gitignore된 운영 이력에 걸면 fresh clone에서 깨진다
+    hist_p = REF / "rules-history.md"
+    retired = set(re.findall(r"^## (R\d+)", hist_p.read_text(encoding="utf-8"), re.M)) \
+        if hist_p.exists() else set()
     nums = sorted(int(m[1:]) for m in re.findall(r"^- (R\d+)", text, re.M))
-    missing = [n for n in range(1, nums[-1] + 1) if n not in nums]
+    missing = [n for n in range(1, nums[-1] + 1)
+               if n not in nums and "R%03d" % n not in retired]
     assert missing == [], f"시드에 누락된 룰 번호: {['R%03d' % n for n in missing]}"

@@ -121,3 +121,66 @@ def test_highlight_marker_allowed():       # R040: ==특히 강조== 하이라�
 
 def test_highlight_unpaired_detected():    # 짝 안 맞는 == 는 잔존 위험 — 위반
     assert "highlight-unpaired" in rules(lint_text("ㅇ 핵심은 ==특히 강조 사항\n"))
+
+
+# --- 텍스트 규범에서 결정론 검출로 내린 5종 (R029·R044·R046·R057·R059) ---------
+
+def _rules(text):
+    return [v["rule"] for v in lint_text(text)]
+
+
+def test_date_full_form_flags_four_digit_year():
+    """R046 — 본문 날짜는 'yy.m월. 4자리 연도 풀 표기는 위반."""
+    assert "date-full-form" in _rules("ㅇ 2026. 7. 30. 회의에서 확정한 내용")
+
+
+def test_date_full_form_allows_sending_line_and_short_form():
+    """예외 둘 — 발신 줄은 일자·요일까지 적고, 축약형 `'26.6.23(화)`도 합법."""
+    assert "date-full-form" not in _rules("< '26. 7. 30.(목), 경영기획본부 AI디지털심화팀 >")
+    assert "date-full-form" not in _rules("ㅇ '26.6.23(화) 개최 예정인 심의에 상정")
+
+
+def test_label_enumeration_needs_both_list_and_label():
+    """R044 — 가운뎃점 나열과 'N단 구조' 라벨이 같은 줄에 있을 때만. 사양 나열은 통과."""
+    assert "label-enumeration" in _rules("ㅇ 핵심결론·본문·보충안내·출처표기 4단 구조로 규격화")
+    assert "label-enumeration" not in _rules("ㅇ Node.js 24.x · Next.js 16.2 · React 19.2 적용")
+    assert "label-enumeration" not in _rules("ㅇ 근거 소실·실적 누락·작성부담 해소")
+
+
+def test_nested_paren_lead():
+    """R029 — ㅇ가 괄호 리드면 하위 대시는 괄호 리드를 쓰지 않는다."""
+    bad = "ㅇ **(지적 사항)** 객관성이 부족하다는 지적\n\n   - (세부) 표본 집계였음"
+    ok = "ㅇ **(지적 사항)** 객관성이 부족하다는 지적\n\n   - 표본 집계였음"
+    assert "nested-paren-lead" in _rules(bad)
+    assert "nested-paren-lead" not in _rules(ok)
+
+
+def test_plan_subject_scoped_to_plan_section():
+    """R059 — '향후 계획' 절에서만 조직 주어를 잡는다. 다른 절은 대상이 아니다."""
+    plan = "□ 향후 계획\n\n ㅇ 검정관리팀이 외부용역 전환을 추진 중"
+    other = "□ 추진 배경\n\n ㅇ 검정관리팀이 외부용역 전환을 추진 중"
+    assert "plan-subject" in _rules(plan)
+    assert "plan-subject" not in _rules(other)
+
+
+def test_plan_subject_no_false_positive_on_common_nouns():
+    """'처리결과는'의 '과는', '확인사실이'의 '실이' 같은 일반명사에 걸리면 안 된다."""
+    t = "□ 향후 계획\n\n ㅇ 처리결과는 코드표로 관리하고 확인사실이 남도록 한다"
+    assert "plan-subject" not in _rules(t)
+
+
+def test_connective_repeat_counts_per_section():
+    """R057 — 절 단위로 센다. 절이 바뀌면 카운트가 리셋된다."""
+    over = "□ 절1\n\n ㅇ 확인하고 정리하고 반영하고 보고하고 종결한다"
+    split = ("□ 절1\n\n ㅇ 확인하고 정리하고\n\n"
+             "□ 절2\n\n ㅇ 반영하고 보고하고")
+    assert "connective-repeat" in _rules(over)
+    assert "connective-repeat" not in _rules(split)
+
+
+def test_annex_banner_closes_section():
+    """붙임 배너도 절 경계 — □가 없는 붙임 구간으로 '향후 계획' 상태가 새면 안 된다."""
+    t = ("□ 향후 계획\n\n ㅇ 전환 추진 중\n\n"
+         "| 붙임 1 | | 상세 |\n| --- | --- | --- |\n\n"
+         " ㅇ 검정관리팀이 별도로 관리한다")
+    assert "plan-subject" not in _rules(t)

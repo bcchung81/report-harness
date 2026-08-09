@@ -22,8 +22,6 @@
                     12pt(R023)·□ 절 제목 볼드(R024)·☞ 계층 띄어쓰기(R025)도 적용한다.
   --sender-size N   발신 줄(classify=="sending") 문단 run들의 charPr을 폰트는 유지한 채
                     높이만 N(pt)로 치환한다. --all에는 포함되지 않는다(값 필요, 별도 지정).
-  --star-indent L,I ＊·※ 문단의 paraPr margin을 left=L(pt)·intent=I(pt, 음수 허용)로
-                    치환한다(prev/next 여백은 유지). --all에는 포함되지 않는다.
   --header-banner   KCA 머리말 배너(로고+슬로건 표)를 주입한다(R030). 주입 시 앵커 문단
                     lineSpacing을 100%로 강제하고 subList textWidth를 본문 폭으로
                     보정한다(R041 — 도너 앵커 150%가 본문을 4.6mm 밀어낸 실원인 정정).
@@ -35,7 +33,7 @@
 계층 간격은 paraPr 위/아래 간격이 아니라 글자크기를 줄인 빈 스페이서 문단으로 구현된다
 (문단모양 자체 간격 필드는 전부 0). 확정값은 format-profile.kca.md §7에 승계돼 있다.
 """
-import sys, json, re, copy, zipfile, pathlib, tempfile, os
+import sys, json, re, copy, math, zipfile, pathlib, tempfile, os
 import xml.etree.ElementTree as ET
 
 NS = {
@@ -55,7 +53,7 @@ YO_CHARS = ("ㅇ", "○")
 
 # 전환 유형 → (이름, 스페이서 charPr 높이 HWPUNIT = pt*100)
 TRANSITIONS = {
-    ("sending", "dae"): ("sending_to_dae", 800),
+    ("sending", "dae"): ("sending_to_dae", 1200),   # 제목표 직후 첫 □ 12pt (R060)
     ("dae", "yo"): ("dae_to_yo", 600),
     ("yo", "yo"): ("yo_to_yo", 600),            # 연속 ㅇ 문단 사이 (사용자 확정)
     ("dash", "yo"): ("dash_to_yo", 600),        # 하위 대시에서 다음 ㅇ 복귀
@@ -84,7 +82,7 @@ TRANSITIONS = {
     ("dash", "arrow"): ("dash_to_arrow", 300),
     ("table", "arrow"): ("table_to_arrow", 300),
 }
-BLOCK_BOUNDARY_HEIGHT = 1500  # 직전 블록 끝 → 새 □ (일반 빈줄)
+BLOCK_BOUNDARY_HEIGHT = 800  # 두 번째 이후 □ 상단 8pt (R060 — 종전 1500)
 
 
 class PostprocessError(Exception):
@@ -442,29 +440,6 @@ def apply_center_cell_text(header_root, section_roots):
 
 
 BORDER_TAGS = ("leftBorder", "rightBorder", "topBorder", "bottomBorder")
-
-
-def ensure_borderless_fill(header_root):
-    """4변 전부 type=NONE인 borderFill id를 재사용하거나, 없으면 첫 borderFill을
-    복제해 leftBorder/rightBorder/topBorder/bottomBorder만 NONE으로 바꿔 등록한다
-    (slash/backSlash 대각선은 건드리지 않는다)."""
-    borderfills = header_root.find(f".//{qn('hh', 'borderFills')}")
-    for bf in borderfills.findall(qn("hh", "borderFill")):
-        if all((el := bf.find(qn("hh", t))) is not None and el.get("type") == "NONE"
-               for t in BORDER_TAGS):
-            return bf.get("id")
-    template = borderfills.find(qn("hh", "borderFill"))
-    new_bf = copy.deepcopy(template)
-    max_id = max(int(bf.get("id")) for bf in borderfills.findall(qn("hh", "borderFill")))
-    new_id = str(max_id + 1)
-    new_bf.set("id", new_id)
-    for t in BORDER_TAGS:
-        el = new_bf.find(qn("hh", t))
-        if el is not None:
-            el.set("type", "NONE")
-    borderfills.append(new_bf)
-    borderfills.set("itemCnt", str(int(borderfills.get("itemCnt", "0")) + 1))
-    return new_id
 
 
 def ensure_borderless_variant(header_root, base_id, cache):
@@ -1213,12 +1188,12 @@ def apply_caption_embed(header_root, section_roots):
     return {"embedded": embedded, "orphan_captions": orphans}
 
 
-JUSTIFY_KINDS = ("dae", "yo", "dash")
+JUSTIFY_KINDS = ("dae", "yo", "dash", "cham", "star")  # ※·＊도 양쪽정렬 (R061)
 
 
 def apply_body_justify(header_root, section_roots):
-    """본문 계층 문단(□·ㅇ·대시)의 정렬을 JUSTIFY(양쪽 정렬)로 치환한다
-    (R032 — 사용자 확정 '26.7.28). ※·＊ 각주·캡션·발신 줄은 기존 정렬 유지."""
+    """본문 계층 문단(□·ㅇ·대시)과 ※·＊ 단서·각주의 정렬을 JUSTIFY로 치환한다
+    (R032 + R061). 캡션·발신 줄은 기존 정렬 유지."""
     p_tag = qn("hp", "p")
     cache = {}
     found = 0
@@ -1236,6 +1211,256 @@ def apply_body_justify(header_root, section_roots):
                 child.set("paraPrIDRef", new_id)
                 changed += 1
     return {"found": found, "changed": changed}
+
+
+LINE_FIT_KINDS = ("dae", "yo", "dash", "cham", "star")
+MIN_SPACING = -10   # 자간 하한 (R062 — -10 미만 금지)
+MIN_RATIO = 90      # 장평 하한 (R062)
+
+
+def _para_text(p):
+    out = []
+    for run in p.findall(qn("hp", "run")):
+        for t in run.findall(qn("hp", "t")):
+            out.append("".join(t.itertext()))
+    return "".join(out)
+
+
+def _weighted_len(text):
+    """한글·전각 1.0, 영숫자·기호 0.5로 가중한 글자 폭 환산 길이."""
+    w = 0.0
+    for ch in text:
+        if ch.isspace():
+            w += 0.5
+        elif ord(ch) > 0x2000:
+            w += 1.0
+        else:
+            w += 0.5
+    return w
+
+
+def _text_width_pt(sec_root):
+    pp = sec_root.find(f".//{qn('hp', 'pagePr')}")
+    if pp is None:
+        return 481.9
+    mg = pp.find(qn("hp", "margin"))
+    w = int(pp.get("width", "59528"))
+    left = int(mg.get("left", "5669")) if mg is not None else 5669
+    right = int(mg.get("right", "5669")) if mg is not None else 5669
+    return (w - left - right) / 100.0
+
+
+def _para_indent_pt(header_root, para_pr_id):
+    for pr in header_root.iter(qn("hh", "paraPr")):
+        if pr.get("id") != para_pr_id:
+            continue
+        mg = pr.find(qn("hh", "margin"))
+        if mg is None:
+            return 0.0
+        left = mg.find(qn("hc", "left"))
+        lv = int(left.get("value", "0")) if left is not None else 0
+        return lv / 100.0
+    return 0.0
+
+
+def _charpr_metrics(header_root, cid):
+    for cp in header_root.iter(qn("hh", "charPr")):
+        if cp.get("id") != cid:
+            continue
+        h = int(cp.get("height", "1500")) / 100.0
+        ratio = cp.find(qn("hh", "ratio"))
+        rv = int(ratio.get("hangul", "100")) if ratio is not None else 100
+        sp = cp.find(qn("hh", "spacing"))
+        sv = int(sp.get("hangul", "0")) if sp is not None else 0
+        return h, rv, sv
+    return 15.0, 100, 0
+
+
+def ensure_charpr_fitted(header_root, base_id, ratio, spacing, cache):
+    """base charPr에서 장평·자간만 바꾼 복제본 id를 반환한다."""
+    key = (base_id, ratio, spacing)
+    if key in cache:
+        return cache[key]
+    charprops = header_root.find(f".//{qn('hh', 'charProperties')}")
+    base = None
+    for cp in charprops.findall(qn("hh", "charPr")):
+        if cp.get("id") == base_id:
+            base = cp
+            break
+    if base is None:
+        cache[key] = base_id
+        return base_id
+    new_cp = copy.deepcopy(base)
+    new_id = str(max(int(cp.get("id")) for cp in charprops.findall(qn("hh", "charPr"))) + 1)
+    new_cp.set("id", new_id)
+    for tag, attr_val in (("ratio", ratio), ("spacing", spacing)):
+        el = new_cp.find(qn("hh", tag))
+        if el is None:
+            el = ET.SubElement(new_cp, qn("hh", tag))
+        for k in ("hangul", "latin", "hanja", "japanese", "other", "symbol", "user"):
+            el.set(k, str(attr_val))
+    charprops.append(new_cp)
+    charprops.set("itemCnt", str(len(charprops.findall(qn("hh", "charPr")))))
+    cache[key] = new_id
+    return new_id
+
+
+def apply_line_fit(header_root, section_roots, max_lines=2):
+    """계층 서술 문단이 max_lines(기본 2줄)를 넘으면 자간·장평을 조여 맞춘다 (R062).
+
+    자간은 -10, 장평은 90이 하한이며 그래도 초과하는 문단은 overflow로 보고한다
+    (타이포로 못 줄이는 분량이므로 본문 텍스트를 줄여야 한다)."""
+    p_tag = qn("hp", "p")
+    cache = {}
+    fitted, overflow, scanned = [], [], 0
+    for sec_root in section_roots:
+        width = _text_width_pt(sec_root)
+        for child in sec_root:
+            if child.tag != p_tag or classify(child) not in LINE_FIT_KINDS:
+                continue
+            text = _para_text(child)
+            if not text.strip():
+                continue
+            scanned += 1
+            runs = child.findall(qn("hp", "run"))
+            if not runs:
+                continue
+            base_cid = runs[0].get("charPrIDRef")
+            if base_cid is None:
+                continue
+            h, ratio0, sp0 = _charpr_metrics(header_root, base_cid)
+            avail = width - _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
+            wl = _weighted_len(text)
+
+            def lines_at(ratio, spacing):
+                adv = h * (ratio / 100.0 + spacing / 100.0)
+                if adv <= 0:
+                    return 99
+                return math.ceil(wl / max(1.0, avail / adv))
+
+            if lines_at(ratio0, sp0) <= max_lines:
+                continue
+            chosen = None
+            for spacing in range(sp0, MIN_SPACING - 1, -1):
+                if lines_at(ratio0, spacing) <= max_lines:
+                    chosen = (ratio0, spacing)
+                    break
+            if chosen is None:
+                for ratio in range(ratio0, MIN_RATIO - 1, -1):
+                    if lines_at(ratio, MIN_SPACING) <= max_lines:
+                        chosen = (ratio, MIN_SPACING)
+                        break
+            if chosen is None:
+                overflow.append({"text": text[:40], "chars": len(text),
+                                 "lines": lines_at(MIN_RATIO, MIN_SPACING)})
+                continue
+            new_cid = ensure_charpr_fitted(header_root, base_cid, chosen[0], chosen[1], cache)
+            for run in runs:
+                if run.get("charPrIDRef") == base_cid:
+                    run.set("charPrIDRef", new_cid)
+            fitted.append({"text": text[:30], "ratio": chosen[0], "spacing": chosen[1]})
+    return {"scanned": scanned, "fitted": len(fitted), "overflow": len(overflow),
+            "overflow_detail": overflow[:10], "min_spacing": MIN_SPACING, "min_ratio": MIN_RATIO}
+
+
+def estimate_layout(header_root, section_roots):
+    """조판 부피를 추정해 export 인도 시 보고한다 (R067).
+
+    린트·구조검증은 전부 통과해도 실제 조판이 15페이지가 되는 일이 있었다 — 정적 검사가
+    "몇 줄로 렌더되는가"를 보지 않기 때문이다. 문단별 예상 줄 수와 표 부피로 쪽수를
+    가늠해 **분량이 목표를 넘으면 인도 전에 드러나게** 한다."""
+    p_tag = qn("hp", "p")
+    line_h, lines, tbl_rows, over2, tbl_h = 0, 0, 0, 0, 0.0
+    for sec_root in section_roots:
+        width = _text_width_pt(sec_root)
+        for child in sec_root:
+            if child.tag != p_tag:
+                continue
+            for tbl in child.iter(qn("hp", "tbl")):
+                rows = int(tbl.get("rowCnt", "1"))
+                cols = max(1, int(tbl.get("colCnt", "1")))
+                tbl_rows += rows
+                # 행 높이는 셀 텍스트가 열 폭 안에서 몇 줄로 접히는지로 결정된다 —
+                # 긴 셀을 가진 표가 쪽수를 지배하므로 평면 상수로 세면 크게 빗나간다
+                col_chars = max(4.0, (_text_width_pt(sec_root) / cols) / 6.5)  # 표 12pt 기준
+                for tr in tbl.iter(qn("hp", "tr")):
+                    tallest = 1
+                    for tc in tr.iter(qn("hp", "tc")):
+                        ln = _weighted_len("".join(t for t in tc.itertext()))
+                        tallest = max(tallest, math.ceil(ln / col_chars))
+                    tbl_h += tallest * 12.0 * 1.6 + 4.0
+            kind = classify(child)
+            text = _para_text(child)
+            if not text.strip():
+                continue
+            runs = child.findall(qn("hp", "run"))
+            if not runs:
+                continue
+            h, ratio, sp = _charpr_metrics(header_root, runs[0].get("charPrIDRef") or "")
+            line_h = max(line_h, h)
+            avail = width - _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
+            adv = h * (ratio / 100.0 + sp / 100.0)
+            n = math.ceil(_weighted_len(text) / max(1.0, avail / max(adv, 0.1)))
+            lines += n
+            if kind in LINE_FIT_KINDS and n > 2:
+                over2 += 1
+    body_pt = lines * line_h * 1.6            # 줄간격 160%
+    pages = max(1, math.ceil((body_pt + tbl_h) / 700.0))   # A4 본문 높이 ≈ 700pt
+    return {"paragraph_lines": lines, "table_rows": tbl_rows,
+            "over_two_lines": over2, "est_pt": round(body_pt + tbl_h), "est_pages": pages}
+
+
+def apply_table_pagination(section_roots, rows_per_page=22):
+    """표가 페이지를 벗어날 때의 처리를 강제한다 (R063).
+
+    ① 셀 단위 페이지 분할 허용(pageBreak=CELL) ② 첫 행 제목 반복(repeatHeader=1)을
+    모든 콘텐츠 표에 보장하고, 한 페이지를 넘길 것으로 보이는 표는 oversized로 보고한다."""
+    fixed, oversized = 0, []
+    for sec_root in section_roots:
+        for tbl in sec_root.iter(qn("hp", "tbl")):
+            rows = int(tbl.get("rowCnt", "1"))
+            cols = int(tbl.get("colCnt", "1"))
+            if tbl.get("pageBreak") != "CELL":
+                tbl.set("pageBreak", "CELL")
+                fixed += 1
+            if rows > 1 and tbl.get("repeatHeader") != "1":
+                tbl.set("repeatHeader", "1")
+                fixed += 1
+            cells = tbl.findall(f".//{qn('hp', 'tc')}")
+            texts = ["".join(t.itertext()) for c in cells for t in c.iter(qn("hp", "t"))]
+            longest = max((len(t) for t in texts), default=0)
+            if rows >= rows_per_page or (rows >= 6 and longest >= 90):
+                oversized.append({"rows": rows, "cols": cols, "longest_cell": longest})
+    return {"attrs_fixed": fixed, "oversized": len(oversized), "detail": oversized[:10],
+            "rule": "pageBreak=CELL + repeatHeader=1"}
+
+
+def apply_formula_box(header_root, section_roots):
+    """1행 1열 표를 산식 박스로 규격화한다 (R064) — 본문 폭 전체·가운데 정렬."""
+    boxed = 0
+    p_tag = qn("hp", "p")
+    for sec_root in section_roots:
+        # 제목 박스·머리글 배너는 첫 □ 이전에 온다 — 산식 박스 대상에서 제외
+        seen_dae = False
+        for child in sec_root:
+            if child.tag != p_tag:
+                continue
+            if classify(child) == "dae":
+                seen_dae = True
+            if not seen_dae:
+                continue
+            for tbl in child.iter(qn("hp", "tbl")):
+                if tbl.get("rowCnt") != "1" or tbl.get("colCnt") != "1":
+                    continue
+                for tc in tbl.iter(qn("hp", "tc")):
+                    for p in tc.iter(qn("hp", "p")):
+                        pid = p.get("paraPrIDRef")
+                        if pid is None:
+                            continue
+                        p.set("paraPrIDRef",
+                              ensure_aligned_clone(header_root, pid, "CENTER", {}))
+                boxed += 1
+    return {"formula_boxes": boxed}
 
 
 def ensure_charpr_supscript(header_root, base_id, cache):
@@ -1799,29 +2024,6 @@ def ensure_indent_parapr(header_root, base_id, left, intent, cache):
     return new_id
 
 
-def apply_star_indent(header_root, section_roots, left_pt, intent_pt):
-    """＊·※ 문단의 paraPr을 left=left_pt(pt)·intent=intent_pt(pt, 음수 허용)로 치환한다."""
-    left = int(round(left_pt * 100))
-    intent = int(round(intent_pt * 100))
-    p_tag = qn("hp", "p")
-    cache = {}
-    found = 0
-    changed = 0
-    for sec_root in section_roots:
-        for child in sec_root:
-            if child.tag != p_tag or classify(child) not in ("star", "cham"):
-                continue
-            found += 1
-            base_id = child.get("paraPrIDRef")
-            if base_id is None:
-                continue
-            new_id = ensure_indent_parapr(header_root, base_id, left, intent, cache)
-            if new_id != base_id:
-                child.set("paraPrIDRef", new_id)
-                changed += 1
-    return {"left": left, "intent": intent, "found": found, "changed": changed}
-
-
 CONTENT_KINDS = {"sending", "dae", "yo", "dash", "star", "cham", "arrow", "caption", "table",
                  "other"}
 
@@ -2047,12 +2249,12 @@ def canonicalize_package(data):
     return sorted(data, key=_pkg_order_key), summary
 
 
-def process_file(path, star=False, spacing=False, sender_size=None, star_indent=None,
+def process_file(path, star=False, spacing=False, sender_size=None,
                  header_banner=False):
-    if not (star or spacing or sender_size is not None or star_indent is not None
+    if not (star or spacing or sender_size is not None
             or header_banner):
         raise PostprocessError(
-            "--star-footnote/--spacing/--sender-size/--star-indent/--header-banner/--all 중 최소 하나는 지정해야 합니다"
+            "--star-footnote/--spacing/--sender-size/--header-banner/--all 중 최소 하나는 지정해야 합니다"
         )
 
     with zipfile.ZipFile(path) as z:
@@ -2185,15 +2387,6 @@ def process_file(path, star=False, spacing=False, sender_size=None, star_indent=
         if ssr["runs_changed"] > 0:
             any_change = True
 
-    if star_indent is not None:
-        left_pt, intent_pt = star_indent
-        sir = apply_star_indent(header_root, list(section_roots.values()), left_pt, intent_pt)
-        summary["star_indent"] = sir
-        if sir["found"] > 0:
-            any_target_found = True
-        if sir["changed"] > 0:
-            any_change = True
-
     if header_banner:
         hbr = apply_header_banner(header_root, list(section_roots.values()), data)
         summary["header_banner"] = hbr
@@ -2204,6 +2397,22 @@ def process_file(path, star=False, spacing=False, sender_size=None, star_indent=
         if geo.get("linespacing_fixed") or geo.get("textwidth_fixed"):
             any_target_found = True
             any_change = True
+
+    tp = apply_table_pagination(list(section_roots.values()))
+    summary["table_pagination"] = tp
+    if tp["attrs_fixed"] > 0:
+        any_change = True
+
+    fb = apply_formula_box(header_root, list(section_roots.values()))
+    summary["formula_box"] = fb
+    if fb["formula_boxes"] > 0:
+        any_change = True
+
+    lf = apply_line_fit(header_root, list(section_roots.values()))
+    summary["line_fit"] = lf
+    summary["layout"] = estimate_layout(header_root, list(section_roots.values()))
+    if lf["fitted"] > 0:
+        any_change = True
 
     fit = apply_fit_page_width(list(section_roots.values()))
     summary["fit_page_width"] = fit
@@ -2248,7 +2457,7 @@ def process_file(path, star=False, spacing=False, sender_size=None, star_indent=
 
 
 USAGE = ("usage: postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all]\n"
-         "                          [--sender-size PT] [--star-indent LEFT,INTENT]\n"
+         "                          [--sender-size PT]\n"
          "exit 0: 변경 적용 완료 | exit 1: 스타일 대상 없음(패키지 정합만 적용됐을 수 있음) | exit 2: 인자/파일/구조 오류")
 
 
@@ -2260,7 +2469,6 @@ def main(argv):
     valid_bool = {"--star-footnote", "--spacing", "--header-banner", "--all"}
     star = spacing = all_flag = header_banner = False
     sender_size = None
-    star_indent = None
     i = 0
     while i < len(rest):
         arg = rest[i]
@@ -2284,20 +2492,6 @@ def main(argv):
                 print(USAGE, file=sys.stderr)
                 return 2
             i += 2
-        elif arg == "--star-indent":
-            if i + 1 >= len(rest):
-                print(USAGE, file=sys.stderr)
-                return 2
-            parts = rest[i + 1].split(",")
-            if len(parts) != 2:
-                print(USAGE, file=sys.stderr)
-                return 2
-            try:
-                star_indent = (float(parts[0]), float(parts[1]))
-            except ValueError:
-                print(USAGE, file=sys.stderr)
-                return 2
-            i += 2
         else:
             print(USAGE, file=sys.stderr)
             return 2
@@ -2305,13 +2499,13 @@ def main(argv):
     star = star or all_flag
     spacing = spacing or all_flag
     header_banner = header_banner or all_flag
-    if not (star or spacing or sender_size is not None or star_indent is not None
+    if not (star or spacing or sender_size is not None
             or header_banner):
         print(USAGE, file=sys.stderr)
         return 2
     try:
         summary = process_file(path, star=star, spacing=spacing,
-                                sender_size=sender_size, star_indent=star_indent,
+                                sender_size=sender_size,
                                 header_banner=header_banner)
     except PostprocessError as e:
         print(json.dumps({"error": str(e)}, ensure_ascii=False))

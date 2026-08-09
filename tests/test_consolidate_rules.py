@@ -1,0 +1,52 @@
+"""rules 통합 lint 회귀 (R068).
+
+규칙 축적을 통폐합으로 되돌리는 장치가 살아 있는지 확인한다. 이 테스트가 실패하면
+`consolidate_rules.py --check`를 돌려 원인을 보고, 통폐합 후 `--mark`로 마커를 갱신한다.
+"""
+import pathlib
+import importlib.util
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+_spec = importlib.util.spec_from_file_location(
+    "consolidate", ROOT / "skills/report-pipeline/scripts/consolidate_rules.py")
+cr = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(cr)
+
+# 운영 축적본이 있으면 그것을, 없으면(fresh clone·CI) 배포 시드를 검사한다 —
+# 시드도 같은 규약(마커·등급·참조 정합)을 지켜야 새 설치가 깨끗한 상태로 출발한다.
+_OP = ROOT / "report/_harness/rules.md"
+RULES = _OP if _OP.exists() else ROOT / "skills/report-pipeline/references/rules-seed.md"
+
+
+def test_rule_parser_covers_every_rule():
+    """다중 태그(`[draft][export]`) 규칙도 본문까지 파싱된다.
+
+    회귀 대상: `\\[([^\\]]+)\\]` 정규식이 다중 태그를 못 잡아 6건이 집계에서 조용히
+    빠졌고, 그 상태로 잰 '규칙 59개·4,600토큰'이 두 턴간 보고됐다 ('26.8.7).
+    """
+    a = cr.analyze(RULES)
+    assert not a["parse_gap"], f"본문 파싱 실패: {a['parse_gap']}"
+
+
+def test_no_dead_rule_references():
+    """규칙이 가리키는 R0NN이 rules.md 또는 rules-history.md에 실재한다."""
+    a = cr.analyze(RULES)
+    assert not a["dead_refs"], f"죽은 참조: {a['dead_refs']}"
+
+
+def test_every_rule_carries_evidence_grade():
+    """근거란이 있는 규칙은 [실측]·[추론]·[관례] 등급을 단다 (등급 없이 승격 금지)."""
+    a = cr.analyze(RULES)
+    assert not a["ungraded"], f"근거 등급 누락: {a['ungraded']}"
+
+
+def test_growth_within_consolidation_limit():
+    """마지막 통합 이후 규칙 증가가 임계(10건) 미만이다.
+
+    임계를 넘으면 통폐합을 수행하고 `consolidate_rules.py --mark`로 마커를 갱신해야
+    통과한다 — 축적만 하고 정리하지 않는 상태를 구조적으로 막는다.
+    """
+    a = cr.analyze(RULES)
+    assert a["growth"] < a["limit"], (
+        f"마지막 통합({a['marked_at']}) 이후 {a['growth']}건 증가 — "
+        f"통폐합 후 `consolidate_rules.py --mark` 실행 필요")

@@ -257,8 +257,7 @@ R018(발신 줄 12pt)이 영구 미적용된 채로 §4 검증을 통과해 버�
   정렬(CENTER) 현행 유지 — `apply_center_cell_text`는 배너 제목 셀을 제외한다(R023의 배너
   제외와 같은 패턴). 결과 요약 `annex_banner.title_justified`로 치환 문단 수를 보고한다.
 - **`--all`**은 `--star-footnote`·`--spacing`·`--header-banner` **세 플래그**를 켜고 zip을
-  1회만 재작성한다(항목 순서·mimetype 보존). 값 인자가 필요한 `--sender-size`·`--star-indent`는
-  포함되지 않는다. 결과 요약(치환 건수·삽입/치환 스페이서 이벤트 목록)을 JSON으로 stdout에 낸다.
+  1회만 재작성한다(항목 순서·mimetype 보존). 값 인자가 필요한 `--sender-size`는 포함되지 않는다. 결과 요약(치환 건수·삽입/치환 스페이서 이벤트 목록)을 JSON으로 stdout에 낸다.
 - exit 0: 변경 적용 완료. exit 1: **적용한 모든 처리에서 대상 0건**(＊ 문단·전환 지점·배너·
   폭 초과 표 어느 것도 미발견 — 잘못된 파일을 가리켰을 가능성, 원인 확인).
   exit 2: 인자·파일·zip/xml 구조 오류.
@@ -351,11 +350,9 @@ python3 skills/report-pipeline/scripts/validate_hwpx.py \
 | `validate_hwpx.py compare` | `validate_hwpx.py compare <src.md> <rt.md>` | 전항목 일치(`issues:[]`) | 불일치 발견 | 인자 부족(파일 접근 오류 시도 exit 2) |
 | `validate_hwpx.py numbers` | `validate_hwpx.py numbers <draft.md> <research_dir>` | 초안 수치 전부 근거 있음(`issues:[]`) | 근거 없는 수치 발견(`numbers-unsourced`) | 인자 부족 |
 | `check_image_size.py` | `check_image_size.py <img> [--max-w-mm 170] [--max-h-mm 90] [--dpi 96]` | 규격 이내(`fits:true`) | 규격 초과(`fits:false`) | 포맷 인식 실패 등 예외 |
-| `postprocess_hwpx.py` | `postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all] [--sender-size PT] [--star-indent LEFT,INTENT]` | 변경 적용 완료(요약 JSON) | 적용한 모든 처리에서 대상 0건 | 인자/파일/zip·xml 구조 오류(참고 charPr 미발견 포함) |
+| `postprocess_hwpx.py` | `postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all] [--sender-size PT]` | 변경 적용 완료(요약 JSON) | 적용한 모든 처리에서 대상 0건 | 인자/파일/zip·xml 구조 오류(참고 charPr 미발견 포함) |
 
 - `postprocess_hwpx.py` 보충: `--all` = `--star-footnote`+`--spacing`+`--header-banner`.
-  값 인자가 필요한 `--sender-size`·`--star-indent`는 `--all`에 포함되지 않으며, 플래그를 하나도
-  주지 않으면 exit 2다. `apply_fit_page_width`(R036·R042)·`canonicalize_package`(R043)는
+  값 인자가 필요한 `--sender-size`는 `--all`에 포함되지 않으며, 플래그를 하나도 주지 않으면
+  exit 2다. `apply_fit_page_width`(R036·R042)·`canonicalize_package`(R043)는
   플래그와 무관하게 항상 실행된다.
-  `--star-indent`는 CLI에 남아 있으나 **R019에서 폐기된 훅**이다 — 내어쓰기는 `--spacing`
-  묶음이 처리하므로 표준 절차(§3.5)에서 쓰지 않는다.

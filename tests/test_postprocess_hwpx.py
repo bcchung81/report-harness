@@ -163,13 +163,13 @@ def test_classify_symbols():
 
 
 def test_transition_lookup_values():
-    assert ph.transition_for("sending", "dae") == ("sending_to_dae", 800)
+    assert ph.transition_for("sending", "dae") == ("sending_to_dae", 1200)
     assert ph.transition_for("dae", "yo") == ("dae_to_yo", 600)
     assert ph.transition_for("yo", "dash") == ("yo_to_dash", 600)
     assert ph.transition_for("dash", "star") == ("dash_to_star", 300)
     assert ph.transition_for("star", "caption") == ("star_to_caption", 1000)
-    assert ph.transition_for("yo", "dae") == ("block_boundary", 1500)
-    assert ph.transition_for("table", "dae") == ("block_boundary", 1500)
+    assert ph.transition_for("yo", "dae") == ("block_boundary", 800)
+    assert ph.transition_for("table", "dae") == ("block_boundary", 800)
     assert ph.transition_for("yo", "yo") == ("yo_to_yo", 600)  # 사용자 확정('26.7.22): 연속 ㅇ 6pt
     assert ph.transition_for("dash", "dash") is None
 
@@ -236,7 +236,7 @@ def test_spacing_inserts_and_modifies(hwpx_file):
     idx_sending = texts.index("< '26. 1. 1.(목), 테스트팀 >")
     idx_dae1 = next(i for i, t in enumerate(texts) if t == "□ 제목1")
     assert idx_dae1 == idx_sending + 2  # 스페이서 한 칸 삽입됨
-    assert height_of(tops[idx_dae1 - 1]) == "800"
+    assert height_of(tops[idx_dae1 - 1]) == "1200"  # 제목표 직후 첫 □ 12pt (R060)
 
     idx_yo1 = texts.index("ㅇ 요지1")
     assert height_of(tops[idx_yo1 - 1]) == "600"
@@ -255,10 +255,10 @@ def test_spacing_inserts_and_modifies(hwpx_file):
     assert "[ 표 제목 ]" not in texts  # 최상위 캡션 문단은 표 안으로 이동
 
     idx_dae2 = texts.index("□ 제목2")
-    assert height_of(tops[idx_dae2 - 1]) == "1500"  # 표→□2, 기존 빈 문단 재활용(modify)
+    assert height_of(tops[idx_dae2 - 1]) == "800"  # 표→□2, 기존 빈 문단 재활용(modify)
 
     idx_dae3 = texts.index("□ 제목3")
-    assert height_of(tops[idx_dae3 - 1]) == "1500"  # ㅇ2→□3, 신규 삽입(insert)
+    assert height_of(tops[idx_dae3 - 1]) == "800"  # ㅇ2→□3, 신규 삽입(insert)
 
     # 600 높이 charPr은 dae_to_yo가 두 번 나와도 재사용되어 신규 등록이 1개만 추가돼야 한다.
     height_values = [cp.get("height") for cp in header.iter(ph.qn("hh", "charPr"))]
@@ -506,8 +506,8 @@ def test_new_table_spacing_transitions():
     assert ph.transition_for("yo", "caption") == ("yo_to_caption", 600)
     assert ph.transition_for("dash", "caption") == ("dash_to_caption", 600)
     assert ph.transition_for("cham", "caption") == ("cham_to_caption", 600)
-    # table→dae 블록 경계 15pt는 유지(일반 block_boundary 규칙)
-    assert ph.transition_for("table", "dae") == ("block_boundary", 1500)
+    # table→dae 블록 경계 8pt (R060 — 두 번째 이후 □ 상단)
+    assert ph.transition_for("table", "dae") == ("block_boundary", 800)
 
 
 # --- ⑤표 셀 텍스트 가운데 정렬(제목 박스 제외) -----------------------------
@@ -617,15 +617,6 @@ def test_title_box_not_found_when_no_table_before_dae(hwpx_file):
     assert summary["title_box"]["fills_replaced"] == 0
 
 
-def test_ensure_borderless_fill_idempotent(tmp_path):
-    p = tmp_path / "idem.hwpx"
-    build_hwpx(str(p), section_xml=TITLE_BOX_SECTION_XML)
-    ph.process_file(str(p), star=False, spacing=True)
-    summary2 = ph.process_file(str(p), star=False, spacing=True)
-    assert summary2["title_box"]["found"] is True
-    assert summary2["title_box"]["fills_replaced"] == 0  # 이미 치환됨 — 재실행 안전
-
-
 # --- ⑦발신 크기 훅 ----------------------------------------------------------
 
 def test_apply_sender_size_preserves_font(hwpx_file):
@@ -667,56 +658,7 @@ def test_apply_sender_size_no_sending_line(tmp_path):
 
 # --- ⑧＊/※ 들여쓰기 훅 -------------------------------------------------------
 
-def test_apply_star_indent_applies_to_star_and_cham(tmp_path):
-    section = """<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
-<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
-  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>＊ 각주1</hp:t></hp:run></hp:p>
-  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>※ 참조1</hp:t></hp:run></hp:p>
-</hs:sec>
-"""
-    p = tmp_path / "indent.hwpx"
-    build_hwpx(str(p), section_xml=section)
-    summary = ph.process_file(str(p), star=False, spacing=False, star_indent=(15, -7.5))
-    r = summary["star_indent"]
-    assert r["left"] == 1500
-    assert r["intent"] == -750
-    assert r["found"] == 2
-    assert r["changed"] == 2
-
-    with zipfile.ZipFile(p) as z:
-        hdr = z.read("Contents/header.xml").decode()
-        sec = z.read("Contents/section0.xml").decode()
-
-    i_star = sec.find("＊ 각주1")
-    seg_star = sec[max(0, i_star - 200):i_star]
-    pid_star = re.findall(r'paraPrIDRef="(\d+)"', seg_star)[-1]
-    i_cham = sec.find("※ 참조1")
-    seg_cham = sec[max(0, i_cham - 200):i_cham]
-    pid_cham = re.findall(r'paraPrIDRef="(\d+)"', seg_cham)[-1]
-    assert pid_star != "0" and pid_cham != "0"
-    assert pid_star == pid_cham  # 동일 base(paraPrIDRef=0)·동일 값 → 같은 복제본 재사용
-
-    pp = re.search(rf'<hh:paraPr id="{pid_star}"[^>]*>.*?</hh:paraPr>', hdr, re.S).group()
-    assert '<hc:left value="1500"' in pp
-    assert '<hc:intent value="-750"' in pp
-    assert '<hc:prev value="0"' in pp  # prev/next 여백은 유지(변경 없음)
-    assert '<hc:next value="0"' in pp
-
-
-def test_apply_star_indent_idempotent(tmp_path):
-    section = """<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
-<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
-  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>＊ 각주1</hp:t></hp:run></hp:p>
-</hs:sec>
-"""
-    p = tmp_path / "indent2.hwpx"
-    build_hwpx(str(p), section_xml=section)
-    ph.process_file(str(p), star=False, spacing=False, star_indent=(15, -7.5))
-    summary2 = ph.process_file(str(p), star=False, spacing=False, star_indent=(15, -7.5))
-    assert summary2["star_indent"]["changed"] == 0
-
-
-# --- CLI: --sender-size / --star-indent 파싱 -------------------------------
+# --- CLI: --sender-size 파싱 / --star-indent 제거 확인 ----------------------
 
 def test_main_sender_size_cli(hwpx_file, capsys):
     rc = ph.main([str(hwpx_file), "--sender-size", "13"])
@@ -725,15 +667,6 @@ def test_main_sender_size_cli(hwpx_file, capsys):
     payload = __import__("json").loads(out)
     assert payload["sender_size"]["height"] == 1300
     assert "spacing" not in payload  # --spacing 미지정 시 다른 기능은 실행 안 됨
-
-
-def test_main_star_indent_cli(hwpx_file, capsys):
-    rc = ph.main([str(hwpx_file), "--star-indent", "15,-7.5"])
-    out = capsys.readouterr().out
-    assert rc == 0
-    payload = __import__("json").loads(out)
-    assert payload["star_indent"]["left"] == 1500
-    assert payload["star_indent"]["intent"] == -750
 
 
 def test_main_sender_size_missing_value_exit2(hwpx_file):
@@ -746,14 +679,14 @@ def test_main_sender_size_non_numeric_exit2(hwpx_file):
     assert rc == 2
 
 
-def test_main_star_indent_bad_format_exit2(hwpx_file):
-    rc = ph.main([str(hwpx_file), "--star-indent", "15"])
-    assert rc == 2
+def test_main_star_indent_removed_rejects_any_value(hwpx_file):
+    """R019 폐기로 --star-indent는 CLI에서 제거됐다 — 값 형식과 무관하게 거부된다.
 
-
-def test_main_star_indent_non_numeric_exit2(hwpx_file):
-    rc = ph.main([str(hwpx_file), "--star-indent", "a,b"])
-    assert rc == 2
+    종전 테스트는 `15`·`a,b` 같은 잘못된 값만 확인해서 '플래그는 있는데 값이 틀렸다'로
+    읽혔다. 실제로는 플래그 자체가 없어 **유효해 보이는 값도** 거부된다. 문서가 이 플래그를
+    쓸 수 있는 것처럼 서술했던 드리프트를 여기서 고정한다."""
+    for value in ("15", "a,b", "0,-6000"):
+        assert ph.main([str(hwpx_file), "--star-indent", value]) == 2, value
 
 
 def test_main_all_does_not_include_sender_size_or_star_indent(hwpx_file, capsys):
@@ -1797,13 +1730,13 @@ def _para_align_by_text(hdr_root, sec_root):
 
 
 def test_body_justify_only_hierarchy_kinds(tmp_path):
-    """□·ㅇ·대시만 JUSTIFY로 바뀌고 ＊·※·캡션·발신 줄 정렬은 건드리지 않는다."""
+    """□·ㅇ·대시·※·＊가 JUSTIFY로 바뀌고 캡션·발신 줄 정렬은 건드리지 않는다 (R061)."""
     p = tmp_path / "justify.hwpx"
     build_hwpx(str(p), header_xml=HEADER_LEFT, section_xml=JUSTIFY_SECTION)
     summary = ph.process_file(str(p), star=False, spacing=True)
     bj = summary["body_justify"]
-    assert bj["found"] == 3      # □1 · ㅇ1 · -1 만 대상
-    assert bj["changed"] == 3    # LEFT → JUSTIFY 복제 배정
+    assert bj["found"] == 5      # □1 · ㅇ1 · -1 · ※1 · ＊1 (R061)
+    assert bj["changed"] == 5    # LEFT → JUSTIFY 복제 배정 (※·＊ 포함)
     with zipfile.ZipFile(str(p)) as z:
         hdr = ET.fromstring(z.read("Contents/header.xml"))
         sec = ET.fromstring(z.read("Contents/section0.xml"))
@@ -1811,9 +1744,9 @@ def test_body_justify_only_hierarchy_kinds(tmp_path):
     assert aligns["□ 제목1"] == "JUSTIFY"
     assert aligns["ㅇ 요지1"] == "JUSTIFY"
     assert aligns["- 상세1"] == "JUSTIFY"
-    # 예외: ＊·※ 각주는 기존 정렬(LEFT) 유지
-    assert aligns["＊ 각주1"] == "LEFT"
-    assert aligns["※ 참고1"] == "LEFT"
+    assert aligns["※ 참고1"] == "JUSTIFY"   # R061
+    assert aligns["＊ 각주1"] == "JUSTIFY"   # R061 — ＊도 ※와 동일 처리
+    assert aligns["※ 참고1"] == "JUSTIFY"  # R061 — ※도 양쪽 정렬
     # 예외: 발신 줄도 기존 정렬 유지
     assert aligns["< '26. 1. 1.(목), 테스트팀 >"] == "LEFT"
     # 예외: 표 캡션은 R015가 배정한 CENTER를 유지(JUSTIFY로 덮어쓰지 않음)
@@ -1825,7 +1758,7 @@ def test_body_justify_noop_when_already_justify(tmp_path):
     p = tmp_path / "justify_noop.hwpx"
     build_hwpx(str(p), section_xml=JUSTIFY_SECTION)   # 기본 HEADER_XML = JUSTIFY
     summary = ph.process_file(str(p), star=False, spacing=True)
-    assert summary["body_justify"] == {"found": 3, "changed": 0}
+    assert summary["body_justify"] == {"found": 5, "changed": 0}  # ※·＊ 포함 (R061)
     with zipfile.ZipFile(str(p)) as z:
         hdr = ET.fromstring(z.read("Contents/header.xml"))
         sec = ET.fromstring(z.read("Contents/section0.xml"))
@@ -1845,7 +1778,7 @@ def test_body_justify_idempotent(tmp_path):
     before_ids = [pp.get("id") for pp in hdr1.iter(ph.qn("hh", "paraPr"))]
     before = _para_align_by_text(hdr1, sec1)
     s2 = ph.process_file(str(p), star=False, spacing=True)
-    assert s2["body_justify"] == {"found": 3, "changed": 0}
+    assert s2["body_justify"] == {"found": 5, "changed": 0}  # ※·＊ 포함 (R061)
     with zipfile.ZipFile(str(p)) as z:
         hdr2 = ET.fromstring(z.read("Contents/header.xml"))
         sec2 = ET.fromstring(z.read("Contents/section0.xml"))
