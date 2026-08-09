@@ -239,7 +239,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S4 · ② 해법 전체 구조 -->
-<section class="slide" data-id="S4" data-time="1:05" data-part="2">
+<section class="slide" data-id="S4" data-time="1:03" data-part="2">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 전체 구조</p>
@@ -287,7 +287,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S5 · ② 구조 (저장소 / 작업폴더) -->
-<section class="slide" data-id="S5" data-time="1:23" data-part="2">
+<section class="slide" data-id="S5" data-time="1:20" data-part="2">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 구조</p>
@@ -323,7 +323,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S6 · ② 왜 이 기술 + 유지보수 -->
-<section class="slide" data-id="S6" data-time="1:40" data-part="2">
+<section class="slide" data-id="S6" data-time="1:37" data-part="2">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 대체재</p>
@@ -363,33 +363,58 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S7 · ③ 실제 작동 -->
-<section class="slide" data-id="S7" data-time="2:18" data-part="3">
+<section class="slide" data-id="S7" data-time="2:15" data-part="2">
   <div class="rail"></div>
   <div class="body">
-    <p class="crit rise">③ 실제 작동 <b>15%</b></p>
-    <h2 class="rise">전시가 아니라 지금 돌아간다</h2>
-    <div class="cap2 rise">
-      <div class="shot"><h4>실제 인도 건 — 9일 5건</h4>이음5G AI 챗봇 구축 결과 보고
-cert-poc 결과보고서
-AI 성과측정 방안 개선
-공공도입 규제 검토결과
-펌웨어 보안 검증결과
-<span class="dim">└ 전부 final/*.hwpx 인도 완료</span></div>
-      <div class="shot"><h4>지금 이 자리 실행 — 후처리 출력</h4><span class="key">spacing</span>       inserted <span class="add">8</span>
-<span class="key">body_justify</span>   changed  <span class="add">10</span>
-<span class="key">caption_embed</span>  embedded <span class="add">1</span>
-<span class="key">fit_page_width</span> fitted   <span class="add">1</span>
-<span class="key">header_banner</span>  injected <span class="add">2</span>
-<span class="dim">structural exit=0 · 검증 통과</span></div>
-    </div>
-    <p class="cap rise"><b>무슨 데이터로 도는가</b> — 왼쪽은 실제 업무 보고서다.
-    오른쪽 실행은 합성 샘플로 돌렸다. 실보고서 본문은 기관 내부 내용이라 이 자리에 띄우지 않고,
-    <b>파이프라인은 동일한 코드 경로</b>를 탄다.</p>
+    <p class="crit rise">② 해법의 적정성 <b>15%</b> · 재사용</p>
+    <h2 class="rise">가져다 쓴 것과 직접 만든 것</h2>
+    <figure class="rise">
+      <svg class="dg" viewBox="0 0 1000 250" role="img"
+           aria-label="kordoc·korean-law MCP와 humanizer·insane-search 스킬은 가져다 쓰고, 양식 정합 후처리와 검증·린트·자립 변환기는 직접 만든 구분">
+        <g color="#8D96A8">
+          <text class="lo" x="4" y="18">가져다 썼다 — 전부 오픈소스, 원작자 고지</text>
+          <rect class="bx" x="4" y="28" width="242" height="86" rx="8"/>
+          <text class="mn hi" x="24" y="58">kordoc</text>
+          <text class="lo" x="24" y="84">MCP · md→hwpx 생성·파싱</text>
+          <text class="lo" x="24" y="104">MIT © chrisryugj</text>
+          <rect class="bx" x="254" y="28" width="242" height="86" rx="8"/>
+          <text class="mn hi" x="274" y="58">korean-law</text>
+          <text class="lo" x="274" y="84">MCP · 법령·행정해석 조회</text>
+          <text class="lo" x="274" y="104">MIT © chrisryugj</text>
+          <rect class="bx" x="504" y="28" width="242" height="86" rx="8"/>
+          <text class="mn hi" x="524" y="58">humanizer</text>
+          <text class="lo" x="524" y="84">스킬 · 문체 윤문 (번들)</text>
+          <text class="lo" x="524" y="104">MIT © DaleSeo</text>
+          <rect class="bx" x="754" y="28" width="242" height="86" rx="8"/>
+          <text class="mn hi" x="774" y="58">insane-search</text>
+          <text class="lo" x="774" y="84">스킬 · 차단 사이트 조사 (선택)</text>
+          <text class="lo" x="774" y="104">MIT © fivetaku</text>
+        </g>
+        <g color="#8B99FA">
+          <text class="lo" x="4" y="150">직접 만들었다 — 기관 양식이라 남이 만들어 둔 것이 없다</text>
+          <rect class="bx-ac" x="4" y="160" width="242" height="82" rx="8"/>
+          <text class="ac" x="24" y="192">양식 정합 후처리</text>
+          <text class="lo" x="24" y="220" style="fill:#B0B8C8">25스테이지 · 2,499줄</text>
+          <rect class="bx-ac" x="254" y="160" width="242" height="82" rx="8"/>
+          <text class="ac" x="274" y="192">검증 3층 · 린트</text>
+          <text class="lo" x="274" y="220" style="fill:#B0B8C8">구조·왕복·수치 + 초안 20종</text>
+          <rect class="bx-ac" x="504" y="160" width="242" height="82" rx="8"/>
+          <text class="ac" x="524" y="192">웹앱 자립 변환기</text>
+          <text class="lo" x="524" y="220" style="fill:#B0B8C8">동결 헤더 + 본문 XML 조립</text>
+          <rect class="bx-ac" x="754" y="160" width="242" height="82" rx="8"/>
+          <text class="ac" x="774" y="192">복리축적 규칙 체계</text>
+          <text class="lo" x="774" y="220" style="fill:#B0B8C8">승격 · 상한 · 회귀 테스트</text>
+        </g>
+      </svg>
+      <figcaption>범용 부분은 전부 가져다 썼다. 직접 만든 것은 <b>기관 양식에 붙는 부분</b>뿐이다.</figcaption>
+    </figure>
+    <p class="cap rise">번들한 것은 라이선스 전문을 동봉하고 빌드가 <b>원작자 고지와 상류 바이트 일치</b>를 검사한다 —
+    하나라도 빠지면 패키지가 만들어지지 않는다.</p>
   </div>
 </section>
 
 <!-- S8 · ③ 변환 엔진 -->
-<section class="slide" data-id="S8" data-time="2:42" data-part="3">
+<section class="slide" data-id="S8" data-time="2:36" data-part="3">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">③ 실제 작동 <b>15%</b> · 내부</p>
@@ -430,11 +455,13 @@ AI 성과측정 방안 개선
       </svg>
       <figcaption>후처리는 고칠 대상이 0건이어도 정상 종료한다 — 그래서 기대 하한을 따로 검사해 조용한 실패를 막는다.</figcaption>
     </figure>
+    <p class="cap rise"><b>무슨 데이터로 도는가</b> — 지난 아흐레 동안 실제 업무 보고서 5건이 이 경로로 나갔다.
+    이 자리 시연은 합성 샘플로 돌린다(실보고서 본문은 기관 내부 내용이라 띄우지 않는다) — <b>코드 경로는 같다.</b></p>
   </div>
 </section>
 
 <!-- S9 · ④ 사용성 -->
-<section class="slide" data-id="S9" data-time="3:00" data-part="4">
+<section class="slide" data-id="S9" data-time="2:59" data-part="4">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">④ 사용성 <b>15%</b></p>
@@ -475,46 +502,46 @@ AI 성과측정 방안 개선
 </section>
 
 <!-- S10 · ⑤ 채택과 위험 -->
-<section class="slide" data-id="S10" data-time="3:21" data-part="5">
+<section class="slide" data-id="S10" data-time="3:16" data-part="5">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">⑤ 채택과 위험 인식 <b>15%</b></p>
-    <h2 class="rise">쓰게 되는 이유 하나, 실패할 이유 셋</h2>
+    <h2 class="rise">쓰게 되는 이유 하나, 다음에 손볼 것 셋</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 232" role="img"
-           aria-label="채택의 결정적 이유 하나와 실패 원인 세 가지 및 각각의 대비책">
+      <svg class="dg" viewBox="0 0 1000 236" role="img"
+           aria-label="채택의 결정적 이유 하나와 앞으로 손볼 개선 방향 세 가지">
         <g color="#8B99FA">
           <rect class="bx-ac" x="4" y="4" width="992" height="66" rx="8"/>
           <text class="ac" x="24" y="34">쓰게 되는 이유 — 서식을 안 만져도 반려되지 않는 파일이 나온다</text>
-          <text class="lo" x="24" y="58">①의 고통에 정확히 맞물린다: 옮기고 꾸미는 시간이 0이 되고, 반입 실패가 사라진다</text>
+          <text class="lo" x="24" y="58" style="fill:#B0B8C8">①의 고통에 정확히 맞물린다: 찾는 시간과 꾸미는 시간이 함께 사라진다</text>
         </g>
-        <g color="#E3AC64">
-          <rect class="bx-w" x="4" y="86" width="322" height="132" rx="8"/>
-          <text style="fill:#E3AC64" x="24" y="116">1 · 양식 개정</text>
-          <text class="lo" x="24" y="146">실측값을 다시 떠야 한다</text>
-          <text class="lo" x="24" y="176">대비 — 프로파일 단일 출처</text>
-          <text class="lo" x="24" y="202">+ 드리프트 테스트</text>
-          <rect class="bx-w" x="340" y="86" width="322" height="132" rx="8"/>
-          <text style="fill:#E3AC64" x="360" y="116">2 · 규칙 비대화</text>
-          <text class="lo" x="360" y="146">쌓이면 안 읽히고 안 지켜진다</text>
-          <text class="lo" x="360" y="176">대비 — 근거 등급·통폐합</text>
-          <text class="lo" x="360" y="202">임계를 테스트에 배선</text>
-          <rect class="bx-w" x="676" y="86" width="320" height="132" rx="8"/>
-          <text style="fill:#E3AC64" x="696" y="116">3 · 1인 의존</text>
-          <text class="lo" x="696" y="146">만든 사람만 고칠 수 있다</text>
-          <text class="lo" x="696" y="176">대비 — MIT 공개·문서 4종</text>
-          <text class="lo" x="696" y="202">+ 자가진단 커맨드</text>
+        <g color="#8D96A8">
+          <text class="lo" x="4" y="94">앞으로 손볼 것</text>
+          <rect class="bx" x="4" y="104" width="322" height="126" rx="8"/>
+          <text class="hi" x="24" y="136">1 · 양식 프로파일 확장</text>
+          <text class="lo" x="24" y="166" style="fill:#B0B8C8">지금은 KCA 양식 하나</text>
+          <text class="lo" x="24" y="192" style="fill:#B0B8C8">프로파일만 추가하면</text>
+          <text class="lo" x="24" y="216" style="fill:#B0B8C8">코드는 그대로 쓴다</text>
+          <rect class="bx" x="340" y="104" width="322" height="126" rx="8"/>
+          <text class="hi" x="360" y="136">2 · 재배포 자동화</text>
+          <text class="lo" x="360" y="166" style="fill:#B0B8C8">규칙이 쌓이면 지금은</text>
+          <text class="lo" x="360" y="192" style="fill:#B0B8C8">손으로 다시 빌드한다</text>
+          <text class="lo" x="360" y="216" style="fill:#B0B8C8">CI 에 물릴 수 있다</text>
+          <rect class="bx" x="676" y="104" width="320" height="126" rx="8"/>
+          <text class="hi" x="696" y="136">3 · 절감 효과 계측</text>
+          <text class="lo" x="696" y="166" style="fill:#B0B8C8">소요 시간을 자동 기록해</text>
+          <text class="lo" x="696" y="192" style="fill:#B0B8C8">'두세 시간'을 추정이 아닌</text>
+          <text class="lo" x="696" y="216" style="fill:#B0B8C8">실측으로 바꾼다</text>
         </g>
       </svg>
     </figure>
-    <p class="cap rise"><b>이탈 지점</b> — 변환이 실패해 마크다운만 손에 쥐는 순간이 가장 위험하다.
-    그래서 실패를 침묵시키지 않고 <b>무엇이 어긋났는지</b> 목록으로 돌려준다.
-    <span class="todo">시범 사용자 이탈 관찰 결과</span></p>
+    <p class="cap rise">이탈이 생긴다면 <b>변환이 실패해 마크다운만 손에 쥐는 순간</b>이다.
+    그래서 실패를 침묵시키지 않고 무엇이 어긋났는지 목록으로 돌려준다.</p>
   </div>
 </section>
 
 <!-- S11 · ⑥ 확산 -->
-<section class="slide" data-id="S11" data-time="3:38" data-part="6">
+<section class="slide" data-id="S11" data-time="3:40" data-part="6">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">⑥ 확산 전략 <b>15%</b></p>
@@ -567,15 +594,15 @@ const PARTS = [["1","① 문제 25%"],["2","② 해법 15%"],["3","③ 작동 15
 const NOTES = {
   S1:"기관 보고서를 마크다운 하나에서 한글 파일까지 뽑는 하네스입니다. 만들어만 둔 게 아니라 지난 아흐레 동안 실제 보고서 다섯 건을 이걸로 냈습니다.",
   S2:"고통은 두 갈래였습니다. 쓰기 전에는 기관 맥락을 매번 다시 찾아야 합니다. KCA, 주요사업, 한국방송통신전파진흥원 같은 것들을 검색하고 컨텍스트로 다시 등록하는 일이 매번 반복됩니다. 다 쓴 뒤에는 서식을 손으로 맞춥니다. 계층, 서체, 줄간격, 표 폭, 각주, 배너. 건당 두세 시간이 여기 들어갑니다. 둘 다 VDI 안에서 벌어지는데 도구를 깔 자리가 없습니다.",
-  S3:"강도를 숫자로 보면 이렇습니다. 서식에만 건당 두세 시간이 들었고 지금은 기계 시간 삼십 분 안입니다. 반입 반려도 한 번 있었는데 서식이 아니라 패키지 구조 때문이었습니다.",
-  S4:"구조는 세 조각이고 두 망에 나뉩니다. 개발 노트북에는 지식 위키와 하네스가 있고, VDI에는 스킬 파일 하나만 올라갑니다. 축적은 왼쪽에서만 일어나고 오른쪽으로는 재배포로만 전달됩니다.",
+  S3:"숫자로 보면 서식에만 건당 두세 시간이 들었고 지금은 기계 시간 삼십 분 안입니다. 반입 반려도 한 번 있었는데 서식이 아니라 패키지 구조 때문이었습니다.",
+  S4:"구조는 세 조각이고 두 망에 나뉩니다. 노트북에는 위키와 하네스가, VDI에는 스킬 파일 하나만 올라갑니다. 축적은 왼쪽에서만 일어나고 오른쪽으로는 재배포로만 갑니다.",
   S5:"저장소는 왼쪽처럼 생겼습니다. 판단 기준과 결정론 스크립트가 갈라져 있죠. 오른쪽은 실제로 만든 보고서 한 건의 폴더입니다. 조사부터 되읽기 검증까지 전부 파일로 남습니다.",
   S6:"이미 있는 것으로 안 되나 먼저 봤습니다. hwpx 변환 스킬은 많습니다. 변환은 됩니다. 그런데 기관 양식으로 지시하면 매번 두세 번 수정이 붙습니다. 검색도 마찬가지예요. KCA를 검색하면 한국소비자원이나 컨설팅 업체가 나옵니다. 범용 도구가 못 하는 건 기술이 아니라 맥락입니다. 그래서 양식 실측값을 프로파일로 박고, 기관 지식은 위키에 쌓아 다시 인용합니다. 양식이 바뀌면 고칠 자리는 프로파일 한 곳입니다.",
-  S7:"왼쪽은 실제로 낸 보고서 다섯 건입니다. 오른쪽은 지금 돌린 결과예요. 스페이서 여덟 개를 넣고 열 문단을 정렬하고 배너 이미지 두 개를 주입했습니다. 실보고서 본문은 기관 내부 내용이라 띄우지 않고 합성 샘플로 보여드리는데, 코드 경로는 완전히 같습니다.",
-  S8:"변환은 다섯 지점을 지납니다. 핵심은 실패 경로예요. 후처리는 고칠 대상이 없어도 정상 종료하기 때문에 기대 하한을 따로 검사하고, 그래도 어긋나면 목록을 밝히고 마크다운을 돌려줍니다.",
-  S9:"실무자가 넘을 허들은 하나입니다. 스킬 파일 하나 올리고 자료를 붙여넣으면 됩니다. 설치도 계정 추가도 API 키도 없고, 확인은 두세 번인데 전부 선택지 클릭입니다. 프롬프트나 모델 같은 내부 개념은 몰라도 됩니다.",
-  S10:"쓰게 되는 이유는 하나입니다. 서식을 안 만져도 반려되지 않는 파일이 나온다. 실패한다면 셋 중 하나일 겁니다. 양식 개정, 규칙 비대화, 1인 의존. 셋 다 대비를 걸어 뒀습니다.",
-  S11:"확산에 필요한 것은 이미 있습니다. 설치 문서 네 종, MIT 공개 저장소, 자가진단 커맨드, 회귀 테스트 이백열여덟 건. 기관이 달라도 바뀌는 건 양식 프로파일 하나고 코드는 그대로입니다. 감사합니다."
+  S7:"범용 부분은 전부 가져다 썼습니다. 변환 생성은 kordoc, 법령 조회는 korean-law, 윤문은 humanizer입니다. 전부 오픈소스고 원작자를 밝힙니다. 직접 만든 건 기관 양식에 붙는 부분뿐이에요.",
+  S8:"변환은 다섯 지점을 지납니다. 핵심은 실패 경로예요. 후처리는 고칠 대상이 없어도 정상 종료하기 때문에 기대 하한을 따로 검사하고, 그래도 어긋나면 목록을 밝히고 마크다운을 돌려줍니다. 지난 아흐레 동안 실제 보고서 다섯 건이 이 경로로 나갔습니다.",
+  S9:"실무자가 넘을 허들은 하나입니다. 스킬 파일 하나 올리고 자료를 붙여넣으면 됩니다. 설치도 계정도 API 키도 없고, 프롬프트나 모델 같은 내부 개념은 몰라도 됩니다.",
+  S10:"쓰게 되는 이유는 하나입니다. 서식을 안 만져도 반려되지 않는 파일이 나온다. 앞으로 손볼 건 셋입니다. 양식 프로파일을 다른 기관까지 넓히는 것, 재배포를 CI에 물리는 것, 그리고 소요 시간을 자동으로 기록해 두세 시간이라는 값을 실측으로 바꾸는 것입니다.",
+  S11:"확산에 필요한 건 이미 있습니다. 설치 문서 네 종, MIT 공개, 자가진단, 회귀 테스트. 기관이 달라도 바뀌는 건 양식 프로파일 하나고 코드는 그대로입니다. 감사합니다."
 };
 const slides = [...document.querySelectorAll(".slide")];
 const stage = document.getElementById("stage"), notes = document.getElementById("notes");
