@@ -245,49 +245,90 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 전체 구조</p>
     <h2 class="rise">세 조각이 두 망에 나뉘어 돈다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 330" role="img"
-           aria-label="개발 노트북의 지식 위키와 하네스, VDI 브라우저의 웹앱 스킬이 인용·승인적재·재배포로 연결된 구조도">
+      <svg class="dg" viewBox="0 0 1000 404" role="img"
+           aria-label="왼쪽 claudian 위키의 축적 사슬, 가운데 report-harness 의 판단·4단계·실행·규칙 층, 오른쪽 VDI 웹앱 스킬로 이어지는 구조도">
         <defs><marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-        <rect class="zone" x="8" y="34" width="560" height="286" rx="12"/>
-        <text class="lo" x="24" y="24">개발 노트북 · 운영자</text>
-        <rect class="zone" x="600" y="34" width="392" height="286" rx="12"/>
-        <text class="lo" x="616" y="24">VDI 브라우저 · 실무자</text>
+
         <g color="#8D96A8">
-          <rect class="bx" x="36" y="64" width="180" height="84" rx="8"/>
-          <text class="hi" x="126" y="98" text-anchor="middle">claudian</text>
-          <text class="lo" x="126" y="124" text-anchor="middle">지식 위키</text>
-          <rect class="bx-ac" x="288" y="64" width="248" height="84" rx="8"/>
-          <text class="ac" x="412" y="98" text-anchor="middle">report-harness</text>
-          <text class="lo" x="412" y="124" text-anchor="middle">조사 → 분석 → 초안 → 변환</text>
-          <line class="ln" x1="222" y1="90" x2="282" y2="90" marker-end="url(#b2)"/>
-          <text class="lo" x="252" y="80" text-anchor="middle">인용</text>
-          <line class="ln" x1="282" y1="126" x2="222" y2="126" marker-end="url(#b2)"/>
-          <text class="lo" x="252" y="150" text-anchor="middle">승인분만</text>
-          <path class="ln dash" d="M352 148 L352 178 L472 178 L472 152" marker-end="url(#b2)"/>
-          <text class="lo" x="412" y="200" text-anchor="middle">규칙 축적 lessons → rules</text>
-          <line class="ln" x1="412" y1="216" x2="412" y2="252" marker-end="url(#b2)"/>
-          <rect class="bx" x="314" y="258" width="196" height="52" rx="8"/>
-          <text class="mn" x="412" y="290" text-anchor="middle">보고서.hwpx</text>
-          <rect class="bx" x="640" y="64" width="312" height="84" rx="8"/>
-          <text class="hi" x="796" y="98" text-anchor="middle">kca-report-hwpx</text>
-          <text class="lo" x="796" y="124" text-anchor="middle">스킬 파일 하나 · MCP 없이 자립</text>
-          <line class="ln" x1="796" y1="216" x2="796" y2="252" marker-end="url(#b2)"/>
-          <rect class="bx" x="698" y="258" width="196" height="52" rx="8"/>
-          <text class="mn" x="796" y="290" text-anchor="middle">보고서.hwpx</text>
+          <text class="lo" x="4" y="16">claudian · LLM 위키</text>
+          <rect class="bx" x="4" y="26" width="190" height="48" rx="8"/>
+          <text class="mn hi" x="99" y="46" text-anchor="middle">wiki / index</text>
+          <text class="lo" x="99" y="66" text-anchor="middle">인용 진입점</text>
+          <line class="ln" x1="99" y1="100" x2="99" y2="80" marker-end="url(#b2)"/>
+          <rect class="bx" x="4" y="102" width="190" height="82" rx="8"/>
+          <text class="mn" x="99" y="126" text-anchor="middle">concepts 37</text>
+          <text class="mn" x="99" y="150" text-anchor="middle">entities 24</text>
+          <text class="mn" x="99" y="174" text-anchor="middle">topics 101</text>
+          <line class="ln" x1="99" y1="208" x2="99" y2="190" marker-end="url(#b2)"/>
+          <rect class="bx" x="4" y="210" width="190" height="48" rx="8"/>
+          <text class="mn hi" x="99" y="230" text-anchor="middle">acquired 97주제</text>
+          <text class="lo" x="99" y="250" text-anchor="middle">승인분만 적재</text>
+          <line class="ln" x1="99" y1="290" x2="99" y2="264" marker-end="url(#b2)"/>
+          <rect class="bx" x="4" y="292" width="190" height="44" rx="8"/>
+          <text class="mn" x="99" y="320" text-anchor="middle">raw 54 · 읽기 전용</text>
+        </g>
+
+        <g color="#8B99FA">
+          <rect class="bx-ac" x="234" y="26" width="476" height="298" rx="10"/>
+          <text class="ac" x="472" y="56" text-anchor="middle" style="font-size:26px">report-harness</text>
+        </g>
+        <g color="#8D96A8">
+          <rect class="bx" x="248" y="70" width="448" height="36" rx="6"/>
+          <text class="mn" x="262" y="94">references — 문체 · 양식 프로파일 · 룰 70</text>
+
+          <rect class="bx" x="248" y="118" width="106" height="62" rx="6"/>
+          <text x="301" y="145" text-anchor="middle">① 조사</text>
+          <text class="lo" x="301" y="166" text-anchor="middle">산출 계약</text>
+          <rect class="bx" x="362" y="118" width="106" height="62" rx="6"/>
+          <text x="415" y="145" text-anchor="middle">② 분석</text>
+          <text class="lo" x="415" y="166" text-anchor="middle">논지 후보</text>
+          <rect class="bx-ac" x="476" y="118" width="106" height="62" rx="6"/>
+          <text class="ac" x="529" y="145" text-anchor="middle">③ 초안</text>
+          <text class="lo" x="529" y="166" text-anchor="middle">게이트 ⓪①②</text>
+          <rect class="bx" x="590" y="118" width="106" height="62" rx="6"/>
+          <text x="643" y="145" text-anchor="middle">④ 변환</text>
+          <text class="lo" x="643" y="166" text-anchor="middle">후처리 25</text>
+
+          <rect class="bx" x="248" y="192" width="448" height="36" rx="6"/>
+          <text class="mn" x="262" y="216">scripts — 후처리 · 검증 3층 · 린트 20</text>
+          <rect class="bx" x="248" y="240" width="448" height="36" rx="6"/>
+          <text class="mn" x="262" y="264">rules — 게이트 피드백이 규칙으로 승격</text>
+          <text class="lo" x="262" y="304">작업폴더가 단계 사이의 인터페이스</text>
+
+          <line class="ln" x1="472" y1="328" x2="472" y2="352" marker-end="url(#b2)"/>
+          <rect class="bx" x="374" y="356" width="196" height="44" rx="8"/>
+          <text class="mn" x="472" y="384" text-anchor="middle">보고서.hwpx</text>
+
+          <line class="ln" x1="198" y1="50" x2="230" y2="50" marker-end="url(#b2)"/>
+          <text class="lo" x="214" y="40" text-anchor="middle">인용</text>
+          <line class="ln" x1="230" y1="234" x2="198" y2="234" marker-end="url(#b2)"/>
+          <text class="lo" x="214" y="256" text-anchor="middle">승인</text>
+        </g>
+
+        <rect class="zone" x="762" y="10" width="234" height="330" rx="12"/>
+        <text class="lo" x="778" y="30">VDI 브라우저 · 실무자</text>
+        <g color="#8D96A8">
+          <rect class="bx" x="778" y="42" width="202" height="94" rx="8"/>
+          <text class="hi" x="879" y="74" text-anchor="middle">kca-report-hwpx</text>
+          <text class="lo" x="879" y="100" text-anchor="middle">스킬 파일 하나</text>
+          <text class="lo" x="879" y="122" text-anchor="middle">MCP 없이 자립</text>
+          <line class="ln" x1="879" y1="140" x2="879" y2="352" marker-end="url(#b2)"/>
+          <rect class="bx" x="778" y="356" width="202" height="44" rx="8"/>
+          <text class="mn" x="879" y="384" text-anchor="middle">보고서.hwpx</text>
         </g>
         <g color="#8B99FA">
-          <path class="ln-ac dash" d="M540 106 L640 106" marker-end="url(#b2)"/>
-          <text class="ac" x="590" y="94" text-anchor="middle" style="font-size:18px">재배포</text>
+          <line class="ln-ac dash" x1="714" y1="86" x2="756" y2="86" marker-end="url(#b2)"/>
+          <text class="ac" x="735" y="72" text-anchor="middle" style="font-size:15px">재배포</text>
         </g>
       </svg>
-      <figcaption>축적은 왼쪽에서만 일어난다. 실무자에게는 파일 하나만 건너간다.</figcaption>
+      <figcaption>왼쪽은 아래에서 위로 승격된다 — 원자료에서 승인 적재로, 다시 개념·주제 페이지로. 오른쪽으로는 완성된 스킬 파일 하나만 건너간다.</figcaption>
     </figure>
   </div>
 </section>
 
 <!-- S5 · ② 구조 (저장소 / 작업폴더) -->
-<section class="slide" data-id="S5" data-time="1:20" data-part="2">
+<section class="slide" data-id="S5" data-time="1:33" data-part="2">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 구조</p>
@@ -323,47 +364,60 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S6 · ② 왜 이 기술 + 유지보수 -->
-<section class="slide" data-id="S6" data-time="1:37" data-part="2">
+<section class="slide" data-id="S6" data-time="1:50" data-part="2">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 대체재</p>
     <h2 class="rise">이미 있는 것으로는 왜 안 됐나</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 262" role="img"
-           aria-label="서식과 맥락 두 축에서 기존 방식과 하네스를 비교한 행렬. 기존은 2~3회 수정과 KCA 오인식, 하네스는 수정 왕복 0과 원출처 대조">
+      <svg class="dg" viewBox="0 0 1000 326" role="img"
+           aria-label="기존 hwpx 변환 스킬이 담당하는 한 층 위에 하네스가 다섯 층을 더 얹는다는 층 구조와, 맥락 축의 위키 재인용 비교">
         <g color="#8D96A8">
-          <text class="lo" x="176" y="24">서식 — 양식 정합</text>
-          <text class="lo" x="606" y="24">맥락 — 기관 지식</text>
-          <text class="lo" x="0" y="98">이미</text>
-          <text class="lo" x="0" y="122">있는 것</text>
-          <text class="ac" x="0" y="212">하네스</text>
+          <text class="lo" x="4" y="16">서식 — 기존 스킬 위에 하네스가 더 얹는 것</text>
         </g>
-
-        <g color="#E3AC64">
-          <rect class="bx-w" x="156" y="40" width="420" height="94" rx="8"/>
-          <text class="hi" x="176" y="76" style="fill:#F4F6FA">hwpx 변환 스킬</text>
-          <rect x="176" y="92" width="176" height="30" rx="15" fill="rgba(227,172,100,.14)" stroke="#E3AC64"/>
-          <text class="mn" x="264" y="112" text-anchor="middle" style="fill:#E3AC64">2~3회 수정</text>
-
-          <rect class="bx-w" x="586" y="40" width="414" height="94" rx="8"/>
-          <text class="hi" x="606" y="76" style="fill:#F4F6FA">범용 검색 · LLM</text>
-          <rect x="606" y="92" width="286" height="30" rx="15" fill="rgba(227,172,100,.14)" stroke="#E3AC64"/>
-          <text class="mn" x="749" y="112" text-anchor="middle" style="fill:#E3AC64">KCA → 한국소비자원</text>
-        </g>
-
         <g color="#8B99FA">
-          <rect class="bx-ac" x="156" y="150" width="420" height="94" rx="8"/>
-          <text class="hi" x="176" y="186" style="fill:#F4F6FA">양식 프로파일 + 후처리 25</text>
-          <rect x="176" y="202" width="164" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="mn" x="258" y="222" text-anchor="middle" style="fill:#8B99FA">수정 왕복 0</text>
+          <rect class="bx-ac" x="4" y="26" width="600" height="40" rx="6"/>
+          <text class="ac" x="20" y="52" style="font-size:17px">+5</text>
+          <text class="mn" x="62" y="52" style="fill:#F4F6FA">초안 린트 20종 · 규칙 70건 축적</text>
+          <rect class="bx-ac" x="4" y="72" width="600" height="40" rx="6"/>
+          <text class="ac" x="20" y="98" style="font-size:17px">+4</text>
+          <text class="mn" x="62" y="98" style="fill:#F4F6FA">검증 3층 · 침묵 실패 차단</text>
+          <rect class="bx-ac" x="4" y="118" width="600" height="40" rx="6"/>
+          <text class="ac" x="20" y="144" style="font-size:17px">+3</text>
+          <text class="mn" x="62" y="144" style="fill:#F4F6FA">패키지 정본 지문 — 반입 통과</text>
+          <rect class="bx-ac" x="4" y="164" width="600" height="40" rx="6"/>
+          <text class="ac" x="20" y="190" style="font-size:17px">+2</text>
+          <text class="mn" x="62" y="190" style="fill:#F4F6FA">표 폭 정합 · 캡션 표 내장 · 머리말 배너</text>
+          <rect class="bx-ac" x="4" y="210" width="600" height="40" rx="6"/>
+          <text class="ac" x="20" y="236" style="font-size:17px">+1</text>
+          <text class="mn" x="62" y="236" style="fill:#F4F6FA">양식 실측값 — 계층 간격 · 서체 · 정렬</text>
+        </g>
+        <g color="#E3AC64">
+          <rect class="bx-w" x="4" y="262" width="600" height="52" rx="6"/>
+          <text class="mn" x="24" y="294" style="fill:#B0B8C8">md → hwpx 변환</text>
+          <rect x="392" y="274" width="196" height="30" rx="15" fill="rgba(227,172,100,.14)" stroke="#E3AC64"/>
+          <text class="mn" x="490" y="294" text-anchor="middle" style="fill:#E3AC64">기존 스킬은 여기까지</text>
+        </g>
 
-          <rect class="bx-ac" x="586" y="150" width="414" height="94" rx="8"/>
-          <text class="hi" x="606" y="186" style="fill:#F4F6FA">위키 재인용</text>
-          <rect x="606" y="202" width="164" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="mn" x="688" y="222" text-anchor="middle" style="fill:#8B99FA">원출처 대조</text>
+        <g color="#8D96A8">
+          <text class="lo" x="644" y="16">맥락 — 기관 지식</text>
+        </g>
+        <g color="#E3AC64">
+          <rect class="bx-w" x="644" y="26" width="352" height="130" rx="8"/>
+          <text class="hi" x="664" y="62" style="fill:#F4F6FA">범용 검색 · LLM</text>
+          <text class="mn" x="664" y="92" style="fill:#B0B8C8">"KCA" 검색 결과</text>
+          <rect x="664" y="106" width="300" height="30" rx="15" fill="rgba(227,172,100,.14)" stroke="#E3AC64"/>
+          <text class="mn" x="814" y="126" text-anchor="middle" style="fill:#E3AC64">한국소비자원 · 컨설팅 업체</text>
+        </g>
+        <g color="#8B99FA">
+          <rect class="bx-ac" x="644" y="184" width="352" height="130" rx="8"/>
+          <text class="hi" x="664" y="220" style="fill:#F4F6FA">위키 재인용</text>
+          <text class="mn" x="664" y="250" style="fill:#B0B8C8">acquired 97주제 · 원출처 병기</text>
+          <rect x="664" y="264" width="234" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="781" y="284" text-anchor="middle" style="fill:#8B99FA">확정 / 미확정 태깅</text>
         </g>
       </svg>
-      <figcaption>범용 도구가 못 하는 것은 기술이 아니라 <b>맥락</b>이다 — 우리 기관의 양식이 무엇이고 KCA가 누구인지.</figcaption>
+      <figcaption>변환 자체는 기존 스킬도 한다. 갈리는 곳은 그 위 다섯 층 — 실측값·표·패키지·검증·축적이다.</figcaption>
     </figure>
     <p class="cap rise"><b>서식</b> — 실측값을 프로파일 한 곳에 박아 두고 후처리가 매번 같게 적용한다.
     어긋나면 검증이 잡으니 수정 왕복이 사라진다. <b>맥락</b> — 한 번 확인한 기관 지식은 다시 찾지 않고,
@@ -375,7 +429,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S7 · ③ 실제 작동 -->
-<section class="slide" data-id="S7" data-time="2:15" data-part="2">
+<section class="slide" data-id="S7" data-time="2:21" data-part="2">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 재사용</p>
@@ -426,7 +480,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S8 · ③ 변환 엔진 -->
-<section class="slide" data-id="S8" data-time="2:36" data-part="3">
+<section class="slide" data-id="S8" data-time="2:42" data-part="3">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">③ 실제 작동 <b>15%</b> · 내부</p>
@@ -473,7 +527,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S9 · ④ 사용성 -->
-<section class="slide" data-id="S9" data-time="2:59" data-part="4">
+<section class="slide" data-id="S9" data-time="3:05" data-part="4">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">④ 사용성 <b>15%</b></p>
@@ -514,14 +568,14 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S10 · ⑤ 채택과 위험 -->
-<section class="slide" data-id="S10" data-time="3:16" data-part="5">
+<section class="slide" data-id="S10" data-time="3:22" data-part="5">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">⑤ 채택과 위험 인식 <b>15%</b></p>
     <h2 class="rise">쓰게 되는 이유 하나, 다음에 손볼 것 셋</h2>
     <figure class="rise">
       <svg class="dg" viewBox="0 0 1000 244" role="img"
-           aria-label="채택의 결정적 이유 하나와, 지금 상태에서 목표 상태로 가는 개선 방향 세 가지">
+           aria-label="채택의 결정적 이유 하나와, 산출 형태 확장·재배포 자동화·절감 효과 계측 세 가지 개선 방향의 지금과 목표">
         <defs><marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
         <g color="#8B99FA">
@@ -534,12 +588,12 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <text class="lo" x="286" y="94">지금</text>
           <text class="lo" x="640" y="94">목표</text>
 
-          <text class="hi" x="4" y="132">양식 프로파일 확장</text>
+          <text class="hi" x="4" y="132">산출 형태 확장</text>
           <rect x="286" y="110" width="228" height="30" rx="15" fill="rgba(150,165,205,.08)" stroke="rgba(226,232,245,.24)"/>
-          <text class="mn" x="400" y="130" text-anchor="middle">KCA 양식 1종</text>
+          <text class="mn" x="400" y="130" text-anchor="middle">내부결재용 hwpx</text>
           <line class="ln" x1="530" y1="125" x2="616" y2="125" marker-end="url(#c1)"/>
-          <rect x="640" y="110" width="228" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="mn" x="754" y="130" text-anchor="middle" style="fill:#8B99FA">타 기관 N종</text>
+          <rect x="640" y="110" width="270" height="30" rx="15" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="mn" x="775" y="130" text-anchor="middle" style="fill:#8B99FA">pptx · 경영실적보고서</text>
 
           <text class="hi" x="4" y="180">재배포 자동화</text>
           <rect x="286" y="158" width="228" height="30" rx="15" fill="rgba(150,165,205,.08)" stroke="rgba(226,232,245,.24)"/>
@@ -563,7 +617,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 </section>
 
 <!-- S11 · ⑥ 확산 -->
-<section class="slide" data-id="S11" data-time="3:40" data-part="6">
+<section class="slide" data-id="S11" data-time="3:50" data-part="6">
   <div class="rail"></div>
   <div class="body">
     <p class="crit rise">⑥ 확산 전략 <b>15%</b></p>
@@ -617,13 +671,13 @@ const NOTES = {
   S1:"기관 보고서를 마크다운 하나에서 한글 파일까지 뽑는 하네스입니다. 만들어만 둔 게 아니라 지난 아흐레 동안 실제 보고서 다섯 건을 이걸로 냈습니다.",
   S2:"고통은 두 갈래였습니다. 쓰기 전에는 기관 맥락을 매번 다시 찾아야 합니다. KCA, 주요사업, 한국방송통신전파진흥원 같은 것들을 검색하고 컨텍스트로 다시 등록하는 일이 매번 반복됩니다. 다 쓴 뒤에는 서식을 손으로 맞춥니다. 계층, 서체, 줄간격, 표 폭, 각주, 배너. 건당 두세 시간이 여기 들어갑니다. 둘 다 VDI 안에서 벌어지는데 도구를 깔 자리가 없습니다.",
   S3:"숫자로 보면 서식에만 건당 두세 시간이 들었고 지금은 기계 시간 삼십 분 안입니다. 반입 반려도 한 번 있었는데 서식이 아니라 패키지 구조 때문이었습니다.",
-  S4:"구조는 세 조각이고 두 망에 나뉩니다. 노트북에는 위키와 하네스가, VDI에는 스킬 파일 하나만 올라갑니다. 축적은 왼쪽에서만 일어나고 오른쪽으로는 재배포로만 갑니다.",
+  S4:"가운데가 하네스입니다. 위는 LLM이 읽는 판단 기준, 아래는 판단이 끼면 안 되는 스크립트, 그 사이에 네 단계가 있고 게이트는 초안에 몰려 있습니다. 왼쪽 위키는 아래에서 위로 쌓입니다. 원자료에서 승인 적재로, 다시 개념과 주제 페이지로요. 지금 97개 주제가 들어 있습니다. 오른쪽으로는 스킬 파일 하나만 건너갑니다.",
   S5:"저장소는 왼쪽처럼 생겼습니다. 판단 기준과 결정론 스크립트가 갈라져 있죠. 오른쪽은 실제로 만든 보고서 한 건의 폴더입니다. 조사부터 되읽기 검증까지 전부 파일로 남습니다.",
-  S6:"이미 있는 것으로 안 되나 먼저 봤습니다. hwpx 변환 스킬은 많습니다. 변환은 됩니다. 그런데 기관 양식으로 지시하면 매번 두세 번 수정이 붙습니다. 검색도 마찬가지예요. KCA를 검색하면 한국소비자원이나 컨설팅 업체가 나옵니다. 범용 도구가 못 하는 건 기술이 아니라 맥락입니다. 그래서 양식 실측값을 프로파일로 박고, 기관 지식은 위키에 쌓아 다시 인용합니다. 양식이 바뀌면 고칠 자리는 프로파일 한 곳입니다.",
+  S6:"이미 있는 것으로 안 되나 먼저 봤습니다. hwpx 변환 스킬은 많고 변환 자체는 됩니다. 갈리는 건 그 위입니다. 양식 실측값, 표와 캡션, 패키지 지문, 검증, 축적. 다섯 층을 더 얹어야 기관 양식이 됩니다. 그래서 기관 양식으로 지시하면 매번 두세 번 수정이 붙었던 겁니다. 맥락도 마찬가지예요. KCA를 검색하면 한국소비자원이 나옵니다.",
   S7:"범용 부분은 전부 가져다 썼습니다. 변환 생성은 kordoc, 법령 조회는 korean-law, 윤문은 humanizer입니다. 전부 오픈소스고 원작자를 밝힙니다. 직접 만든 건 기관 양식에 붙는 부분뿐이에요.",
   S8:"변환은 다섯 지점을 지납니다. 핵심은 실패 경로예요. 후처리는 고칠 대상이 없어도 정상 종료하기 때문에 기대 하한을 따로 검사하고, 그래도 어긋나면 목록을 밝히고 마크다운을 돌려줍니다. 지난 아흐레 동안 실제 보고서 다섯 건이 이 경로로 나갔습니다.",
   S9:"실무자가 넘을 허들은 하나입니다. 스킬 파일 하나 올리고 자료를 붙여넣으면 됩니다. 설치도 계정도 API 키도 없고, 프롬프트나 모델 같은 내부 개념은 몰라도 됩니다.",
-  S10:"쓰게 되는 이유는 하나입니다. 서식을 안 만져도 반려되지 않는 파일이 나온다. 앞으로 손볼 건 셋입니다. 양식 프로파일을 다른 기관까지 넓히는 것, 재배포를 CI에 물리는 것, 그리고 소요 시간을 자동으로 기록해 두세 시간이라는 값을 실측으로 바꾸는 것입니다.",
+  S10:"쓰게 되는 이유는 하나입니다. 서식을 안 만져도 반려되지 않는 파일이 나온다. 앞으로 손볼 건 셋입니다. 산출 형태를 넓히는 것 — 지금은 내부결재용인데 pptx와 경영실적보고서 초안까지, 재배포를 CI에 물리는 것, 그리고 소요 시간을 자동으로 기록해 두세 시간이라는 값을 실측으로 바꾸는 것입니다.",
   S11:"확산에 필요한 건 이미 있습니다. 설치 문서 네 종, MIT 공개, 자가진단, 회귀 테스트. 기관이 달라도 바뀌는 건 양식 프로파일 하나고 코드는 그대로입니다. 감사합니다."
 };
 const slides = [...document.querySelectorAll(".slide")];
