@@ -144,8 +144,8 @@ Q&A 합의 기반으로 아웃라인을 생성한다. **논지 구조가 갈리�
 Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 제시한다.
 
 `10_outline.md`에 반드시 포함: 목차 + 논지(절별) + 근거 목록(확정/추정 태깅) + **표 설계**
-(어느 절 · 어떤 논지를 지탱 · 열 구성, `table-pool.md` 참고 가능) + **이미지 배치**(§7-1 규격
-판정 대상 후보와 배치 절, 없으면 생략) + **도식 설계**(`diagram-pool.md` 판정표로 패턴 선택,
+(어느 절 · 어떤 논지를 지탱 · 열 구성, `table-pool.md` 참고 가능) + **이미지 배치**
+(`factcheck.md` §B 차용 기준으로 규격 판정한 후보와 배치 절, 없으면 생략) + **도식 설계**(`diagram-pool.md` 판정표로 패턴 선택,
 슬롯 내용 초안).
 
 렌더 전송(사이드패널)으로 제시하고 AskUserQuestion(승인/수정 지정/방향 전환)으로 승인받는다.
@@ -193,7 +193,7 @@ lint 통과 후 수행한다. **서브에이전트 스폰은 게이트② 승인
 AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** — 별도 질문 아님):
 
 1. **전체 승인 + 팩트체크**: 전수 / 경량(기본값) / 생략 중 택1.
-   - 전수: 독립 서브에이전트가 §7-2 절차로 전수 검증 → `35_factcheck.md`.
+   - 전수: 독립 서브에이전트가 `factcheck.md` §A 절차로 전수 검증 → `35_factcheck.md`.
    - 경량(기본): `python3 skills/report-pipeline/scripts/validate_hwpx.py numbers
      {work_dir}/20_draft.md {work_dir}/research` 실행(에이전트 0개, 초 단위) — 근거 없는
      수치(`numbers-unsourced`)만 보고, 발견 시 해당 수치 출처 확인 후 수정 또는 [추정] 태깅.
@@ -218,7 +218,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 
 1. **팩트체크(게이트②에서 선택된 값대로) ∥ 회귀검사(`rules.md` `[export]` 태그 +
    `md-profile.md`)를 한 메시지 다중 Agent로 동시 스폰**한다. 전수는 독립 서브에이전트가
-   §7-2 절차로 검증하고, 경량은 `python3 skills/report-pipeline/scripts/validate_hwpx.py
+   `factcheck.md` §A 절차로 검증하고, 경량은 `python3 skills/report-pipeline/scripts/validate_hwpx.py
    numbers {work_dir}/20_draft.md {work_dir}/research`를 실행해 근거 없는 수치
    (`numbers-unsourced`)만 보고, 발견 시 해당 수치 출처 확인 후 수정 또는 [추정] 태깅한다
    (에이전트 스폰 불필요). 생략이면 이 항목은 건너뛴다. 팩트체크가 전수로 선택됐는데
@@ -320,6 +320,8 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 - `references/diagram-pool.md` — 표 기반 도식 판정 카탈로그. 아웃라인의 도식 설계 시점에
   읽는다.
 - `references/table-pool.md` — 경영실적 표 부품 카탈로그. 표 설계 시점에 참고(선택).
+- `references/factcheck.md` — §A 전수 팩트체크 절차(게이트②·export의 "전수" 선택 시)·
+  §B 이미지 차용 기준(게이트① 이미지 배치 판정 시). 해당 시점에 읽는다.
 - `references/format-profile.kca.md` — KCA 기본 양식 프로파일(폰트·계층·줄바꿈). 프리플라이트·
   변환 시점에 읽는다. `state_dir`에 기관별 프로파일이 있으면 그것이 우선.
 - `references/rules-seed.md` — `state_dir/rules.md` 첫 실행 시드(§0-4에서 1회만 복사, 이후는

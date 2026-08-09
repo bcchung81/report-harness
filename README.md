@@ -234,7 +234,7 @@ report-harness/
 ├── commands/                슬래시 커맨드 5종
 │
 ├── webapp/kca-report-hwpx/  ★ 웹앱 배포판 원본 — MCP 없이 자립
-│   ├── SKILL.md             ③초안 게이트2회 → ④변환 자동
+│   ├── SKILL.md             ③초안 게이트 최대 3회 → ④변환 자동
 │   ├── NOTICE.md            서드파티 고지
 │   ├── scripts/             md2hwpx(생성) · assert_postprocess(침묵실패 차단)
 │   │                        · roundtrip_md(되읽기) + 하네스 복사본 4종
