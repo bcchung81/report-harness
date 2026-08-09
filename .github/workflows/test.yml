@@ -1,0 +1,24 @@
+# CI — 로컬에서만 초록인 테스트를 구조적으로 차단한다.
+# fresh clone 상태(report/·form/·dist/ 없음)에서 pytest 전량 + 배포 가드 + 웹앱 빌드를 돌린다.
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: pytest (stdlib only — 의존성 설치 없음)
+        run: python3 -m pytest -q -ra
+      - name: 배포 가드 (금지 폴더·PII)
+        run: bash scripts/package_check.sh
+      - name: 웹앱 스킬 빌드 검증 (6기준 + 드리프트)
+        run: python3 scripts/build_webapp_skill.py --target all
