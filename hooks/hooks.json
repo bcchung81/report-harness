@@ -1,0 +1,16 @@
+{
+  "description": "hwpx 인도 전 검증 안전망. Bash가 hwpx를 만들거나 고친 명령을 감지해 구조 검증(validate_hwpx.py structural)과 후처리 흔적(R043 필수 멤버)을 확인하고, 실패하면 block으로 되돌린다. 검증 스크립트를 못 찾으면 아무 것도 하지 않는다.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/verify_hwpx_hook.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
