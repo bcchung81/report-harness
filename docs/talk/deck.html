@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>report-harness — 구조</title>
 <style>
+/* Pretendard 동봉 (SIL OFL 1.1 © Kil Hyung-jin, fonts/LICENSE.txt) —
+   미설치 기기(심사장 Windows 등)에서도 같은 렌더. 설치돼 있으면 local() 이 우선한다. */
+@font-face{
+  font-family:"Pretendard";
+  src:local("Pretendard Variable"),local("Pretendard"),
+      url("fonts/PretendardVariable.woff2") format("woff2");
+  font-weight:100 900;font-display:swap;
+}
 :root{
   --ground:#08090B; --grid:rgba(180,195,255,.035);
   /* 대비 실측(배경 #08090B): hi 18.4 · mid 10.0 · low 6.7 · faint 4.7 — 전부 4.5:1 이상.
