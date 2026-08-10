@@ -68,8 +68,9 @@ h1{font-size:clamp(1.6rem,5.2vw,2.3rem);font-weight:800;letter-spacing:-.018em;
 
 /* ── 절 ── */
 section{margin-top:3.2rem}
-.shead{display:flex;align-items:baseline;gap:.7rem;padding-bottom:.7rem;
+.shead{display:flex;flex-wrap:wrap;align-items:baseline;gap:.7rem;padding-bottom:.7rem;
   border-bottom:1px solid var(--hair)}
+.shead span{white-space:nowrap}
 .shead b{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;color:var(--accent);
   font-weight:400}
 .shead span{font-size:.95rem;color:var(--hi);font-weight:600}
@@ -96,7 +97,8 @@ fieldset.sub .qhint,fieldset.sub .qrule,fieldset.sub .opts{margin-left:0}
   border:1px solid var(--hair-soft);border-radius:.3rem;padding:.6rem .85rem;
   background:transparent;transition:border-color .15s ease,background .15s ease,color .15s ease}
 .opt:hover{border-color:var(--hair);background:var(--sunken)}
-.opt input{position:absolute;opacity:0;width:0;height:0}
+/* 눈에만 안 보이게 — 크기를 0 으로 접으면 일부 보조기술이 포커스를 못 잡는다 */
+.opt input{position:absolute;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .mk{flex:none;width:1.05rem;height:1.05rem;margin-top:.15rem;border:1px solid var(--chrome);
   transition:border-color .15s ease,background .15s ease}
 .opt[data-type="single"] .mk{border-radius:50%}
@@ -253,7 +255,7 @@ for (const q of QUESTIONS) {
       </span>
     </legend>
     ${q.hint ? `<p class="qhint">${q.hint}</p>` : ''}
-    ${rule ? `<p class="qrule">${rule}</p>` : ''}
+    ${rule ? `<p class="qrule" id="rule-${q.id}">${rule}</p>` : ''}
     <div class="opts">
       ${opts.map((o, i) => `
         <label class="opt" data-type="${q.type}">
@@ -302,11 +304,19 @@ function paintChecked() {
 // 상한에 닿으면 나머지 보기를 눌러도 안 켜지게 잠근다 — 조용히 무시되는 것보다 낫다.
 function lockAtMax(q) {
   if (!q.max) return;
-  const full = (answers[q.id] || []).length >= q.max;
+  const picked = (answers[q.id] || []).length;
+  const full = picked >= q.max;
   for (const n of form.querySelectorAll(`input[name="${q.id}"]`)) {
     const lock = full && !n.checked;
     n.disabled = lock;
     n.closest('.opt').toggleAttribute('data-locked', lock);
+  }
+  // 다 채우면 나머지가 흐려진다. 왜 안 눌리는지, 어떻게 바꾸는지 그 자리에서 알려준다.
+  const rule = document.getElementById(`rule-${q.id}`);
+  if (rule) {
+    rule.textContent = full
+      ? `${q.max}개를 모두 골랐습니다 — 바꾸려면 고른 것을 먼저 해제하세요`
+      : `최대 ${q.max}개 선택 (${picked}/${q.max})`;
   }
 }
 
