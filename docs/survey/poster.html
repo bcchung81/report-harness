@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>설문 안내 — 보고서 작성 실태 조사</title>
+<style>
+@font-face{
+  font-family:"Pretendard";
+  src:local("Pretendard Variable"),local("Pretendard"),
+      url("fonts/PretendardVariable.woff2") format("woff2");
+  font-weight:100 900;font-display:swap;
+}
+:root{
+  --ground:#08090B; --grid:rgba(180,195,255,.035);
+  --hi:#F4F6FA; --mid:#B0B8C8; --low:#8D96A8; --faint:#727B8D;
+  --accent:#8B99FA; --warn:#E3AC64;
+  --hair:rgba(226,232,245,.24); --hair-soft:rgba(226,232,245,.13);
+  --sunken:rgba(150,165,205,.05);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:
+    repeating-linear-gradient(to right,var(--grid) 0 1px,transparent 1px 5.2%),
+    var(--ground);
+  color:var(--hi);font-family:var(--sans);word-break:keep-all;line-height:1.6;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem 1rem;
+}
+
+.sheet{width:100%;max-width:34rem;display:flex;flex-direction:column;gap:1.6rem}
+.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;color:var(--low);
+  text-transform:uppercase}
+h1{font-size:2.1rem;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-top:.7rem}
+.sub{font-size:1rem;color:var(--mid);margin-top:.7rem}
+
+/* QR — 화면이든 인쇄든 항상 흰 판 위 검정 모듈. 스캔이 가장 잘 되는 조합이다. */
+.qrbox{align-self:center;background:#fff;border-radius:.6rem;padding:1.1rem;
+  display:flex;flex-direction:column;align-items:center;gap:.75rem}
+.qrbox img{display:block;width:15rem;height:15rem;image-rendering:pixelated}
+.qrbox .url{font-family:var(--mono);font-size:.78rem;letter-spacing:.01em;color:#111;
+  word-break:break-all;text-align:center;max-width:15rem}
+
+.facts{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center}
+.pill{border:1px solid var(--hair);border-radius:99px;padding:.28rem .85rem;
+  font-size:.85rem;color:var(--mid)}
+.pill.ac{border-color:var(--accent);color:var(--accent)}
+
+.note{border:1px solid var(--hair-soft);border-left:2px solid var(--accent);
+  background:var(--sunken);border-radius:.25rem;padding:.9rem 1.1rem;
+  font-size:.85rem;color:var(--mid)}
+.note b{color:var(--hi);font-weight:600}
+
+.foot{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  border-top:1px solid var(--hair-soft);padding-top:.9rem;
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--faint)}
+/* 부서마다 다른 값 — 인쇄 전에 이 줄만 고쳐 쓰면 된다 */
+.fill{color:var(--warn)}
+
+/* ── 인쇄: A4 한 장, 흰 바탕 ──────────────────────────
+   어두운 배경을 그대로 뽑으면 토너만 먹고 QR 대비도 떨어진다. */
+@page{size:A4 portrait;margin:20mm}
+@media print{
+  body{background:#fff;color:#000;display:block;padding:0}
+  .sheet{max-width:none;gap:12mm}
+  h1{font-size:26pt}
+  .sub{color:#333;font-size:12pt}
+  .eyebrow{color:#666}
+  .qrbox{padding:0}
+  .qrbox img{width:78mm;height:78mm}
+  .qrbox .url{font-size:11pt;max-width:none}
+  .pill{border-color:#999;color:#222;font-size:11pt}
+  .pill.ac{border-color:#000;color:#000}
+  .note{background:transparent;border-color:#bbb;border-left-color:#000;color:#222;font-size:10pt}
+  .note b{color:#000}
+  .foot{border-top-color:#bbb;color:#555;font-size:9pt}
+  .fill{color:#000}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <p class="eyebrow">부서 실무자 대상 · 무기명 설문</p>
+    <h1>보고서, 어디에서<br>시간이 가장 많이 드십니까?</h1>
+    <p class="sub">
+      기관 보고서를 직접 쓰시는 분들께 묻습니다.
+      LLM(ChatGPT · Claude 등)을 쓰시든 안 쓰시든 답하실 수 있습니다.
+    </p>
+  </header>
+
+  <div class="qrbox">
+    <img src="qr.svg" alt="설문 페이지 QR 코드">
+    <span class="url">report-harness-survey.vercel.app</span>
+  </div>
+
+  <div class="facts">
+    <span class="pill ac">무기명</span>
+    <span class="pill">8~12문항 · 전부 객관식</span>
+    <span class="pill">약 3분</span>
+    <span class="pill">휴대폰으로 가능</span>
+  </div>
+
+  <p class="note">
+    <b>이름 · 사번 · 소속 · IP 주소는 저장하지 않습니다.</b>
+    고른 보기 번호와 제출 시각만 남으며, 결과는 문항별 합계로만 공유합니다.
+    자유 서술란이 없어 문장으로 신원이 드러날 여지도 없습니다.
+  </p>
+
+  <div class="foot">
+    <span>회신 기한 <span class="fill">____년 __월 __일</span></span>
+    <span>문의 <span class="fill">____________</span></span>
+  </div>
+</div>
+</body>
+</html>
