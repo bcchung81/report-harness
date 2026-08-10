@@ -77,6 +77,9 @@ body{
 /* 배치 통일(기준: S7) — 제목은 상단, 캡션은 하단에 붙고 남는 높이는 도식 위아래로 간다 */
 .body>figure,.body>.cap2{margin-block:auto}
 .slide[data-id="S1"] .body{justify-content:center}
+/* S4 — 코드 블록 두 장이 커서 margin auto 가 위아래로 벌어진다. 묶음째 가운데 두고 틈은 없앤다 */
+.slide[data-id="S4"] .body{justify-content:center}
+.slide[data-id="S4"] .body>.cap2{margin-block:0}
 /* S7 — 층 도식 + 로드맵 두 장이 서니 도식 폭을 줄여 세로를 확보 */
 .slide[data-id="S7"] .dg{max-width:56cqw}
 /* 밴드가 많은 장 — 간격을 넓혀 덜 빽빽하게 */
@@ -159,6 +162,20 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 /* 자동 발표 큐 — 말하는 대목만 남기고 나머지 표기 요소를 가라앉힌다 */
 [data-cue]{transition:opacity .35s ease}
 .cue-dim{opacity:.3}
+/* 도식 안에서는 흐림을 얕게 — 실패 경로를 말할 때 본류가 안 읽히면 그림이 끊긴다 */
+.dg .cue-dim{opacity:.5}
+.dg .cue-on .bx,.dg .cue-on .bx-ac,.dg .cue-on .bx-w{stroke-width:2.3}
+
+/* 순차 강조 — data-sweep 묶음의 data-step 을 그 문장 길이에 맞춰 훑는다 */
+.dg [data-step]{transition:opacity .28s ease}
+.dg [data-step].step-off{opacity:.32}
+.dg [data-step].step-now .bx,.dg [data-step].step-now .bx-ac{stroke:var(--accent);stroke-width:2.6}
+.dg [data-step].step-now .bx-w{stroke-width:2.6}
+.dg [data-step].step-now text{fill:var(--hi)}
+.dg [data-step].step-now .lo{fill:var(--mid)}
+@keyframes stepBlink{0%{opacity:.35}45%{opacity:1}70%{opacity:.8}100%{opacity:1}}
+.dg [data-step].step-now{animation:stepBlink .4s ease-out}
+@media (prefers-reduced-motion:reduce){.dg [data-step].step-now{animation:none}}
 .todo{display:inline-flex;align-items:center;gap:.5cqw;
   border:1px dashed var(--warn);border-radius:.3cqw;padding:.4cqw .8cqw;
   color:var(--warn);font-size:1.05cqw}
@@ -260,92 +277,103 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">② 해법의 적정성 <b>15%</b> · 전체 구조</p>
     <h2 class="rise">세 조각이 두 망에 나뉘어 돈다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 404" role="img"
+      <svg class="dg" viewBox="0 0 1000 500" role="img"
            aria-label="왼쪽 claudian 위키의 축적 사슬, 가운데 report-harness 의 판단·4단계·실행·규칙 층, 오른쪽 VDI 웹앱 스킬로 이어지는 구조도">
         <defs><marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
 
         <!-- 망 경계 — 하네스(개발 노트북)와 VDI 사이. 재배포가 지나는 자리만 비워 둔다 -->
-        <line x1="736" y1="8" x2="736" y2="136" stroke="rgba(226,232,245,.13)"
+        <line x1="736" y1="20" x2="736" y2="158" stroke="rgba(226,232,245,.13)"
           stroke-width="1.2" stroke-dasharray="2 7" stroke-linecap="round"/>
-        <line x1="736" y1="204" x2="736" y2="398" stroke="rgba(226,232,245,.13)"
+        <line x1="736" y1="222" x2="736" y2="492" stroke="rgba(226,232,245,.13)"
           stroke-width="1.2" stroke-dasharray="2 7" stroke-linecap="round"/>
 
         <g color="#8D96A8" data-cue="3 4 5">
-          <text class="lo" x="4" y="16">claudian · LLM 위키</text>
-          <rect class="bx" x="4" y="26" width="190" height="48" rx="8"/>
-          <text class="mn hi" x="99" y="46" text-anchor="middle">wiki / index</text>
-          <text class="lo" x="99" y="66" text-anchor="middle">인용 진입점</text>
-          <line class="ln" x1="99" y1="104" x2="99" y2="80" marker-end="url(#b2)"/>
-          <rect class="bx" x="4" y="106" width="190" height="84" rx="8"/>
-          <text class="mn" x="99" y="132" text-anchor="middle">concepts 37</text>
-          <text class="mn" x="99" y="156" text-anchor="middle">entities 24</text>
-          <text class="mn" x="99" y="180" text-anchor="middle">topics 101</text>
-          <line class="ln" x1="99" y1="220" x2="99" y2="196" marker-end="url(#b2)"/>
-          <rect class="bx" x="4" y="222" width="190" height="48" rx="8"/>
-          <text class="mn hi" x="99" y="242" text-anchor="middle">acquired 97주제</text>
-          <text class="lo" x="99" y="262" text-anchor="middle">승인분만 적재</text>
-          <line class="ln" x1="99" y1="300" x2="99" y2="276" marker-end="url(#b2)"/>
-          <rect class="bx" x="4" y="302" width="190" height="44" rx="8"/>
-          <text class="mn" x="99" y="330" text-anchor="middle">raw 54 · 읽기 전용</text>
+          <text class="lo" x="4" y="20">claudian · LLM 위키</text>
+          <rect class="bx" x="4" y="30" width="190" height="56" rx="8"/>
+          <text class="mn hi" x="99" y="55" text-anchor="middle">wiki / index</text>
+          <text class="lo" x="99" y="76" text-anchor="middle">인용 진입점</text>
+          <line class="ln" x1="99" y1="118" x2="99" y2="90" marker-end="url(#b2)"/>
+          <line class="ln" x1="99" y1="256" x2="99" y2="228" marker-end="url(#b2)"/>
+          <line class="ln" x1="99" y1="346" x2="99" y2="318" marker-end="url(#b2)"/>
+
+          <!-- 아래에서 위로 승격 — 큐 4에서 원자료 → 승인 적재 → 개념·주제 순으로 훑는다 -->
+          <g data-sweep="4">
+            <g data-step="3">
+              <rect class="bx" x="4" y="120" width="190" height="104" rx="8"/>
+              <text class="mn" x="99" y="151" text-anchor="middle">concepts 37</text>
+              <text class="mn" x="99" y="178" text-anchor="middle">entities 24</text>
+              <text class="mn" x="99" y="205" text-anchor="middle">topics 101</text>
+            </g>
+            <g data-step="2">
+              <rect class="bx" x="4" y="258" width="190" height="56" rx="8"/>
+              <text class="mn hi" x="99" y="283" text-anchor="middle">acquired 97주제</text>
+              <text class="lo" x="99" y="304" text-anchor="middle">승인분만 적재</text>
+            </g>
+            <g data-step="1">
+              <rect class="bx" x="4" y="348" width="190" height="50" rx="8"/>
+              <text class="mn" x="99" y="378" text-anchor="middle">raw 54 · 읽기 전용</text>
+            </g>
+          </g>
         </g>
 
         <g color="#8B99FA" data-cue="1 2">
-          <rect class="bx-ac" x="234" y="26" width="476" height="298" rx="10"/>
-          <text class="ac" x="472" y="56" text-anchor="middle" style="font-size:26px">report-harness</text>
+          <rect class="bx-ac" x="234" y="30" width="476" height="368" rx="10"/>
+          <text class="ac" x="472" y="68" text-anchor="middle" style="font-size:26px">report-harness</text>
         </g>
         <g color="#8D96A8" data-cue="1 2">
-          <rect class="bx" x="248" y="70" width="448" height="36" rx="6"/>
-          <text class="mn" x="262" y="94">references — 문체 · 양식 프로파일 · 룰 70</text>
+          <rect class="bx" x="248" y="88" width="448" height="40" rx="6"/>
+          <text class="mn" x="262" y="114">references — 문체 · 양식 프로파일 · 룰 70</text>
 
-          <rect class="bx" x="248" y="118" width="106" height="62" rx="6"/>
-          <text x="301" y="145" text-anchor="middle">① 조사</text>
-          <text class="lo" x="301" y="166" text-anchor="middle">산출 계약</text>
-          <rect class="bx" x="362" y="118" width="106" height="62" rx="6"/>
-          <text x="415" y="145" text-anchor="middle">② 분석</text>
-          <text class="lo" x="415" y="166" text-anchor="middle">논지 후보</text>
-          <rect class="bx-ac" x="476" y="118" width="106" height="62" rx="6"/>
-          <text class="ac" x="529" y="145" text-anchor="middle">③ 초안</text>
-          <text class="lo" x="529" y="166" text-anchor="middle">게이트 ⓪①②</text>
-          <rect class="bx" x="590" y="118" width="106" height="62" rx="6"/>
-          <text x="643" y="145" text-anchor="middle">④ 변환</text>
-          <text class="lo" x="643" y="166" text-anchor="middle">후처리 25</text>
+          <rect class="bx" x="248" y="146" width="106" height="78" rx="6"/>
+          <text x="301" y="179" text-anchor="middle">① 조사</text>
+          <text class="lo" x="301" y="205" text-anchor="middle">산출 계약</text>
+          <rect class="bx" x="362" y="146" width="106" height="78" rx="6"/>
+          <text x="415" y="179" text-anchor="middle">② 분석</text>
+          <text class="lo" x="415" y="205" text-anchor="middle">논지 후보</text>
+          <rect class="bx-ac" x="476" y="146" width="106" height="78" rx="6"/>
+          <text class="ac" x="529" y="179" text-anchor="middle">③ 초안</text>
+          <text class="lo" x="529" y="205" text-anchor="middle">게이트 ⓪①②</text>
+          <rect class="bx" x="590" y="146" width="106" height="78" rx="6"/>
+          <text x="643" y="179" text-anchor="middle">④ 변환</text>
+          <text class="lo" x="643" y="205" text-anchor="middle">후처리 25</text>
 
           <!-- 단계 사이 틈 = 작업폴더 인터페이스. 틈마다 짧은 지시선을 내려 캡션과 잇는다 -->
-          <line x1="358" y1="184" x2="358" y2="194" stroke="rgba(226,232,245,.24)" stroke-width="1.2"/>
-          <line x1="472" y1="184" x2="472" y2="194" stroke="rgba(226,232,245,.24)" stroke-width="1.2"/>
-          <line x1="586" y1="184" x2="586" y2="194" stroke="rgba(226,232,245,.24)" stroke-width="1.2"/>
-          <text class="lo" x="472" y="208" text-anchor="middle">작업폴더가 단계 사이의 인터페이스</text>
+          <line x1="358" y1="228" x2="358" y2="240" stroke="rgba(226,232,245,.24)" stroke-width="1.2"/>
+          <line x1="472" y1="228" x2="472" y2="240" stroke="rgba(226,232,245,.24)" stroke-width="1.2"/>
+          <line x1="586" y1="228" x2="586" y2="240" stroke="rgba(226,232,245,.24)" stroke-width="1.2"/>
+          <text class="lo" x="472" y="258" text-anchor="middle">작업폴더가 단계 사이의 인터페이스</text>
 
-          <rect class="bx" x="248" y="218" width="448" height="36" rx="6"/>
-          <text class="mn" x="262" y="242">scripts — 후처리 · 검증 3층 · 린트 20</text>
-          <rect class="bx" x="248" y="262" width="448" height="36" rx="6"/>
-          <text class="mn" x="262" y="286">rules — 게이트 피드백이 규칙으로 승격</text>
+          <rect class="bx" x="248" y="276" width="448" height="40" rx="6"/>
+          <text class="mn" x="262" y="302">scripts — 후처리 · 검증 3층 · 린트 20</text>
+          <rect class="bx" x="248" y="328" width="448" height="40" rx="6"/>
+          <text class="mn" x="262" y="354">rules — 게이트 피드백이 규칙으로 승격</text>
 
-          <line class="ln" x1="472" y1="328" x2="472" y2="352" marker-end="url(#b2)"/>
-          <rect class="bx" x="374" y="356" width="196" height="44" rx="8"/>
-          <text class="mn" x="472" y="384" text-anchor="middle">보고서.hwpx</text>
+          <line class="ln" x1="472" y1="402" x2="472" y2="428" marker-end="url(#b2)"/>
+          <rect class="bx" x="374" y="432" width="196" height="52" rx="8"/>
+          <text class="mn" x="472" y="464" text-anchor="middle">보고서.hwpx</text>
 
-          <line class="ln" x1="198" y1="50" x2="231" y2="50" marker-end="url(#b2)"/>
-          <text class="lo" x="214" y="38" text-anchor="middle">인용</text>
-          <line class="ln" x1="233" y1="246" x2="200" y2="246" marker-end="url(#b2)"/>
-          <text class="lo" x="216" y="268" text-anchor="middle">승인</text>
+          <line class="ln" x1="198" y1="58" x2="231" y2="58" marker-end="url(#b2)"/>
+          <text class="lo" x="214" y="46" text-anchor="middle">인용</text>
+          <line class="ln" x1="233" y1="286" x2="200" y2="286" marker-end="url(#b2)"/>
+          <text class="lo" x="216" y="308" text-anchor="middle">승인</text>
         </g>
 
-        <rect class="zone" x="762" y="10" width="234" height="390" rx="12" data-cue="6"/>
-        <text class="lo" x="778" y="30" data-cue="6">VDI 브라우저 · 실무자</text>
+        <!-- VDI 쪽 — 스킬과 산출을 구역 안에서 세로 중앙에 둔다(위아래 여백 61·61) -->
+        <rect class="zone" x="762" y="30" width="234" height="454" rx="12" data-cue="6"/>
+        <text class="lo" x="778" y="58" data-cue="6">VDI 브라우저 · 실무자</text>
         <g color="#8D96A8" data-cue="6">
-          <rect class="bx" x="778" y="142" width="202" height="94" rx="8"/>
-          <text class="hi" x="879" y="174" text-anchor="middle">kca-report-hwpx</text>
-          <text class="lo" x="879" y="200" text-anchor="middle">스킬 파일 하나</text>
-          <text class="lo" x="879" y="222" text-anchor="middle">MCP 없이 자립</text>
-          <line class="ln" x1="879" y1="240" x2="879" y2="352" marker-end="url(#b2)"/>
-          <rect class="bx" x="778" y="356" width="202" height="44" rx="8"/>
-          <text class="mn" x="879" y="384" text-anchor="middle">보고서.hwpx</text>
+          <rect class="bx" x="778" y="133" width="202" height="112" rx="8"/>
+          <text class="hi" x="879" y="170" text-anchor="middle">kca-report-hwpx</text>
+          <text class="lo" x="879" y="198" text-anchor="middle">스킬 파일 하나</text>
+          <text class="lo" x="879" y="224" text-anchor="middle">MCP 없이 자립</text>
+          <line class="ln" x1="879" y1="249" x2="879" y2="367" marker-end="url(#b2)"/>
+          <rect class="bx" x="778" y="371" width="202" height="52" rx="8"/>
+          <text class="mn" x="879" y="403" text-anchor="middle">보고서.hwpx</text>
         </g>
         <g color="#8B99FA" data-cue="6">
-          <line class="ln-ac dash" x1="714" y1="170" x2="756" y2="170" marker-end="url(#b2)"/>
-          <text class="ac" x="735" y="156" text-anchor="middle" style="font-size:17px">재배포</text>
+          <line class="ln-ac dash" x1="714" y1="189" x2="756" y2="189" marker-end="url(#b2)"/>
+          <text class="ac" x="735" y="175" text-anchor="middle" style="font-size:17px">재배포</text>
         </g>
       </svg>
       <figcaption>왼쪽은 아래에서 위로 승격된다. 원자료에서 승인 적재로, 다시 개념·주제 페이지로. 오른쪽으로는 완성된 스킬 파일 하나만 건너간다.</figcaption>
@@ -383,7 +411,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 ├── 40_qa.md           <span class="dim">검증 리포트</span>
 └── <span class="key">final/*.hwpx</span>       <span class="dim">최종 산출물</span></div>
     </div>
-    <p class="cap rise">왼쪽에서 <b>판단(references)과 실행(scripts)이 갈라져</b> 있고, 웹앱 배포판은 따로 선다.
+    <p class="cap rise" data-cue="2 6 7">왼쪽에서 <b>판단(references)과 실행(scripts)이 갈라져</b> 있고, 웹앱 배포판은 따로 선다.
     오른쪽은 건마다 하나씩 생기는 폴더다 — 조사부터 되읽기 검증까지 전부 파일로 남아
     <b>"이 숫자 어디서 나왔냐"에 폴더를 열어 답한다.</b></p>
     <p class="cap rise" data-cue="3 4 5"><b>재사용</b> — <code>kordoc</code> · <code>korean-law</code> · <code>humanizer</code> · <code>insane-search</code>,
@@ -399,47 +427,71 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">③ 실제 작동 <b>15%</b> · 내부</p>
     <h2 class="rise">변환은 다섯 지점을 지나고, 실패는 숨기지 않는다</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 280" role="img"
+      <svg class="dg" viewBox="0 0 1000 376" role="img"
            aria-label="초안이 정규화, 이미지 판정을 겸한 hwpx 생성, 양식 정합 후처리, 구조·왕복 검증 사슬을 지나 인도되고, 경량 팩트체크 numbers 는 변환 전에 병렬로 돌며, 정규화 거부는 초안으로, 검증 불일치는 재변환 2회 뒤에도 남으면 어긋난 목록과 함께 마크다운 인도로 갈라지는 흐름도">
         <defs><marker id="b3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-        <g color="#8D96A8" data-cue="1">
-          <rect class="bx" x="4" y="30" width="150" height="60" rx="8"/>
-          <text class="mn" x="79" y="66" text-anchor="middle">draft.md</text>
-          <line class="ln" x1="158" y1="60" x2="196" y2="60" marker-end="url(#b3)"/>
-          <rect class="bx" x="200" y="30" width="150" height="60" rx="8"/>
-          <text x="275" y="56" text-anchor="middle">정규화</text>
-          <text class="lo" x="275" y="78" text-anchor="middle">모호하면 거부</text>
-          <line class="ln" x1="354" y1="60" x2="392" y2="60" marker-end="url(#b3)"/>
-          <rect class="bx" x="396" y="30" width="150" height="60" rx="8"/>
-          <text x="471" y="56" text-anchor="middle">hwpx 생성</text>
-          <text class="lo" x="471" y="78" text-anchor="middle">이미지 판정·주입</text>
-          <line class="ln" x1="550" y1="60" x2="588" y2="60" marker-end="url(#b3)"/>
-          <rect class="bx-ac" x="592" y="30" width="216" height="60" rx="8"/>
-          <text class="ac" x="700" y="56" text-anchor="middle">양식 정합 후처리</text>
-          <text class="lo" x="700" y="78" text-anchor="middle">2,499줄 · 25 스테이지</text>
-          <line class="ln" x1="812" y1="60" x2="850" y2="60" marker-end="url(#b3)"/>
-          <rect class="bx" x="854" y="30" width="142" height="60" rx="8"/>
-          <text x="925" y="66" text-anchor="middle">검증</text>
-          <line class="ln" x1="925" y1="96" x2="925" y2="132" marker-end="url(#b3)"/>
-          <rect class="bx" x="636" y="136" width="360" height="52" rx="8"/>
-          <text class="mn" x="816" y="168" text-anchor="middle">structural → 되읽기 → compare</text>
-          <line class="ln" x1="883" y1="194" x2="883" y2="222" marker-end="url(#b3)"/>
-          <rect class="bx" x="770" y="226" width="226" height="44" rx="8"/>
-          <text class="mn" x="883" y="254" text-anchor="middle">final/*.hwpx</text>
+        <!-- 실패 경로를 말하는 큐 2·3 에서도 본류가 살아 있어야 그림이 읽힌다 -->
+        <g color="#8D96A8" data-cue="1 2 3">
+          <!-- 입력과 연결선 — 훑기 대상이 아니라 바탕 -->
+          <rect class="bx" x="4" y="40" width="150" height="82" rx="8"/>
+          <text class="mn" x="79" y="89" text-anchor="middle">draft.md</text>
+          <line class="ln" x1="158" y1="81" x2="196" y2="81" marker-end="url(#b3)"/>
+          <line class="ln" x1="354" y1="81" x2="392" y2="81" marker-end="url(#b3)"/>
+          <line class="ln" x1="550" y1="81" x2="588" y2="81" marker-end="url(#b3)"/>
+          <line class="ln" x1="812" y1="81" x2="850" y2="81" marker-end="url(#b3)"/>
+          <line class="ln" x1="925" y1="128" x2="925" y2="170" marker-end="url(#b3)"/>
+          <line class="ln" x1="883" y1="246" x2="883" y2="290" marker-end="url(#b3)"/>
 
-          <line class="ln dash" x1="60" y1="96" x2="60" y2="136" marker-end="url(#b3)"/>
-          <rect class="bx" x="4" y="140" width="236" height="52" rx="8"/>
-          <text class="mn" x="122" y="162" text-anchor="middle">numbers</text>
-          <text class="lo" x="122" y="184" text-anchor="middle">경량 팩트체크 — 변환 전 병렬</text>
+          <!-- 다섯 지점 — 큐 1("변환은 다섯 지점을 지납니다")에서 순서대로 훑는다 -->
+          <g data-sweep="1">
+            <g data-step="1">
+              <rect class="bx" x="200" y="40" width="150" height="82" rx="8"/>
+              <text x="275" y="76" text-anchor="middle">정규화</text>
+              <text class="lo" x="275" y="101" text-anchor="middle">모호하면 거부</text>
+            </g>
+            <g data-step="2">
+              <rect class="bx" x="396" y="40" width="150" height="82" rx="8"/>
+              <text x="471" y="76" text-anchor="middle">hwpx 생성</text>
+              <text class="lo" x="471" y="101" text-anchor="middle">이미지 판정·주입</text>
+            </g>
+            <g data-step="3">
+              <rect class="bx-ac" x="592" y="40" width="216" height="82" rx="8"/>
+              <text class="ac" x="700" y="76" text-anchor="middle">양식 정합 후처리</text>
+              <text class="lo" x="700" y="101" text-anchor="middle">2,499줄 · 25 스테이지</text>
+            </g>
+            <g data-step="4">
+              <rect class="bx" x="854" y="40" width="142" height="82" rx="8"/>
+              <text x="925" y="89" text-anchor="middle">검증</text>
+              <rect class="bx" x="636" y="174" width="360" height="66" rx="8"/>
+              <text class="mn" x="816" y="213" text-anchor="middle">structural → 되읽기 → compare</text>
+            </g>
+            <g data-step="5">
+              <rect class="bx" x="770" y="294" width="226" height="60" rx="8"/>
+              <text class="mn" x="883" y="331" text-anchor="middle">final/*.hwpx</text>
+            </g>
+          </g>
+
+          <line class="ln dash" x1="60" y1="128" x2="60" y2="178" marker-end="url(#b3)"/>
+          <rect class="bx" x="4" y="182" width="236" height="66" rx="8"/>
+          <text class="mn" x="122" y="210" text-anchor="middle">numbers</text>
+          <text class="lo" x="122" y="234" text-anchor="middle">경량 팩트체크 — 변환 전 병렬</text>
         </g>
         <g color="#E3AC64" data-cue="2 3">
-          <path class="ln-w dash" d="M275 96 L275 116 L110 116 L110 96" marker-end="url(#b3)"/>
-          <path class="ln-w dash" d="M632 162 L471 162 L471 96" marker-end="url(#b3)"/>
-          <text x="551" y="152" text-anchor="middle" style="fill:#E3AC64;font-size:17px">불일치 → 재변환 ≤2회</text>
-          <path class="ln-w dash" d="M700 194 L700 246 L368 246" marker-end="url(#b3)"/>
-          <rect class="bx-w" x="4" y="222" width="360" height="48" rx="8"/>
-          <text x="184" y="252" text-anchor="middle" style="fill:#E3AC64;font-size:18px">불합격 → 어긋난 목록 + 마크다운 인도</text>
+          <!-- 되돌아가는 유일한 실패 — 큐 2 "핵심은 실패 경로예요"에서 통째로 보인다 -->
+          <path class="ln-w dash" d="M275 128 L275 154 L110 154 L110 128" marker-end="url(#b3)"/>
+          <!-- 큐 3 은 재변환 → 마크다운 인도 순으로 말한다. 그 순서대로 훑는다 -->
+          <g data-sweep="3">
+            <g data-step="1">
+              <path class="ln-w dash" d="M632 213 L471 213 L471 128" marker-end="url(#b3)"/>
+              <text x="551" y="203" text-anchor="middle" style="fill:#E3AC64;font-size:17px">불일치 → 재변환 ≤2회</text>
+            </g>
+            <g data-step="2">
+              <path class="ln-w dash" d="M700 246 L700 324 L368 324" marker-end="url(#b3)"/>
+              <rect class="bx-w" x="4" y="294" width="360" height="60" rx="8"/>
+              <text x="184" y="331" text-anchor="middle" style="fill:#E3AC64;font-size:18px">불합격 → 어긋난 목록 + 마크다운 인도</text>
+            </g>
+          </g>
         </g>
       </svg>
       <figcaption>후처리는 대상 0건이어도 정상 종료한다. 그래서 기대 하한을 따로 검사해 조용한 실패를 막는다.</figcaption>
@@ -456,14 +508,14 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">④ 사용성 <b>15%</b></p>
     <h2 class="rise">초급은 파일 하나, 중급은 자기 자산으로</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 308" role="img"
+      <svg class="dg" viewBox="0 0 1000 350" role="img"
            aria-label="초급자는 스킬 웹앱만 올려 바로 hwpx 를 얻고, 중급자는 하네스와 LLM 위키를 설치해 규칙과 지식을 개인 자산으로 쌓는 두 단계 진입 경로">
         <defs><marker id="b4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
 
         <!-- 두 트랙 = 두 환경. 존에 옅은 바탕 + 트랙 칩으로 초급/중급을 하이라이팅해 가른다 -->
-        <rect class="zone" x="1" y="4" width="998" height="128" rx="12" style="fill:rgba(150,165,205,.04)" data-cue="2 3"/>
-        <rect class="zone" x="1" y="176" width="998" height="128" rx="12" style="fill:rgba(150,165,205,.04)" data-cue="4 5"/>
+        <rect class="zone" x="1" y="4" width="998" height="170" rx="12" style="fill:rgba(150,165,205,.04)" data-cue="2 3"/>
+        <rect class="zone" x="1" y="218" width="998" height="128" rx="12" style="fill:rgba(150,165,205,.04)" data-cue="4 5"/>
 
         <g color="#8D96A8" data-cue="2 3">
           <rect x="16" y="16" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
@@ -483,42 +535,51 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <line class="ln" x1="752" y1="84" x2="786" y2="84" marker-end="url(#b4)"/>
           <rect class="bx" x="790" y="52" width="194" height="64" rx="8"/>
           <text class="mn" x="887" y="90" text-anchor="middle">.hwpx</text>
-
         </g>
+
+        <!-- 초급이 치르지 않는 비용 — 초급 트랙 안, 흐름 바로 아래에 둔다(대본 3문장) -->
+        <g data-cue="3">
+          <rect x="16" y="128" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="lo" x="54" y="147" text-anchor="middle" style="fill:#8B99FA">설치 0</text>
+          <rect x="102" y="128" width="109" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="lo" x="156" y="147" text-anchor="middle" style="fill:#8B99FA">계정 추가 0</text>
+          <rect x="221" y="128" width="91" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="lo" x="266" y="147" text-anchor="middle" style="fill:#8B99FA">API 키 0</text>
+          <rect x="322" y="128" width="95" height="28" rx="14" fill="none" stroke="rgba(226,232,245,.24)"/>
+          <text class="lo" x="369" y="147" text-anchor="middle" style="fill:#B0B8C8">교육 없음</text>
+          <rect x="427" y="128" width="253" height="28" rx="14" fill="none" stroke="rgba(226,232,245,.24)"/>
+          <text class="lo" x="553" y="147" text-anchor="middle" style="fill:#B0B8C8">프롬프트 · 모델 · 파라미터 노출 0</text>
+        </g>
+
         <g color="#8D96A8" data-cue="4">
-          <line class="ln dash" x1="30" y1="140" x2="30" y2="168" marker-end="url(#b4)"/>
-          <text class="lo" x="48" y="158">계속 쓰다 보면</text>
+          <line class="ln dash" x1="30" y1="182" x2="30" y2="210" marker-end="url(#b4)"/>
+          <text class="lo" x="48" y="200">계속 쓰다 보면</text>
         </g>
         <g color="#8D96A8" data-cue="4 5">
-          <rect x="16" y="188" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="hi" x="54" y="208" text-anchor="middle" style="font-size:19px">중급</text>
-          <text class="lo" x="108" y="208">조사·분석까지 — 개발 노트북</text>
-          <rect class="bx" x="16" y="224" width="224" height="64" rx="8"/>
-          <text x="128" y="247" text-anchor="middle">하네스 + 위키 설치</text>
-          <text class="lo" x="128" y="271" text-anchor="middle">플러그인 + MCP</text>
-          <line class="ln" x1="248" y1="256" x2="282" y2="256" marker-end="url(#b4)"/>
-          <rect class="bx" x="286" y="224" width="206" height="64" rx="8"/>
-          <text x="389" y="247" text-anchor="middle">조사 · 분석까지</text>
-          <text class="lo" x="389" y="271" text-anchor="middle">전 구간 자동</text>
-          <line class="ln" x1="500" y1="256" x2="534" y2="256" marker-end="url(#b4)"/>
-          <rect class="bx" x="538" y="224" width="206" height="64" rx="8"/>
-          <text x="641" y="247" text-anchor="middle">규칙 · 지식 축적</text>
-          <text class="lo" x="641" y="271" text-anchor="middle">rules · wiki</text>
+          <rect x="16" y="230" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="hi" x="54" y="250" text-anchor="middle" style="font-size:19px">중급</text>
+          <text class="lo" x="108" y="250">조사·분석까지 — 개발 노트북</text>
+          <rect class="bx" x="16" y="266" width="224" height="64" rx="8"/>
+          <text x="128" y="289" text-anchor="middle">하네스 + 위키 설치</text>
+          <text class="lo" x="128" y="313" text-anchor="middle">플러그인 + MCP</text>
+          <line class="ln" x1="248" y1="298" x2="282" y2="298" marker-end="url(#b4)"/>
+          <rect class="bx" x="286" y="266" width="206" height="64" rx="8"/>
+          <text x="389" y="289" text-anchor="middle">조사 · 분석까지</text>
+          <text class="lo" x="389" y="313" text-anchor="middle">전 구간 자동</text>
+          <line class="ln" x1="500" y1="298" x2="534" y2="298" marker-end="url(#b4)"/>
+          <rect class="bx" x="538" y="266" width="206" height="64" rx="8"/>
+          <text x="641" y="289" text-anchor="middle">규칙 · 지식 축적</text>
+          <text class="lo" x="641" y="313" text-anchor="middle">rules · wiki</text>
         </g>
         <g color="#8B99FA" data-cue="5">
-          <line class="ln-ac" x1="752" y1="256" x2="786" y2="256" marker-end="url(#b4)"/>
-          <rect class="bx-ac" x="790" y="224" width="194" height="64" rx="8"/>
-          <text class="ac" x="887" y="247" text-anchor="middle">개인 자산</text>
-          <text class="lo" x="887" y="271" text-anchor="middle" style="fill:#B0B8C8">쓸수록 두꺼워지는 자산</text>
+          <line class="ln-ac" x1="752" y1="298" x2="786" y2="298" marker-end="url(#b4)"/>
+          <rect class="bx-ac" x="790" y="266" width="194" height="64" rx="8"/>
+          <text class="ac" x="887" y="289" text-anchor="middle">개인 자산</text>
+          <text class="lo" x="887" y="313" text-anchor="middle" style="fill:#B0B8C8">쓸수록 두꺼워지는 자산</text>
         </g>
       </svg>
       <figcaption>초급은 설치 없이 결과만 얻는다. 중급은 설치를 감수하는 대신 쌓인 규칙과 지식을 자기 것으로 갖는다.</figcaption>
     </figure>
-    <div class="rowpills rise" data-cue="3">
-      <span class="pill ac">초급 — 설치 0</span><span class="pill ac">계정 추가 0</span>
-      <span class="pill ac">API 키 0</span><span class="pill">교육 없음</span>
-      <span class="pill">프롬프트 · 모델 · 파라미터 노출 0</span>
-    </div>
     <p class="cap rise">망분리 제약도 초급 경로가 흡수한다 — 전 구간 stdlib이라 VDI 브라우저 안에서 그대로 돈다.
     <span class="todo">처음 쓰는 사람이 결과를 얻기까지 실측 소요시간(1인 시연 계측)</span></p>
   </div>
@@ -588,9 +649,16 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     </div>
     <figure class="rise">
       <svg class="dg" viewBox="0 0 1000 152" role="img"
-           aria-label="확산 준비물 완비, 산출·자동화 확장, 타 부서·타 기관 전개로 이어지는 3단계 로드맵 — 각 단계의 타이틀 아래 세부 항목이 붙고, 마지막 전개 단계는 알릴 대상 확정이 남아 점선이다">
+           aria-label="확산 준비물 완비, 타 부서·타 기관 전개, 산출·자동화 확장으로 이어지는 3단계 로드맵 — 대본이 짚는 순서대로 왼쪽부터 놓았고, 가운데 전개 단계는 알릴 대상 확정이 남아 점선이다">
         <defs><marker id="b5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+
+        <!-- 연결선은 자리에 붙는다 — 어느 단계를 말하든 로드맵 구간 내내 살려 둔다 -->
+        <g color="#8D96A8" data-cue="10 11 12">
+          <line class="ln" x1="322" y1="86" x2="338" y2="86" marker-end="url(#b5)"/>
+          <line class="ln" x1="660" y1="86" x2="676" y2="86" marker-end="url(#b5)"/>
+        </g>
+
         <g color="#8B99FA" data-cue="10">
           <text class="hi" x="4" y="16" style="font-size:19px">지금</text>
           <rect class="bx-ac" x="4" y="26" width="312" height="120" rx="8"/>
@@ -599,24 +667,22 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <text class="lo" x="160" y="104" text-anchor="middle" style="fill:#B0B8C8">설치 문서 4종 · 자가진단 커맨드</text>
           <text class="lo" x="160" y="126" text-anchor="middle" style="fill:#B0B8C8">회귀 테스트 218 · MIT 공개 저장소</text>
         </g>
-        <g color="#8D96A8" data-cue="12">
-          <line class="ln" x1="322" y1="86" x2="338" y2="86" marker-end="url(#b5)"/>
-          <text class="hi" x="342" y="16" style="font-size:19px">다음</text>
-          <rect class="bx" x="342" y="26" width="312" height="120" rx="8"/>
-          <text class="hi" x="498" y="56" text-anchor="middle">산출 · 자동화 확장</text>
-          <text class="lo" x="498" y="82" text-anchor="middle">pptx · 경영실적 산출 확장</text>
-          <text class="lo" x="498" y="104" text-anchor="middle">CI 재배포</text>
-          <text class="lo" x="498" y="126" text-anchor="middle">절감 자동 실측</text>
-          <line class="ln" x1="660" y1="86" x2="676" y2="86" marker-end="url(#b5)"/>
-        </g>
         <g color="#E3AC64" data-cue="11">
-          <text class="hi" x="680" y="16" style="font-size:19px">확산</text>
-          <text class="mn" x="736" y="16" style="fill:#E3AC64;font-size:15px">확인 필요</text>
-          <rect x="680" y="26" width="316" height="120" rx="8" fill="none"
+          <text class="hi" x="342" y="16" style="font-size:19px">확산</text>
+          <text class="mn" x="398" y="16" style="fill:#E3AC64;font-size:15px">확인 필요</text>
+          <rect x="342" y="26" width="312" height="120" rx="8" fill="none"
             stroke="#E3AC64" stroke-width="1.5" stroke-dasharray="5 5"/>
-          <text class="hi" x="838" y="56" text-anchor="middle" style="fill:#E3AC64">타 부서 · 타 기관 전개</text>
-          <text class="lo" x="838" y="82" text-anchor="middle" style="fill:#E3AC64">먼저 알릴 대상과 경로</text>
-          <text class="lo" x="838" y="104" text-anchor="middle" style="fill:#E3AC64">부서 회의 · 게시판 · 협의체 중 택</text>
+          <text class="hi" x="498" y="56" text-anchor="middle" style="fill:#E3AC64">타 부서 · 타 기관 전개</text>
+          <text class="lo" x="498" y="82" text-anchor="middle" style="fill:#E3AC64">먼저 알릴 대상과 경로</text>
+          <text class="lo" x="498" y="104" text-anchor="middle" style="fill:#E3AC64">부서 회의 · 게시판 · 협의체 중 택</text>
+        </g>
+        <g color="#8D96A8" data-cue="12">
+          <text class="hi" x="680" y="16" style="font-size:19px">다음</text>
+          <rect class="bx" x="680" y="26" width="316" height="120" rx="8"/>
+          <text class="hi" x="838" y="56" text-anchor="middle">산출 · 자동화 확장</text>
+          <text class="lo" x="838" y="82" text-anchor="middle">pptx · 경영실적 산출 확장</text>
+          <text class="lo" x="838" y="104" text-anchor="middle">CI 재배포</text>
+          <text class="lo" x="838" y="126" text-anchor="middle">절감 자동 실측</text>
         </g>
       </svg>
       <figcaption>이탈이 생긴다면 변환이 실패해 마크다운만 쥐는 순간이다. 그래서 무엇이 어긋났는지 목록으로 돌려준다.</figcaption>
@@ -684,8 +750,29 @@ const CUES = {"S1":[[0.0,5.04],[5.26,10.54]],"S2":[[0.0,1.84],[2.06,5.42],[5.64,
 let cueNow = -1;
 function clearCue(){
   cueNow = -1;
-  document.querySelectorAll(".cue-on,.cue-dim").forEach(el =>
-    el.classList.remove("cue-on","cue-dim"));
+  document.querySelectorAll(".cue-on,.cue-dim,.step-now,.step-off").forEach(el =>
+    el.classList.remove("cue-on","cue-dim","step-now","step-off"));
+}
+/* 순차 강조 — data-sweep="{큐번호}" 묶음을 그 문장의 [시작,끝] 안에서 균등히 훑는다.
+   문장 경계 밖에서는 표시를 지워 도식이 평상 상태로 돌아온다. 큐 전환과 달리 매 tick 돈다. */
+function sweep(n, cues){
+  slides[i].querySelectorAll("[data-sweep]").forEach(g => {
+    const steps = [...g.querySelectorAll("[data-step]")]
+      .sort((a, b) => +a.dataset.step - +b.dataset.step);
+    if (!steps.length) return;
+    if (!g.dataset.sweep.split(" ").includes(String(n))){
+      steps.forEach(s => s.classList.remove("step-now","step-off"));
+      return;
+    }
+    const [s0, s1] = cues[n - 1];
+    const span = Math.max(.4, s1 - s0);
+    const k = Math.min(steps.length - 1,
+      Math.max(0, Math.floor((player.currentTime - s0) / span * steps.length)));
+    steps.forEach((s, j) => {
+      s.classList.toggle("step-now", j === k);
+      s.classList.toggle("step-off", j !== k);
+    });
+  });
 }
 player.addEventListener("timeupdate", () => {
   if (!auto) return;
@@ -693,15 +780,17 @@ player.addEventListener("timeupdate", () => {
   if (!cues || !cues.length) return;
   let n = 0;
   for (let k = 0; k < cues.length; k++) if (player.currentTime >= cues[k][0]) n = k + 1;
-  if (n === cueNow) return;
-  cueNow = n;
-  const els = [...slides[i].querySelectorAll("[data-cue]")];
-  const hit = els.some(el => el.dataset.cue.split(" ").includes(String(n)));
-  els.forEach(el => {
-    const on = hit && el.dataset.cue.split(" ").includes(String(n));
-    el.classList.toggle("cue-on", on);
-    el.classList.toggle("cue-dim", hit && !on);
-  });
+  if (n !== cueNow){
+    cueNow = n;
+    const els = [...slides[i].querySelectorAll("[data-cue]")];
+    const hit = els.some(el => el.dataset.cue.split(" ").includes(String(n)));
+    els.forEach(el => {
+      const on = hit && el.dataset.cue.split(" ").includes(String(n));
+      el.classList.toggle("cue-on", on);
+      el.classList.toggle("cue-dim", hit && !on);
+    });
+  }
+  sweep(n, cues);
 });
 const SLIDE_GAP_MS = 600;   // 장 사이 호흡 — 낭독 파일 안의 문장 쉼과 별도
 const msg = document.getElementById("msg"), autoBtn = document.getElementById("autoBtn");
