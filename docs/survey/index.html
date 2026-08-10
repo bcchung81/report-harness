@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>보고서 작성 실태 조사 — 무기명</title>
+<style>
+/* Pretendard 동봉 (SIL OFL 1.1 © Kil Hyung-jin, fonts/LICENSE.txt) — deck.html 과 동일 자산. */
+@font-face{
+  font-family:"Pretendard";
+  src:local("Pretendard Variable"),local("Pretendard"),
+      url("fonts/PretendardVariable.woff2") format("woff2");
+  font-weight:100 900;font-display:swap;
+}
+/* 색·서체 토큰은 deck.html 에서 그대로 가져왔다.
+   레이아웃 단위만 cqw → rem 으로 바꿨다 — 덱은 16:9 무대에 고정된 슬라이드지만
+   설문은 세로로 흐르는 문서라서, cqw 를 그대로 쓰면 좁은 화면에서 글자가 무너진다. */
+:root{
+  --ground:#08090B; --grid:rgba(180,195,255,.035);
+  --hi:#F4F6FA; --mid:#B0B8C8; --low:#8D96A8; --faint:#727B8D; --chrome:#474E5E;
+  --accent:#8B99FA; --accent-fill:rgba(139,153,250,.13);
+  --warn:#E3AC64; --ok:#6BC098;
+  --hair:rgba(226,232,245,.24); --hair-soft:rgba(226,232,245,.13);
+  --sunken:rgba(150,165,205,.05);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:
+    repeating-linear-gradient(to right,var(--grid) 0 1px,transparent 1px 5.2%),
+    var(--ground);
+  color:var(--hi);font-family:var(--sans);
+  word-break:keep-all;overflow-wrap:anywhere;
+  line-height:1.6;padding-bottom:7rem;
+}
+
+/* 상단 진행 막대 — 답한 문항 수 */
+.bar{position:fixed;left:0;top:0;height:2px;width:0;background:var(--accent);
+  transition:width .3s ease;z-index:10}
+
+.wrap{max-width:46rem;margin:0 auto;padding:3.5rem 1.25rem 0}
+
+/* ── 머리 ── */
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.2em;color:var(--low);
+  text-transform:uppercase}
+h1{font-size:clamp(1.6rem,5.2vw,2.3rem);font-weight:800;letter-spacing:-.018em;
+  line-height:1.2;margin:.8rem 0 .9rem}
+.lede{font-size:1rem;color:var(--mid);line-height:1.62;max-width:34rem}
+.meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.3rem}
+.pill{display:inline-block;border:1px solid var(--hair);border-radius:99px;
+  padding:.2rem .7rem;font-size:.78rem;color:var(--mid)}
+.pill.ac{border-color:var(--accent);color:var(--accent)}
+
+/* ── 수집 고지 ── */
+.notice{margin:2rem 0 0;border:1px solid var(--hair-soft);border-left:2px solid var(--accent);
+  background:var(--sunken);border-radius:.25rem;padding:1rem 1.15rem}
+.notice h2{font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;font-weight:400;
+  color:var(--low);text-transform:uppercase;margin-bottom:.6rem}
+.notice ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.notice li{font-size:.86rem;color:var(--mid);display:flex;gap:.55rem;align-items:baseline}
+.notice li::before{font-family:var(--mono);font-size:.72rem;flex:none}
+.notice li.y::before{content:"저장";color:var(--ok)}
+.notice li.n::before{content:"미저장";color:var(--faint)}
+.notice li.w::before{content:"유의";color:var(--warn)}
+
+/* ── 절 ── */
+section{margin-top:3.2rem}
+.shead{display:flex;align-items:baseline;gap:.7rem;padding-bottom:.7rem;
+  border-bottom:1px solid var(--hair)}
+.shead b{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;color:var(--accent);
+  font-weight:400}
+.shead span{font-size:.95rem;color:var(--hi);font-weight:600}
+.shead i{font-style:normal;font-size:.78rem;color:var(--faint);margin-left:auto;text-align:right}
+
+/* ── 문항 ── */
+fieldset{border:0;margin-top:2rem}
+fieldset.sub{margin-top:1.1rem;padding-left:1rem;border-left:1px solid var(--hair-soft)}
+fieldset[hidden]{display:none}
+legend{display:block;width:100%;padding:0}
+.qhead{display:flex;gap:.7rem;align-items:baseline}
+.qno{font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;color:var(--faint);
+  flex:none;padding-top:.2rem;font-variant-numeric:tabular-nums}
+.qtx{font-size:1.02rem;color:var(--hi);font-weight:600;line-height:1.5}
+.qhint{font-size:.83rem;color:var(--faint);margin:.45rem 0 0 1.4rem;line-height:1.55}
+.qrule{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:var(--accent);
+  margin:.5rem 0 0 1.4rem}
+fieldset.sub .qno{display:none}
+fieldset.sub .qtx{font-weight:500;color:var(--mid);font-size:.95rem}
+fieldset.sub .qhint,fieldset.sub .qrule,fieldset.sub .opts{margin-left:0}
+
+.opts{display:flex;flex-direction:column;gap:.4rem;margin:.9rem 0 0 1.4rem}
+.opt{display:flex;gap:.75rem;align-items:flex-start;cursor:pointer;
+  border:1px solid var(--hair-soft);border-radius:.3rem;padding:.6rem .85rem;
+  background:transparent;transition:border-color .15s ease,background .15s ease,color .15s ease}
+.opt:hover{border-color:var(--hair);background:var(--sunken)}
+.opt input{position:absolute;opacity:0;width:0;height:0}
+.mk{flex:none;width:1.05rem;height:1.05rem;margin-top:.15rem;border:1px solid var(--chrome);
+  transition:border-color .15s ease,background .15s ease}
+.opt[data-type="single"] .mk{border-radius:50%}
+.opt[data-type="multi"] .mk{border-radius:.2rem}
+.tx{font-size:.94rem;color:var(--mid);line-height:1.45}
+/* 선택 표시는 JS 가 붙이는 [data-on] 이 정본이다.
+   :has() 는 스크립트가 뜨기 전 상태를 메우는 보조일 뿐 — 구형 VDI 브라우저에서
+   :has() 가 없어도 체크 표시가 사라지면 안 된다. */
+.opt[data-on],.opt:has(input:checked){border-color:var(--accent);background:var(--accent-fill)}
+.opt[data-on] .mk,.opt:has(input:checked) .mk{border-color:var(--accent);
+  background:radial-gradient(circle at center,var(--accent) 0 45%,transparent 46%)}
+.opt[data-type="multi"][data-on] .mk,
+.opt[data-type="multi"]:has(input:checked) .mk{background:var(--accent);
+  box-shadow:inset 0 0 0 3px var(--ground)}
+.opt[data-on] .tx,.opt:has(input:checked) .tx{color:var(--hi)}
+.opt:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.opt input:focus-visible~.mk{outline:2px solid var(--accent);outline-offset:2px}
+.opt[data-locked]{opacity:.38;cursor:not-allowed}
+
+/* ── 제출 ── */
+.foot{margin:3.5rem 0 0;padding-top:1.8rem;border-top:1px solid var(--hair);
+  display:flex;flex-direction:column;gap:1rem}
+button.send{font:inherit;font-weight:600;font-size:.98rem;color:var(--ground);
+  background:var(--accent);border:0;border-radius:.3rem;padding:.85rem 1.4rem;cursor:pointer;
+  transition:opacity .15s ease}
+button.send:hover{opacity:.88}
+button.send:disabled{background:var(--sunken);color:var(--chrome);cursor:not-allowed;
+  box-shadow:inset 0 0 0 1px var(--hair-soft)}
+button.send:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.status{font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;color:var(--faint);
+  line-height:1.7}
+.status.bad{color:var(--warn)}
+.status ul{list-style:none;margin-top:.3rem}
+
+/* 중복 제출 경고 */
+.dup{border:1px dashed var(--warn);border-radius:.3rem;padding:.8rem 1rem;
+  font-size:.86rem;color:var(--warn);display:flex;flex-wrap:wrap;gap:.8rem;align-items:center}
+.dup button{font:inherit;font-size:.8rem;color:var(--warn);background:transparent;
+  border:1px solid var(--warn);border-radius:.25rem;padding:.3rem .7rem;cursor:pointer}
+.dup[hidden]{display:none}
+
+/* ── 완료 ── */
+.done{max-width:46rem;margin:0 auto;padding:6rem 1.25rem;text-align:left}
+.done[hidden]{display:none}
+.done h2{font-size:1.8rem;font-weight:800;letter-spacing:-.015em;margin:.9rem 0 1rem}
+.done p{color:var(--mid);font-size:.95rem;max-width:32rem}
+.done .rid{font-family:var(--mono);font-size:.78rem;color:var(--faint);margin-top:1.6rem;
+  border-top:1px solid var(--hair-soft);padding-top:1rem}
+
+.credit{margin:4rem 0 0;padding-top:1.2rem;border-top:1px solid var(--hair-soft);
+  font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;color:var(--chrome)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:32rem){
+  .opts{margin-left:0}
+  .qhint,.qrule{margin-left:0}
+  .shead i{flex-basis:100%;text-align:left;margin-left:0}
+}
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar"></div>
+
+<main class="wrap" id="form-view">
+  <p class="eyebrow">Report harness · 부서 실무 설문</p>
+  <h1>보고서 작성 실태 조사</h1>
+  <p class="lede">
+    기관 보고서를 직접 작성하는 실무자가 어디에 시간을 쓰고 있는지 확인하기 위한 조사입니다.
+    도구 도입 여부를 정하기 전에, 먼저 실제 부담이 어디에 있는지부터 숫자로 보려 합니다.
+  </p>
+  <div class="meta">
+    <span class="pill ac">무기명</span>
+    <span class="pill">10문항 · 전부 객관식</span>
+    <span class="pill">약 3분</span>
+  </div>
+
+  <div class="notice">
+    <h2>수집 범위</h2>
+    <ul>
+      <li class="y">선택한 보기 번호와 제출 시각(분 단위)만 저장합니다.</li>
+      <li class="n">이름 · 사번 · 소속 · IP 주소 · 브라우저 정보는 저장하지 않습니다.</li>
+      <li class="n">자유 서술란이 없으므로 문장으로 신원이 드러날 여지가 없습니다.</li>
+      <li class="w">응답자 수가 적어 답변 조합으로 개인이 추정될 수 있습니다. 부서에 공유하는 결과는 문항별 합계만 사용합니다.</li>
+      <li class="w">저희가 IP를 저장하지 않더라도 호스팅 사업자(Vercel)의 접속 기록까지 통제하지는 못합니다.</li>
+    </ul>
+  </div>
+
+  <form id="survey" novalidate></form>
+
+  <div class="foot">
+    <div class="dup" id="dup" hidden>
+      이 브라우저에서 이미 제출한 기록이 있습니다.
+      <button type="button" id="dup-ok">공용 PC입니다 — 그대로 제출</button>
+    </div>
+    <div class="status" id="status">문항 0 / 10 응답</div>
+    <div><button class="send" id="send" disabled>제출하기</button></div>
+  </div>
+
+  <p class="credit">report-harness · github.com/kca-deep/report-harness</p>
+</main>
+
+<section class="done" id="done-view" hidden>
+  <p class="eyebrow">제출 완료</p>
+  <h2>응답이 저장되었습니다.</h2>
+  <p>
+    감사합니다. 이 응답은 문항별 합계로만 집계되며, 개별 응답은 부서에 공유하지 않습니다.
+    창을 닫으셔도 됩니다.
+  </p>
+  <p class="rid" id="rid"></p>
+</section>
+
+<script type="module">
+import { VERSION, SECTIONS, QUESTIONS, validate } from './schema.js';
+
+const form   = document.getElementById('survey');
+const status = document.getElementById('status');
+const send   = document.getElementById('send');
+const bar    = document.getElementById('bar');
+const dup    = document.getElementById('dup');
+
+const DUP_KEY = 'rh-survey-v1-submitted';
+const answers = {};
+let dupAck = false;
+
+/* ── 그리기 ─────────────────────────────────────────── */
+let openSection = null;
+for (const q of QUESTIONS) {
+  if (q.section !== openSection && !q.sub) {
+    openSection = q.section;
+    const s = SECTIONS[q.section];
+    form.insertAdjacentHTML('beforeend', `
+      <section>
+        <div class="shead">
+          <b>${q.section}</b><span>${s.label}</span>${s.note ? `<i>${s.note}</i>` : ''}
+        </div>
+      </section>`);
+  }
+
+  const opts = [...q.options, ...(q.noneOption ? [q.noneOption] : [])];
+  const type = q.type === 'multi' ? 'checkbox' : 'radio';
+  const rule = q.max ? `최대 ${q.max}개 선택`
+             : q.type === 'multi' ? '해당하는 것 모두 선택' : '';
+
+  const fs = document.createElement('fieldset');
+  fs.id = `fs-${q.id}`;
+  if (q.sub) fs.className = 'sub';
+  if (q.showIf) fs.hidden = true;
+  fs.innerHTML = `
+    <legend>
+      <span class="qhead">
+        ${q.no ? `<span class="qno">${String(q.no).padStart(2, '0')}</span>` : ''}
+        <span class="qtx">${q.text}</span>
+      </span>
+    </legend>
+    ${q.hint ? `<p class="qhint">${q.hint}</p>` : ''}
+    ${rule ? `<p class="qrule">${rule}</p>` : ''}
+    <div class="opts">
+      ${opts.map((o, i) => `
+        <label class="opt" data-type="${q.type}">
+          <input type="${type}" name="${q.id}" value="${i + 1}">
+          <span class="mk"></span><span class="tx">${o}</span>
+        </label>`).join('')}
+    </div>`;
+  form.lastElementChild.appendChild(fs);
+}
+
+/* ── 응답 수집 ───────────────────────────────────────── */
+form.addEventListener('change', (e) => {
+  const q = QUESTIONS.find((x) => x.id === e.target.name);
+  if (!q) return;
+
+  if (q.type === 'single') {
+    answers[q.id] = Number(e.target.value);
+  } else {
+    const picked = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)].map((n) => Number(n.value));
+    // “해당 없음”은 단독 선택. 함께 고르면 방금 누른 쪽만 남긴다.
+    const noneVal = q.noneOption ? q.options.length + 1 : null;
+    if (noneVal && picked.includes(noneVal) && picked.length > 1) {
+      const keepNone = Number(e.target.value) === noneVal;
+      for (const n of form.querySelectorAll(`input[name="${q.id}"]`)) {
+        n.checked = keepNone ? Number(n.value) === noneVal : n.checked && Number(n.value) !== noneVal;
+      }
+      answers[q.id] = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)].map((n) => Number(n.value));
+    } else {
+      answers[q.id] = picked;
+    }
+    lockAtMax(q);
+  }
+
+  paintChecked();
+  refreshConditionals();
+  refreshStatus();
+});
+
+// 체크 표시를 CSS :has() 에 맡기지 않고 직접 칠한다.
+function paintChecked() {
+  for (const n of form.querySelectorAll('.opt input')) {
+    n.closest('.opt').toggleAttribute('data-on', n.checked);
+  }
+}
+
+// 상한에 닿으면 나머지 보기를 눌러도 안 켜지게 잠근다 — 조용히 무시되는 것보다 낫다.
+function lockAtMax(q) {
+  if (!q.max) return;
+  const full = (answers[q.id] || []).length >= q.max;
+  for (const n of form.querySelectorAll(`input[name="${q.id}"]`)) {
+    const lock = full && !n.checked;
+    n.disabled = lock;
+    n.closest('.opt').toggleAttribute('data-locked', lock);
+  }
+}
+
+// showIf 가 걸린 하위 문항을 열고 닫는다. 닫을 때는 답도 함께 버린다.
+function refreshConditionals() {
+  for (const q of QUESTIONS) {
+    if (!q.showIf) continue;
+    const show = Object.entries(q.showIf).every(([dep, vals]) => vals.includes(answers[dep]));
+    const fs = document.getElementById(`fs-${q.id}`);
+    if (fs.hidden === !show) continue;
+    fs.hidden = !show;
+    if (!show) {
+      delete answers[q.id];
+      for (const n of fs.querySelectorAll('input')) n.checked = false;
+      paintChecked();
+    }
+  }
+}
+
+function visibleMainCount() {
+  return QUESTIONS.filter((q) => !q.sub).length;
+}
+
+function answeredCount() {
+  return QUESTIONS.filter((q) => {
+    if (q.sub) return false;
+    const v = answers[q.id];
+    return Array.isArray(v) ? v.length > 0 : v !== undefined;
+  }).length;
+}
+
+// 남은 문항을 번호로 알려준다 — 버튼이 왜 안 눌리는지 스스로 알 수 있어야 한다.
+function pending() {
+  const out = [];
+  for (const q of QUESTIONS) {
+    const fs = document.getElementById(`fs-${q.id}`);
+    if (fs.hidden) continue;
+    const v = answers[q.id];
+    const empty = Array.isArray(v) ? v.length === 0 : v === undefined;
+    if (empty) out.push(q.no ? `${q.no}번` : '9번 추가 문항');
+  }
+  return out;
+}
+
+function refreshStatus() {
+  const done = answeredCount();
+  const total = visibleMainCount();
+  bar.style.width = `${(done / total) * 100}%`;
+
+  const left = pending();
+  status.classList.remove('bad');
+  status.textContent = left.length
+    ? `문항 ${done} / ${total} 응답 — 남은 문항 ${left.join(' · ')}`
+    : `문항 ${done} / ${total} 응답 — 모두 답하셨습니다`;
+  send.disabled = validate(answers).length > 0;
+}
+
+/* ── 제출 ───────────────────────────────────────────── */
+if (localStorage.getItem(DUP_KEY)) dup.hidden = false;
+document.getElementById('dup-ok').addEventListener('click', () => {
+  dupAck = true;
+  dup.hidden = true;
+});
+
+send.addEventListener('click', async () => {
+  const errs = validate(answers);
+  if (errs.length) {
+    const left = pending();
+    status.classList.add('bad');
+    status.textContent = left.length
+      ? `아직 답하지 않은 문항이 있습니다 — ${left.join(' · ')}`
+      : `제출 전 확인이 필요합니다 — ${errs.join(' / ')}`;
+    const first = QUESTIONS.find((q) => {
+      const v = answers[q.id];
+      return !document.getElementById(`fs-${q.id}`).hidden && (Array.isArray(v) ? !v.length : v === undefined);
+    });
+    if (first) document.getElementById(`fs-${first.id}`).scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  if (localStorage.getItem(DUP_KEY) && !dupAck) {
+    dup.hidden = false;
+    dup.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+
+  send.disabled = true;
+  status.classList.remove('bad');
+  status.textContent = '전송 중…';
+
+  try {
+    const res = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ v: VERSION, answers }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+
+    localStorage.setItem(DUP_KEY, '1');
+    document.getElementById('form-view').hidden = true;
+    document.getElementById('done-view').hidden = false;
+    document.getElementById('rid').textContent = `접수번호 ${body.id || '—'}`;
+    bar.style.width = '100%';
+    window.scrollTo(0, 0);
+  } catch (err) {
+    send.disabled = false;
+    status.classList.add('bad');
+    status.textContent = `전송 실패 — ${err.message}. 잠시 후 다시 눌러 주십시오.`;
+  }
+});
+
+// 새로고침·뒤로가기로 브라우저가 체크 상태를 복원했다면 DOM 이 정본이다.
+// 이걸 안 읽으면 화면엔 체크가 있는데 제출 버튼은 잠긴 상태가 된다.
+function syncFromDom() {
+  for (const q of QUESTIONS) {
+    const picked = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)].map((n) => Number(n.value));
+    if (q.type === 'multi') {
+      if (picked.length) answers[q.id] = picked;
+      lockAtMax(q);
+    } else if (picked.length) {
+      answers[q.id] = picked[0];
+    }
+  }
+}
+
+syncFromDom();
+paintChecked();
+refreshConditionals();
+refreshStatus();
+</script>
+</body>
+</html>

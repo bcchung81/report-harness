@@ -1,0 +1,8 @@
+{
+  "name": "report-harness-survey",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "^2.7.0"
+  }
+}
