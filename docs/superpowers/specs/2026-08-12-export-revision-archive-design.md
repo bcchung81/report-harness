@@ -142,7 +142,7 @@ python3 "$SKILL_DIR/scripts/archive_revision.py" <work_dir> [--reason TEXT] [--d
 ```json
 {
   "PreToolUse": [
-    { "matcher": "mcp__.*__(generate_document|patch_document)",
+    { "matcher": "mcp__.*__generate_document",
       "hooks": [{ "type": "command",
                   "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/archive_revision_hook.py\"" }] }
   ]
@@ -162,8 +162,10 @@ python3 "$SKILL_DIR/scripts/archive_revision.py" <work_dir> [--reason TEXT] [--d
 6. `archive_revision.py`를 찾지 못하면 **아무것도 하지 않는다** — 훅이 파이프라인을 막는 원인이
    되면 안 된다(기존 훅과 동일 원칙).
 
-`patch_document`는 이미지 주입 단계에서 자기 자신을 덮어쓰므로(레시피 §3) 매번 걸린다. 4번의
-10분 창이 이것도 함께 흡수한다.
+**`patch_document`은 감시 대상에서 뺀다.** 훅은 보존 후 `final/`을 비우는데, `patch_document`은
+레시피 §3에서 바로 그 파일을 제자리 수정하므로 훅이 입력 파일을 지워버린다. `generate_document`은
+항상 `patch_document` 앞에 오므로 그 시점의 보존으로 충분하고, R072가 다룬 이탈 경로도
+`generate_document` 직접 호출이었다.
 
 ## 8. 수정 대상
 
