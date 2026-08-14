@@ -18,5 +18,8 @@ report/
 # 배포는 scripts/build_webapp_skill.py로 재빌드해 전달한다 (docs/install-webapp.md).
 dist/
 
-# 발표 리허설 음성 — docs/talk/tts_render.py 로 언제든 다시 뽑는다(12MB).
-docs/talk/audio/
+# 발표자료 — 하네스 코드가 아니라 1회성 소개 슬라이드다. 산출물은 Vercel 에
+# 배포돼 있고(README 상단 링크) 저장소가 들고 있을 이유가 없다. 동봉 폰트만
+# 2MB, 리허설 음성은 12MB 라 이력에 쌓이면 클론 비용만 커진다.
+# 로컬 사본은 남으니 재배포는 `cd docs/talk && vercel --prod` 로 그대로 된다.
+docs/talk/

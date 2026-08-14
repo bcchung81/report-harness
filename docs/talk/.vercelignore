@@ -1,5 +1,0 @@
-*.py
-*.md
-__pycache__
-audio/cues.json
-.env*
