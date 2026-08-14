@@ -171,6 +171,12 @@ def check_third_party(files):
         for up in sorted(upstream.rglob("*")):
             if not up.is_file() or up.name == "SKILL.md":
                 continue
+            # 패키지에 담기지 않는 것은 대조 대상도 아니다 — collect()와 같은 기준을 쓴다.
+            # macOS에서 상류 폴더를 Finder로 한 번 열면 생기는 .DS_Store가 "누락"으로 잡혀
+            # 빌드가 통째로 실패하던 경로다.
+            if up.name in EXCLUDE_NAMES or EXCLUDE_DIRS.intersection(
+                    up.relative_to(upstream).parts):
+                continue
             mirror = SRC / rel / up.relative_to(upstream)
             if not mirror.is_file():
                 out.append({"item": str(up.relative_to(upstream)), "reason": f"{rel}에 누락"})
@@ -245,6 +251,12 @@ def main(argv):
     if not rules_src.is_file():
         print(f"error: 룰 원본 없음 — {rules_src}", file=sys.stderr)
         return 2
+    # 인자 정합은 rules.md를 건드리기 **전에** 끝낸다 — 렌더 뒤에 두면 여기서 빠져나갈 때
+    # --rules로 지정한 내부 축적본이 추적 파일(webapp/.../rules.md)에 남는다
+    targets = list(TARGETS) if a.target == "all" else [a.target]
+    if a.output and len(targets) > 1:
+        print("error: --output은 단일 타깃에만 쓸 수 있습니다", file=sys.stderr)
+        return 2
 
     # 기준 1·2 — 룰 재생성 (배포 전 항상 최신화). 검사(dangling·사장 자산)가 rules.md
     # 본문을 corpus로 읽으므로 먼저 쓰되, 기준 위반으로 빌드가 실패하면 이전 내용으로
@@ -252,43 +264,47 @@ def main(argv):
     rendered, n_kept, n_dropped = render_rules(rules_src)
     rules_dst = SRC / "references" / "rules.md"
     rules_prev = rules_dst.read_bytes() if rules_dst.is_file() else None
-    rules_dst.write_text(rendered, encoding="utf-8")
 
-    files = collect()
-    violations = {
-        "drift": check_drift(),
-        "dangling_refs": check_references(files),
-        "dead_assets": check_dead_assets(files),
-        "third_party": check_third_party(files),
-        "multiple_manifests": check_single_manifest(files),
-        # 패키지는 외부 3플랫폼으로 나간다 — PII가 있으면 무조건 차단 (--allow-drift 무관)
-        "pii": scan_dir(SRC),
-    }
-    blocking = {k: v for k, v in violations.items() if v and
-                not (k == "drift" and a.allow_drift)}
-    if blocking:
+    def restore_rules():
         if rules_prev is None:
             rules_dst.unlink(missing_ok=True)
         else:
             rules_dst.write_bytes(rules_prev)
-        print(json.dumps({"violations": blocking}, ensure_ascii=False, indent=1))
-        print("FATAL: 스킬 배포 기준 위반 — 위 항목을 고친 뒤 다시 빌드하세요", file=sys.stderr)
-        return 1
 
-    rules_meta = {"source": label(rules_src), "sha256": sha(rules_src),
-                  "included": n_kept, "excluded": n_dropped, "scope": list(SCOPE_TAGS)}
-    targets = list(TARGETS) if a.target == "all" else [a.target]
-    if a.output and len(targets) > 1:
-        print("error: --output은 단일 타깃에만 쓸 수 있습니다", file=sys.stderr)
-        return 2
-    results = []
-    for tgt in targets:
-        out = pathlib.Path(a.output) if a.output else \
-            ROOT / "dist" / f"kca-report-hwpx-{tgt}{TARGETS[tgt]}"
-        results.append(write_package(tgt, out, files, rules_meta))
-    print(json.dumps({"rules": rules_meta, "packages": results},
-                     ensure_ascii=False, indent=1))
-    return 0
+    rules_dst.write_text(rendered, encoding="utf-8")
+    try:
+        files = collect()
+        violations = {
+            "drift": check_drift(),
+            "dangling_refs": check_references(files),
+            "dead_assets": check_dead_assets(files),
+            "third_party": check_third_party(files),
+            "multiple_manifests": check_single_manifest(files),
+            # 패키지는 외부 3플랫폼으로 나간다 — PII가 있으면 무조건 차단 (--allow-drift 무관)
+            "pii": scan_dir(SRC),
+        }
+        blocking = {k: v for k, v in violations.items() if v and
+                    not (k == "drift" and a.allow_drift)}
+        if blocking:
+            restore_rules()
+            print(json.dumps({"violations": blocking}, ensure_ascii=False, indent=1))
+            print("FATAL: 스킬 배포 기준 위반 — 위 항목을 고친 뒤 다시 빌드하세요", file=sys.stderr)
+            return 1
+
+        rules_meta = {"source": label(rules_src), "sha256": sha(rules_src),
+                      "included": n_kept, "excluded": n_dropped, "scope": list(SCOPE_TAGS)}
+        results = []
+        for tgt in targets:
+            out = pathlib.Path(a.output) if a.output else \
+                ROOT / "dist" / f"kca-report-hwpx-{tgt}{TARGETS[tgt]}"
+            results.append(write_package(tgt, out, files, rules_meta))
+        print(json.dumps({"rules": rules_meta, "packages": results},
+                         ensure_ascii=False, indent=1))
+        return 0
+    except BaseException:
+        # 예외로 빠져나가도 내부 축적본이 공개 저장소 워킹트리에 남으면 안 된다
+        restore_rules()
+        raise
 
 
 if __name__ == "__main__":

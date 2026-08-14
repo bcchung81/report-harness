@@ -11,15 +11,19 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 HOOK = ROOT / "hooks" / "verify_hwpx_hook.py"
 
 
-def run_hook(command, cwd=None, plugin_root=str(ROOT), hook=None):
+def run_payload(payload, cwd=None, plugin_root=str(ROOT), hook=None):
     env = dict(os.environ)
     if plugin_root:
         env["CLAUDE_PLUGIN_ROOT"] = plugin_root
     else:
         env.pop("CLAUDE_PLUGIN_ROOT", None)
     return subprocess.run([sys.executable, str(hook or HOOK)],
-                          input=json.dumps({"tool_input": {"command": command}}),
+                          input=json.dumps(payload),
                           capture_output=True, text=True, env=env, cwd=cwd)
+
+
+def run_hook(command, **kw):
+    return run_payload({"tool_name": "Bash", "tool_input": {"command": command}}, **kw)
 
 
 @pytest.fixture(scope="module")
@@ -43,9 +47,10 @@ def test_passes_verified_output(good_hwpx):
     assert r.returncode == 0 and r.stdout.strip() == "", r.stdout
 
 
-def test_blocks_output_missing_canonical_members(good_hwpx, tmp_path):
-    """후처리를 안 거치면 version.xml이 없다 — R043 반입 거부의 원인."""
-    raw = tmp_path / "raw.hwpx"
+@pytest.fixture(scope="module")
+def raw_hwpx(good_hwpx, tmp_path_factory):
+    """정합화 이전 산출물 — kordoc generate_document가 내놓는 상태(version.xml 없음)."""
+    raw = tmp_path_factory.mktemp("raw") / "raw.hwpx"
     src = zipfile.ZipFile(good_hwpx)
     with zipfile.ZipFile(raw, "w") as z:
         for n in src.namelist():
@@ -53,10 +58,46 @@ def test_blocks_output_missing_canonical_members(good_hwpx, tmp_path):
                 continue
             z.writestr(n, src.read(n),
                        zipfile.ZIP_STORED if n == "mimetype" else zipfile.ZIP_DEFLATED)
-    r = run_hook(f"python3 md2hwpx.py x.md -o '{raw}'")
+    return raw
+
+
+def test_blocks_output_missing_canonical_members(raw_hwpx):
+    """후처리를 안 거치면 version.xml이 없다 — R043 반입 거부의 원인."""
+    r = run_hook(f"python3 md2hwpx.py x.md -o '{raw_hwpx}'")
     payload = json.loads(r.stdout)
     assert payload["decision"] == "block"
     assert "version.xml" in payload["reason"]
+
+
+def mcp_payload(path, tool="mcp__kordoc__generate_document"):
+    return {"tool_name": tool, "tool_input": {"markdown": "# 제목", "output_path": str(path)}}
+
+
+def test_mcp_generation_reminds_remaining_steps(raw_hwpx):
+    """MCP 생성 직후 산출물은 미정합이 정상이다 — 차단이 아니라 리마인더여야 한다.
+
+    이 시점에 structural을 걸면 version.xml 부재·디렉터리 엔트리로 정상 흐름마다 실패한다
+    ('26.8.11 실측). 매번 막히는 훅은 곧 무시되는 훅이다."""
+    r = run_payload(mcp_payload(raw_hwpx))
+    payload = json.loads(r.stdout)
+    assert "decision" not in payload, payload
+    ctx = payload["hookSpecificOutput"]["additionalContext"]
+    assert "postprocess_hwpx.py" in ctx and "validate_hwpx.py" in ctx
+
+
+def test_mcp_generation_blocks_corrupt_package(tmp_path):
+    """생성 단계에서도 zip·XML 무결성은 판정 가능하다 — 깨진 산출물은 막는다."""
+    broken = tmp_path / "broken.hwpx"
+    broken.write_bytes(b"not a zip at all")
+    payload = json.loads(run_payload(mcp_payload(broken)).stdout)
+    assert payload["decision"] == "block"
+
+
+def test_mcp_non_producer_tools_ignored(good_hwpx):
+    """읽기 계열 MCP 도구까지 붙잡으면 훅이 매 호출 경로의 비용이 된다."""
+    r = run_payload({"tool_name": "mcp__kordoc__parse_document",
+                     "tool_input": {"file_path": str(good_hwpx)}})
+    assert r.returncode == 0 and r.stdout.strip() == ""
 
 
 def test_ignores_unrelated_commands(good_hwpx):
@@ -75,6 +116,21 @@ def test_silent_when_validator_unavailable(tmp_path):
 def test_hooks_json_is_valid_and_points_to_the_script():
     cfg = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     entries = cfg["hooks"]["PostToolUse"]
-    assert any(e.get("matcher") == "Bash" for e in entries)
     cmds = [h["command"] for e in entries for h in e["hooks"]]
     assert any("verify_hwpx_hook.py" in c and "CLAUDE_PLUGIN_ROOT" in c for c in cmds), cmds
+
+
+def test_hooks_json_matcher_covers_the_primary_production_path():
+    """파이프라인의 주 생성 경로는 Bash가 아니라 kordoc MCP다.
+
+    matcher가 Bash뿐이면 훅 안의 generate_document 분기는 영원히 도달하지 않는다 —
+    사고가 난 경로는 못 보고, 후처리를 이미 부른 안전한 경우에만 훅이 도는 상태가 된다."""
+    import re
+    cfg = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    matchers = [e["matcher"] for e in cfg["hooks"]["PostToolUse"]]
+    hit = lambda t: any(re.fullmatch(m, t) for m in matchers)
+    assert hit("Bash")
+    assert hit("mcp__kordoc__generate_document")
+    assert hit("mcp__kordoc__patch_document")
+    assert not hit("mcp__kordoc__parse_document")
+    assert not hit("Read")

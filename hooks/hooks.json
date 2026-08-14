@@ -1,9 +1,9 @@
 {
-  "description": "hwpx 인도 전 검증 안전망. Bash가 hwpx를 만들거나 고친 명령을 감지해 구조 검증(validate_hwpx.py structural)과 후처리 흔적(R043 필수 멤버)을 확인하고, 실패하면 block으로 되돌린다. 검증 스크립트를 못 찾으면 아무 것도 하지 않는다.",
+  "description": "hwpx 인도 전 검증 안전망. hwpx를 만들거나 고친 호출을 Bash와 kordoc MCP(generate_document·patch_document) 양쪽에서 감지한다. 정합 단계(postprocess_hwpx.py·md2hwpx.py)는 구조 검증(validate_hwpx.py structural)과 후처리 흔적(R043 필수 멤버)까지 확인해 실패 시 block하고, 생성 단계(MCP)는 zip·XML 무결성만 보고 남은 후처리·검증을 비차단 리마인더로 돌려준다. 검증 스크립트를 못 찾으면 아무 것도 하지 않는다.",
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|mcp__.*__(generate_document|patch_document)",
         "hooks": [
           {
             "type": "command",

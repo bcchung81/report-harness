@@ -74,14 +74,16 @@ export default async function handler(req, res) {
     };
   }
 
-  // Q1(건수) × Q2(서식시간) 로 월 서식시간을 어림한다. 구간 중앙값 기준의 추정치다.
-  const CASES = [0, 1.5, 4, 8, 13]; // 3개월 건수
-  const HOURS = [0.25, 0.75, 1.5, 2.5, 3.5]; // 건당 시간
+  // q1(3개월 건수) × q7(건당 서식시간) 로 월 서식시간을 어림한다. 구간 중앙값 기준의 추정치다.
+  // v2까지는 서식시간이 q2였다 — v3에서 q2가 'LLM 사용 여부'로 바뀌었는데 이 식이 따라오지
+  // 않아, LLM 사용 빈도(1~5)를 시간으로 환산하던 시기가 있었다.
+  const CASES = [0, 1.5, 4, 8, 13]; // q1 보기별 3개월 건수 중앙값
+  const HOURS = [0.25, 0.75, 1.5, 2.5, 3.5]; // q7 보기별 건당 시간 중앙값
   let personMonthly = 0;
   let pairs = 0;
   for (const r of current) {
-    if (!r.q1 || !r.q2) continue;
-    personMonthly += (CASES[r.q1 - 1] / 3) * HOURS[r.q2 - 1];
+    if (!r.q1 || !r.q7) continue;
+    personMonthly += (CASES[r.q1 - 1] / 3) * HOURS[r.q7 - 1];
     pairs++;
   }
 

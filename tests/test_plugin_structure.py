@@ -78,6 +78,21 @@ def test_pipeline_skill_references_exist():
     for f in ["style-guide.md", "md-profile.md", "hwpx-recipe.md", "rules-seed.md"]:
         assert (ROOT / "skills/report-pipeline/references" / f).is_file()
 
+def test_skill_docs_call_scripts_via_skill_dir():
+    """스킬 문서의 스크립트 호출은 전부 `$SKILL_DIR` 기준이어야 한다(SKILL.md §0 경로 규약).
+
+    플러그인 설치 환경은 cwd가 사용자 프로젝트라 저장소 상대경로(`python3 skills/…/scripts/x.py`)가
+    전부 No such file로 깨진다. 절차서를 그대로 따른 모델이 후처리·구조검증을 조용히 건너뛴
+    hwpx를 인도하게 되는 경로다 — verify_hwpx_hook.py가 막으려던 바로 그 사고."""
+    import re
+    bad = []
+    for md in sorted((ROOT / "skills").rglob("*.md")):
+        for i, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"python3\s+['\"]?skills/", line):
+                bad.append(f"{md.relative_to(ROOT)}:{i}")
+    assert not bad, "저장소 상대경로 스크립트 호출: " + ", ".join(bad)
+
+
 def test_commands_and_bundle():
     for c in ["report-research", "report-analyze", "report-draft", "report-export",
               "report-doctor"]:

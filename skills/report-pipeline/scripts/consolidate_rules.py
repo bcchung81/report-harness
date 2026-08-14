@@ -24,6 +24,11 @@ import pathlib
 RULE = re.compile(r"^- (R\d+) ((?:\[[a-z]+\])+) (.*)$", re.M)
 HEAD = re.compile(r"^- (R\d+) (?:\[[a-z]+\])+", re.M)
 MARKER = re.compile(r"<!--\s*consolidated-at:\s*(R\d+)\s*-->")
+# 본문이 가리키는 규칙 번호. 자리수를 R0NN으로 못박으면 R100부터 교차참조가 통째로 끊겨,
+# 참조받고 있는 살아있는 규칙이 "피참조 0건 = 통합 후보"로 뒤집힌다 (RULE·HEAD와 같은 폭)
+# 3자리 이상만 규칙 번호로 본다 — 본문의 자리표시자 "R0NN" 같은 표기가 참조로 잡히면
+# 존재하지 않는 규칙을 가리키는 죽은 참조로 오탐된다
+REF = re.compile(r"(?<![0-9A-Za-z])R\d{3,}")
 GROWTH_LIMIT = 10          # 마지막 통합 이후 이만큼 늘면 통합 요구
 
 
@@ -55,7 +60,7 @@ def analyze(path):
     # ② 피참조 0건 + 폐지·대체 표기 → 통합 후보 (기계가 판정 가능한 최대치)
     refs = {}
     for r, b in body.items():
-        for m in set(re.findall(r"R0\d\d", b)):
+        for m in set(REF.findall(b)):
             if m != r:
                 refs.setdefault(m, []).append(r)
     candidates = [r for r, b in body.items()
@@ -63,7 +68,7 @@ def analyze(path):
 
     # ③ 죽은 참조 — rules에도 history에도 없는 번호를 가리킴
     known = set(body) | hist_ids
-    dead = sorted({m for b in body.values() for m in re.findall(r"R0\d\d", b)} - known)
+    dead = sorted({m for b in body.values() for m in REF.findall(b)} - known)
 
     # ④ 근거 등급 누락 (규약: 등급 없이 승격 금지)
     ungraded = sorted(r for r, b in body.items() if "(근거" in b and "근거[" not in b)

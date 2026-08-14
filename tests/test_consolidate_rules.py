@@ -59,3 +59,22 @@ def test_growth_within_consolidation_limit():
     assert a["growth"] < a["limit"], (
         f"마지막 통합({a['marked_at']}) 이후 {a['growth']}건 증가 — "
         f"통폐합 후 `consolidate_rules.py --mark` 실행 필요")
+
+
+def test_cross_references_survive_past_r099(tmp_path):
+    """R100 이후에도 교차참조가 잡혀야 한다.
+
+    참조 스캔만 `R0\\d\\d`로 자리수가 못박혀 있어 R100부터는 피참조가 0으로 집계됐다.
+    그러면 살아서 참조받고 있는 규칙이 '통합 후보(피참조 0)'로 뒤집혀 삭제 권고가 나간다 —
+    이 스크립트가 막으려던 바로 그 사고다. 규칙은 두 달에 43건꼴로 늘어 R100 도달이
+    예정돼 있었다.
+    """
+    p = tmp_path / "rules.md"
+    p.write_text(
+        "- R100 [export] **[폐지]** 배너 규칙 (근거[실측]: x)\n"
+        "- R105 [export] R100을 흡수해 대체한다 (근거[실측]: x)\n"
+        "- R106 [export] R404를 가리킨다 (근거[실측]: x)\n",
+        encoding="utf-8")
+    a = cr.analyze(p)
+    assert "R100" not in a["candidates"], f"참조받는 규칙이 통합 후보로 잡힘: {a['candidates']}"
+    assert a["dead_refs"] == ["R404"], a["dead_refs"]

@@ -54,8 +54,13 @@ table-pool)은 웹앱 사본이 바이트 동일해야 한다 — 하네스 쪽�
 
 ## 훅
 
-`hooks/hooks.json`이 PostToolUse(Bash) 훅 `verify_hwpx_hook.py`를 등록한다 — hwpx를 만들고
+`hooks/hooks.json`이 PostToolUse 훅 `verify_hwpx_hook.py`를 등록한다 — hwpx를 만들고
 구조 검증을 건너뛴 채 인도되는 것을 차단하는 마지막 안전망이다('26.8.7 실사고 재발 방지).
+matcher는 Bash와 kordoc MCP(`generate_document`·`patch_document`)를 함께 잡는다 — 파이프라인의
+주 생성 경로가 MCP라 Bash만 보면 정작 사고 경로가 사각지대가 된다. 검사 강도는 단계별로 다르다:
+생성 단계 산출물은 `version.xml`이 없는 것이 정상이므로(그걸 채우는 게 뒤따르는 R043
+`canonicalize_package`다) zip·XML 무결성만 보고 남은 후처리·검증을 비차단 리마인더로 돌려주며,
+정합 단계(`postprocess_hwpx.py`·`md2hwpx.py`)에서만 `structural` 전량과 필수 멤버를 걸어 차단한다.
 플러그인 설치 시 자동 등록되며, 동작 검증은 `tests/test_verify_hwpx_hook.py`.
 
 ## 테스트

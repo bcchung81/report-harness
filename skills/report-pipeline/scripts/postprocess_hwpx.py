@@ -1439,6 +1439,9 @@ def apply_formula_box(header_root, section_roots):
     """1행 1열 표를 산식 박스로 규격화한다 (R064) — 본문 폭 전체·가운데 정렬."""
     boxed = 0
     p_tag = qn("hp", "p")
+    # 문서 전체에서 공유한다 — 문단마다 새 dict를 넘기면 dedup이 무효가 되어 동일한 CENTER
+    # paraPr 복제본이 산식 박스 문단 수만큼 header에 쌓인다
+    align_cache = {}
     for sec_root in section_roots:
         # 제목 박스·머리글 배너는 첫 □ 이전에 온다 — 산식 박스 대상에서 제외
         seen_dae = False
@@ -1458,7 +1461,7 @@ def apply_formula_box(header_root, section_roots):
                         if pid is None:
                             continue
                         p.set("paraPrIDRef",
-                              ensure_aligned_clone(header_root, pid, "CENTER", {}))
+                              ensure_aligned_clone(header_root, pid, "CENTER", align_cache))
                 boxed += 1
     return {"formula_boxes": boxed}
 

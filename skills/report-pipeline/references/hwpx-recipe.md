@@ -19,6 +19,9 @@
 > 마커)은 그 항목만 빼고, **§2의 R008 프로파일 · §3.5 후처리 · §4-1 구조 검증 3단계는 항상
 > 탄다**. 산출 위치도 `{work_dir}/final/`이 정본이며 외부 폴더 직접 생성은 금지한다(R048).
 
+- 경로 규약: `SKILL_DIR` = **이 절차서를 담은 SKILL.md가 있는 디렉토리**(SKILL.md §0). 아래 모든
+  스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태이며, 저장소 상대경로로 바꿔 쓰면 플러그인 설치
+  환경(cwd가 사용자 프로젝트)에서 전부 깨져 §3.5 후처리·§4 검증이 조용히 생략된다.
 - 입력: `{work_dir}/20_draft.md` (게이트② 승인본, lint 통과 상태). 초안이 아닌 원문을 변환할
   때는 md-profile에 맞춘 초안을 `20_draft.md`로 **먼저 만들고** 이 절차에 태운다 — 원문을
   `generate_document`에 바로 넣지 않는다.
@@ -29,7 +32,7 @@
 ## 1. prep 정규화 (무손실 정규화, 모호 입력 거부)
 
 ```
-python3 skills/report-pipeline/scripts/prep_report_md.py \
+python3 "$SKILL_DIR/scripts/prep_report_md.py" \
     {work_dir}/20_draft.md -o {work_dir}/40_prepared.md
 ```
 
@@ -58,7 +61,7 @@ mcp__kordoc__extract_profile(
     output_path="{work_dir}/format-profile.json")
 
 (선택) 추출 JSON을 사람이 읽는 프로파일 md로 렌더하려면 보조 헬퍼를 쓴다 —
-`python3 skills/report-pipeline/scripts/extract_format_profile.py {work_dir}/format-profile.json -o {state_dir}/format-profile.{기관}.md`
+`python3 "$SKILL_DIR/scripts/extract_format_profile.py" {work_dir}/format-profile.json -o {state_dir}/format-profile.{기관}.md`
 ```
 
 도식 마커(`도식: {패턴ID}`)가 본문에 있으면, `generate_document` 호출 전에 md 텍스트 단계에서
@@ -126,7 +129,7 @@ mcp__kordoc__generate_document(
 본문의 이미지 마커(`도해: {id}`, 출처 캡션 병기)마다 후보 이미지를 규격 판정한다.
 
 ```
-python3 skills/report-pipeline/scripts/check_image_size.py \
+python3 "$SKILL_DIR/scripts/check_image_size.py" \
     research/fetched/{주제슬러그}/images/{파일명} --max-w-mm 170 --max-h-mm 90 --dpi 96
 ```
 
@@ -158,7 +161,7 @@ mcp__kordoc__patch_document(
 직접 zip을 재작성하므로, 재작성 결과를 검증 대상으로 삼아야 한다).
 
 ```
-python3 skills/report-pipeline/scripts/postprocess_hwpx.py \
+python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
     {work_dir}/final/{제목}.hwpx --all
 ```
 
@@ -282,7 +285,7 @@ python3 skills/report-pipeline/scripts/postprocess_hwpx.py \
 ### 4-1. 구조 검증
 
 ```
-python3 skills/report-pipeline/scripts/validate_hwpx.py \
+python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
     structural {work_dir}/final/{제목}.hwpx
 ```
 
@@ -305,7 +308,7 @@ compare의 src는 40_prepared.md — prep이 마크업(주석·구분선·각주
 동일본을 기준으로 대조해야 오탐이 없다. draft↔prepared 정합은 prep의 삭제 회계가 별도 보증한다.
 
 ```
-python3 skills/report-pipeline/scripts/validate_hwpx.py \
+python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
     compare {work_dir}/40_prepared.md {work_dir}/40_roundtrip.md
 ```
 

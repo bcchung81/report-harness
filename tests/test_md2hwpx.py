@@ -291,6 +291,48 @@ def test_build_blocks_pii_and_restores_rules():
     assert not out.exists()
 
 
+def test_build_rejects_bad_args_before_touching_rules():
+    """인자 오류(exit 2)로 끝나도 rules.md는 손대지 않은 상태여야 한다.
+
+    `webapp/.../rules.md`는 이 공개 저장소의 추적 파일이다. 인자 검사가 룰 렌더 뒤에
+    있던 동안은 --target all + -o 조합이 원복 없이 exit 2로 빠져나가, --rules로 지정한
+    내부 축적본이 워킹트리에 남은 채 `git commit -a` 한 번이면 공개되는 상태였다."""
+    import tempfile
+    rules_dst = SKILL / "references" / "rules.md"
+    before = rules_dst.read_bytes()
+    with tempfile.TemporaryDirectory() as td:
+        internal = pathlib.Path(td) / "rules.md"
+        internal.write_text("- R999 [draft] 대외비 내부 축적 규칙 (근거[실측]: x)\n",
+                            encoding="utf-8")
+        r = run([ROOT / "scripts" / "build_webapp_skill.py", "--target", "all",
+                 "-o", pathlib.Path(td) / "pkg.zip", "--rules", internal])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert rules_dst.read_bytes() == before, "인자 오류로 끝났는데 rules.md가 덮여 있다"
+    assert b"R999" not in rules_dst.read_bytes()
+
+
+def test_build_survives_stray_finder_droppings():
+    """상류 스킬 폴더에 .DS_Store가 생겨도 빌드는 통과해야 한다.
+
+    macOS에서 skills/humanizer를 Finder로 한 번 여는 것만으로 서드파티 대조가
+    '.DS_Store가 references/humanizer에 누락'이라며 빌드를 통째로 세웠다 — 패키지에
+    담기지도 않는 파일이다."""
+    import tempfile
+    stray = ROOT / "skills" / "humanizer" / ".DS_Store"
+    existed = stray.exists()
+    if not existed:
+        stray.write_bytes(b"\x00\x00\x00\x01Bud1")
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            out = pathlib.Path(td) / "c.skill"
+            r = run([ROOT / "scripts" / "build_webapp_skill.py", "--target", "claude", "-o", out])
+            assert r.returncode == 0, r.stdout + r.stderr
+            assert ".DS_Store" not in zipfile.ZipFile(out).namelist()
+    finally:
+        if not existed:
+            stray.unlink()
+
+
 def test_bundled_humanizer_ships_license_and_notice():
     """서드파티 번들은 라이선스 전문 동봉 + 루트 고지가 있어야 배포할 수 있다."""
     lic = SKILL / "references" / "humanizer" / "LICENSE"
