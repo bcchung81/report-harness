@@ -22,6 +22,19 @@
   --warn:#E3AC64; --ok:#6BC098;
   --hair:rgba(226,232,245,.24); --hair-soft:rgba(226,232,245,.13);
   --sunken:rgba(150,165,205,.05);
+  /* S6 두 트랙 — 같은 채움이라 구분이 안 됐다. 초급은 중립(기본 환경),
+     중급은 액센트 옅게(자산이 쌓이는 환경)로 갈라 같은 축 위의 두 단계로 읽히게 한다.
+     중급 채움은 안에 놓인 bx-ac(.13)가 여전히 도드라지도록 .075 로 낮춰 잡았다. */
+  --track-a:rgba(150,165,205,.10); --track-a-line:rgba(226,232,245,.22);
+  --track-b:rgba(139,153,250,.11); --track-b-line:rgba(139,153,250,.46);
+  /* 타이포 스케일 — 6단계. 종전 17개 값 중 11개가 0.80~1.02 구간에 뭉쳐
+     구분이 안 됐다(2% 차이). 단계는 크게 벌리고 역할로 나눈다. */
+  --t-1:.86cqw;  /* 크롬·라벨 */
+  --t-2:1cqw;    /* 보조 */
+  --t-3:1.16cqw; /* 본문 */
+  --t-4:1.5cqw;  /* 리드 */
+  --t-5:2.35cqw; /* 소제목·수치 */
+  --t-6:4.4cqw;  /* 대제목 */
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --sans:"Pretendard","Pretendard Variable","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
 }
@@ -61,68 +74,78 @@ body{
 
 /* ── 좌측 크롬 ── */
 .rail{display:flex;flex-direction:column;justify-content:space-between}
-.ident{font-family:var(--mono);font-size:.86cqw;letter-spacing:.17em;color:var(--low)}
+.ident{font-family:var(--mono);font-size:var(--t-1);letter-spacing:.17em;color:var(--low)}
 .ident b{display:block;font-weight:400;color:var(--mid)}
 .ident hr{border:0;border-top:1px solid var(--hair);margin:.7cqw 0;width:76%}
 .parts{list-style:none;display:flex;flex-direction:column;gap:1cqw}
-.parts li{font-family:var(--mono);font-size:.9cqw;letter-spacing:.12em;color:var(--chrome);
+.parts li{font-family:var(--mono);font-size:var(--t-1);letter-spacing:.12em;color:var(--chrome);
   display:flex;gap:.6cqw;padding-left:.7cqw;border-left:1px solid transparent;
   transition:color .3s ease,border-color .3s ease}
 .parts li[data-on]{color:var(--hi);border-left-color:var(--accent)}
 .parts li[data-on] span{color:var(--accent)}
-.stamp{font-family:var(--mono);font-size:.8cqw;letter-spacing:.13em;color:var(--chrome)}
+.stamp{font-family:var(--mono);font-size:var(--t-1);letter-spacing:.13em;color:var(--chrome)}
 
 /* ── 본문 ── */
 .body{display:flex;flex-direction:column;justify-content:flex-start;gap:1.5cqw;min-width:0}
 /* 배치 통일(기준: S7) — 제목은 상단, 캡션은 하단에 붙고 남는 높이는 도식 위아래로 간다 */
 .body>figure,.body>.cap2{margin-block:auto}
 .slide[data-id="S1"] .body{justify-content:center}
-/* S4 — 코드 블록 두 장이 커서 margin auto 가 위아래로 벌어진다. 묶음째 가운데 두고 틈은 없앤다 */
-.slide[data-id="S4"] .body{justify-content:center}
-.slide[data-id="S4"] .body>.cap2{margin-block:0}
+/* S0 — 오프너. 제목·도식·주석을 한 덩어리로 묶어 가운데 둔다(도식이 아래로 떨어지지 않게) */
+.slide[data-id="S0"] .body{justify-content:center;gap:2cqw}
+.slide[data-id="S0"] .body>figure{margin-block:0}
+.slide[data-id="S0"] h1{font-size:3.8cqw}
+.slide[data-id="S0"] .dg{max-width:none;--u:.96}
 /* S7 — 층 도식 + 로드맵 두 장이 서니 도식 폭을 줄여 세로를 확보 */
-.slide[data-id="S7"] .dg{max-width:56cqw}
+.slide[data-id="S7"] .dg{max-width:68cqw;--u:1.06}
 /* 밴드가 많은 장 — 간격을 넓혀 덜 빽빽하게 */
 .slide.airy .body{gap:2.4cqw}
-.slide.airy .dg{max-width:62cqw}
-.eyebrow{font-family:var(--mono);font-size:.88cqw;letter-spacing:.2em;color:var(--low);
+.slide.airy .dg{max-width:68cqw;--u:1.06}
+.eyebrow{font-family:var(--mono);font-size:var(--t-1);letter-spacing:.2em;color:var(--low);
   text-transform:uppercase}
-h1{font-size:4.4cqw;font-weight:800;letter-spacing:-.018em;line-height:1.14;color:var(--hi)}
-h2{font-size:2.35cqw;font-weight:700;letter-spacing:-.015em;line-height:1.24;color:var(--hi)}
-.cap{font-size:1.16cqw;color:var(--low);line-height:1.55;max-width:62cqw}
+h1{font-size:var(--t-6);font-weight:800;letter-spacing:-.018em;line-height:1.14;color:var(--hi)}
+h2{font-size:var(--t-5);font-weight:700;letter-spacing:-.015em;line-height:1.24;color:var(--hi)}
+.cap{font-size:var(--t-3);color:var(--low);line-height:1.55;max-width:62cqw}
 .cap b{color:var(--hi);font-weight:600}
 .cap code,.lede code{font-family:var(--mono);font-size:.92em;color:var(--accent)}
-.lede{font-size:1.5cqw;color:var(--mid);line-height:1.5;max-width:56cqw}
+.lede{font-size:var(--t-4);color:var(--mid);line-height:1.5;max-width:62cqw}
 
 /* ── 도식 공통 ──────────────────────────────────────────────
    viewBox 폭 1000 기준 그리드. 글자는 18~24 단위(≈18~24px)라 투사에서도 읽힌다.
    액센트는 도식마다 '의미를 지닌 하나'에만 준다. */
 figure{margin:0}
-.dg{width:100%;height:auto;max-width:66cqw;display:block}
-.dg text{font-family:var(--sans);fill:var(--mid);font-size:21px}
+.dg{width:100%;height:auto;max-width:72cqw;display:block;--u:1}
+.dg text{font-family:var(--sans);fill:var(--mid);font-size:calc(21px*var(--u))}
 .dg .hi{fill:var(--hi);font-weight:600}
-.dg .lo{fill:var(--faint);font-size:17px}
+.dg .lo{fill:var(--faint);font-size:calc(17px*var(--u))}
 .dg .ac{fill:var(--accent);font-weight:600}
-.dg .mn{font-family:var(--mono);font-size:18px}
+.dg .mn{font-family:var(--mono);font-size:calc(18px*var(--u))}
+/* 크기 단계 — .lo/.mn 뒤에 와야 덮어쓴다. --u 가 장별 배율을 흡수해
+   같은 단계는 어느 장에서든 같은 크기로 투사된다 */
+.dg .s-xs{font-size:calc(15px*var(--u))}
+.dg .s-s{font-size:calc(17px*var(--u))}
+.dg .s-m{font-size:calc(21px*var(--u))}
+.dg .s-l{font-size:calc(26px*var(--u))}
+.dg .s-xl{font-size:calc(40px*var(--u))}
 .dg .bx{fill:var(--sunken);stroke:var(--hair);stroke-width:1.5}
 .dg .bx-ac{fill:var(--accent-fill);stroke:var(--accent);stroke-width:1.8}
 .dg .bx-w{fill:none;stroke:var(--warn);stroke-width:1.5}
 .dg .zone{fill:none;stroke:var(--hair-soft);stroke-width:1.2;stroke-dasharray:4 5}
+/* 트랙은 '영역'이 아니라 '카드'로 읽혀야 해서 점선을 풀고 채움을 올렸다.
+   중급 채움(.11)은 안의 bx-ac(.13 + 1.8 실선 액센트)가 여전히 떠 보이는 상한이다. */
+.dg .zone-a{fill:var(--track-a);stroke:var(--track-a-line);stroke-dasharray:none}
+.dg .zone-b{fill:var(--track-b);stroke:var(--track-b-line);stroke-dasharray:none}
 .dg .ln{stroke:var(--hair);stroke-width:1.6;fill:none}
 .dg .ln-ac{stroke:var(--accent);stroke-width:1.8;fill:none}
 .dg .ln-w{stroke:var(--warn);stroke-width:1.6;fill:none}
 .dg .dash{stroke-dasharray:6 5}
-figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
+figcaption{font-size:var(--t-2);color:var(--low);margin-top:.5cqw}
 
 /* 실물 캡처 블록 */
-.cap2{display:grid;grid-template-columns:1fr 1fr;gap:2.2cqw;max-width:64cqw}
-/* 도식의 두 축 아래에 그대로 붙는 캡션 열 — 붙여 쓰면 서식과 맥락이 뒤섞인다 */
-.axis2{display:grid;grid-template-columns:1.7fr 1fr;gap:2.6cqw;max-width:66cqw}
-.axis2 .cap{max-width:none}
-.shot{font-family:var(--mono);font-size:.92cqw;line-height:1.62;color:var(--mid);
+.cap2{display:grid;grid-template-columns:1fr 1fr;gap:2.2cqw;max-width:72cqw}
+.shot{font-family:var(--mono);font-size:var(--t-2);line-height:1.62;color:var(--mid);
   background:var(--sunken);border:1px solid var(--hair-soft);border-radius:.3cqw;
   padding:.9cqw 1.1cqw;white-space:pre;overflow-x:auto}
-.shot h4{font-family:var(--mono);font-size:.86cqw;letter-spacing:.1em;font-weight:400;
+.shot h4{font-family:var(--mono);font-size:var(--t-1);letter-spacing:.1em;font-weight:400;
   color:var(--low);margin-bottom:.55cqw}
 .shot .add{color:var(--ok)}
 .shot .del{color:var(--warn)}
@@ -131,14 +154,14 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 
 .metrics{display:flex;gap:2.6cqw;flex-wrap:wrap}
 .metric{display:flex;flex-direction:column;gap:.25cqw}
-.metric b{font-family:var(--mono);font-size:2.3cqw;font-weight:500;line-height:1;color:var(--hi);
+.metric b{font-family:var(--mono);font-size:var(--t-5);font-weight:500;line-height:1;color:var(--hi);
   font-variant-numeric:tabular-nums}
 .metric b.ac{color:var(--accent)}
 .metric b.bad{color:var(--warn)}
 .metric b.good{color:var(--ok)}
-.metric span{font-size:.9cqw;color:var(--low)}
+.metric span{font-size:var(--t-1);color:var(--low)}
 
-.repo{font-family:var(--mono);font-size:.85cqw;letter-spacing:.12em;color:var(--faint)}
+.repo{font-family:var(--mono);font-size:var(--t-1);letter-spacing:.12em;color:var(--faint)}
 
 /* ── HUD ── */
 .hud{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:1rem;
@@ -158,7 +181,6 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 .notes b{display:block;font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;
   color:var(--low);margin-bottom:.35rem;font-weight:400}
 
-/* 확인 필요 — 발표자만 답할 수 있는 값. 채우기 전에는 절대 못 지나치게 둔다 */
 /* 자동 발표 큐 — 말하는 대목만 남기고 나머지 표기 요소를 가라앉힌다 */
 [data-cue]{transition:opacity .35s ease}
 .cue-dim{opacity:.3}
@@ -176,17 +198,12 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 @keyframes stepBlink{0%{opacity:.35}45%{opacity:1}70%{opacity:.8}100%{opacity:1}}
 .dg [data-step].step-now{animation:stepBlink .4s ease-out}
 @media (prefers-reduced-motion:reduce){.dg [data-step].step-now{animation:none}}
-.todo{display:inline-flex;align-items:center;gap:.5cqw;
-  border:1px dashed var(--warn);border-radius:.3cqw;padding:.4cqw .8cqw;
-  color:var(--warn);font-size:1.05cqw}
-.todo::before{content:"확인 필요";font-family:var(--mono);font-size:.78cqw;letter-spacing:.1em;
-  opacity:.75}
 /* 심사 항목 배지 — 어느 평가 항목에 답하는 장인지 발표자와 심사자 모두 알게 한다 */
 .crit{display:inline-flex;align-items:baseline;gap:.55cqw;font-family:var(--mono);
-  font-size:.86cqw;letter-spacing:.12em;color:var(--accent)}
+  font-size:var(--t-1);letter-spacing:.12em;color:var(--accent)}
 .crit b{font-weight:400;color:var(--faint)}
 .pill{display:inline-block;border:1px solid var(--hair);border-radius:99px;
-  padding:.28cqw .8cqw;font-size:1cqw;color:var(--mid)}
+  padding:.28cqw .8cqw;font-size:var(--t-2);color:var(--mid)}
 .pill.ac{border-color:var(--accent);color:var(--accent)}
 .pill.bad{border-color:var(--warn);color:var(--warn)}
 .rowpills{display:flex;gap:.7cqw;flex-wrap:wrap}
@@ -203,8 +220,80 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
   <div class="body">
     <p class="eyebrow rise">Report harness · md → 기관 양식 hwpx</p>
     <h1 class="rise">한글 보고서를<br>손으로 꾸미지 않는다</h1>
-    <p class="lede rise">망분리 안에서 마크다운 하나를 원본으로 기관 양식 한글 파일까지.
-    <b>9일간 실제 보고서 5건</b>을 이걸로 냈다.</p>
+    <p class="lede rise">망분리 안 · 마크다운 하나 → 기관 양식 한글 파일</p>
+  </div>
+</section>
+
+<!-- S0 · 오프너 · 설문 근거 (라이브 내레이션 — 낭독 파일 없음, data-live 로 자동 발표에서 건너뛴다) -->
+<section class="slide" data-id="S0" data-time="—" data-part="" data-live>
+  <div class="rail"></div>
+  <div class="body">
+    <p class="eyebrow rise">무기명 설문 · 2026. 8. 11. · 경영기획본부 30여 명 대상 · 17명 응답</p>
+    <h1 class="rise">이건 내 문제가 아니었다</h1>
+    <!-- 대상·표본은 위 eyebrow 가 이미 말한다 — 여기는 '무엇을 물었나' 두 항목만 -->
+    <p class="lede rise">물은 것 — ① 지금 가장 걸리는 것
+    ② <b>붙여넣으면 출처가 따라붙는 기관 양식 hwpx 도구</b>의 사용 의향</p>
+    <figure class="rise">
+      <svg class="dg" viewBox="0 0 1000 284" role="img"
+           aria-label="보고서 1건당 부수작업 2.3시간 — 서식·정리 1.33시간과 LLM 검수 0.96시간. 경영기획본부 30여 명 중 17명 응답. 기관 양식 불일치 14명, 망분리 자료 차단 12명, 수치 전량 손검증 13명, 이미 반려나 지적을 겪음 12명. 출처가 따라붙고 기관 양식 hwpx가 나오는 도구를 쓰겠다는 응답이 17명 전원이며 그중 5명은 바로, 12명은 조건부">
+        <!-- 건당 소요 — 기간 해석과 무관한 값 -->
+        <text class="lo" x="4" y="14">보고서 1건 · 내용 작성 제외</text>
+        <rect x="4" y="24" width="360" height="34" rx="6"
+              style="fill:rgba(227,172,100,.13);stroke:#E3AC64;stroke-width:1.8"/>
+        <text class="hi" x="20" y="46">서식·정리 1.33h</text>
+        <rect class="bx" x="368" y="24" width="252" height="34" rx="6"/>
+        <text x="384" y="46">LLM 검수 0.96h</text>
+        <text class="s-xl" x="648" y="53" style="fill:#F4F6FA;font-weight:700">2.3시간</text>
+        <text class="lo" x="838" y="40">건당 · 응답자 직접 기입</text>
+        <text class="lo" x="838" y="62">기간 해석과 무관</text>
+        <!-- 17칸 = 응답자 17명. 백분율보다 사람 수를 먼저 보이게 한다 -->
+        <g>
+          <text x="4" y="100">기관 양식·개조식 불일치</text>
+          <rect x="300" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="325" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="350" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="375" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="400" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="425" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="450" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="475" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="500" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="525" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="550" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="575" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="600" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="625" y="84" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect class="bx" x="650" y="84" width="20" height="20" rx="3"/><rect class="bx" x="675" y="84" width="20" height="20" rx="3"/><rect class="bx" x="700" y="84" width="20" height="20" rx="3"/>
+          <text class="mn" x="762" y="100" style="fill:#E3AC64">14 / 17</text>
+          <text class="lo" x="996" y="100" text-anchor="end">82%</text>
+        </g>
+        <g>
+          <text x="4" y="132">망분리 — 내부 자료 차단</text>
+          <rect x="300" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="325" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="350" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="375" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="400" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="425" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="450" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="475" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="500" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="525" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="550" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="575" y="116" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect class="bx" x="600" y="116" width="20" height="20" rx="3"/><rect class="bx" x="625" y="116" width="20" height="20" rx="3"/><rect class="bx" x="650" y="116" width="20" height="20" rx="3"/><rect class="bx" x="675" y="116" width="20" height="20" rx="3"/><rect class="bx" x="700" y="116" width="20" height="20" rx="3"/>
+          <text class="mn" x="762" y="132" style="fill:#E3AC64">12 / 17</text>
+          <text class="lo" x="996" y="132" text-anchor="end">71%</text>
+        </g>
+        <g>
+          <text x="4" y="164">수치·인용 전량 손검증</text>
+          <rect x="300" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="325" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="350" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="375" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="400" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="425" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="450" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="475" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="500" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="525" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="550" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="575" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="600" y="148" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect class="bx" x="625" y="148" width="20" height="20" rx="3"/><rect class="bx" x="650" y="148" width="20" height="20" rx="3"/><rect class="bx" x="675" y="148" width="20" height="20" rx="3"/><rect class="bx" x="700" y="148" width="20" height="20" rx="3"/>
+          <text class="mn" x="762" y="164" style="fill:#E3AC64">13 / 17</text>
+          <text class="lo" x="996" y="164" text-anchor="end">76%</text>
+        </g>
+        <g>
+          <text x="4" y="196">이미 반려·지적을 겪음</text>
+          <rect x="300" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="325" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="350" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="375" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="400" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="425" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="450" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="475" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="500" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="525" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="550" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect x="575" y="180" width="20" height="20" rx="3" style="fill:#E3AC64;stroke:none"/><rect class="bx" x="600" y="180" width="20" height="20" rx="3"/><rect class="bx" x="625" y="180" width="20" height="20" rx="3"/><rect class="bx" x="650" y="180" width="20" height="20" rx="3"/><rect class="bx" x="675" y="180" width="20" height="20" rx="3"/><rect class="bx" x="700" y="180" width="20" height="20" rx="3"/>
+          <text class="mn" x="762" y="196" style="fill:#E3AC64">12 / 17</text>
+          <text class="lo" x="996" y="196" text-anchor="end">71%</text>
+        </g>
+        <line class="ln" x1="4" y1="218" x2="996" y2="218" style="stroke:rgba(226,232,245,.13)"/>
+        <text class="lo" x="4" y="240">“내용을 붙여넣으면 인용마다 출처가 따라붙고, 기관 양식에 맞춘 hwpx 까지 나오는 도구가 있다면?”</text>
+        <g>
+          <text class="hi" x="4" y="271">쓰겠다</text>
+          <!-- 위 4줄과 달리 이 줄은 '몇 명이 겪었나'가 아니라 '17명이 어떻게 갈리나'다.
+               그래서 칸을 세는 히트맵이 아니라 수치 비례 스택 바로 그리고 라벨을 바 안에 넣는다.
+               트랙 폭 420(300~720)을 17로 나눠 5명=122 · 12명=296, 사이 2단위는 경계 틈. -->
+          <rect x="300" y="250" width="122" height="28" rx="3" style="fill:#6BC098;stroke:none"/>
+          <text class="s-xs" x="361" y="269" text-anchor="middle"
+                style="fill:#08090B;font-weight:600">바로 5명</text>
+          <rect x="424" y="250" width="296" height="28" rx="3" style="fill:rgba(107,192,152,.5);stroke:none"/>
+          <text class="s-xs" x="572" y="269" text-anchor="middle" style="fill:#F4F6FA">조건이 맞으면 12명</text>
+          <text class="mn" x="762" y="270" style="fill:#6BC098">17 / 17</text>
+          <text class="lo" x="996" y="270" text-anchor="end">100%</text>
+        </g>
+      </svg>
+    </figure>
+    <p class="rowpills rise">
+      <span class="pill">“결과를 그대로 쓴다” <b style="color:var(--hi)">0명</b></span>
+      <span class="pill">“별다른 문제는 없었다” <b style="color:var(--hi)">0명</b></span>
+      <span class="pill">“쓰지 않겠다” <b style="color:var(--hi)">0명</b></span>
+      <span class="pill">“LLM 을 써본 적 없다” <b style="color:var(--hi)">0명</b></span>
+    </p>
   </div>
 </section>
 
@@ -230,6 +319,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <rect class="bx-w" x="248" y="28" width="490" height="62" rx="8"/>
           <text class="mn" x="268" y="52" style="fill:#B0B8C8">"KCA" · "주요사업" · "한국방송통신전파진흥원"</text>
           <text class="lo" x="268" y="78" style="fill:#E3AC64">매번 다시 찾고, 매번 다시 컨텍스트로 등록</text>
+          <text class="mn s-xs" x="726" y="78" text-anchor="end" style="fill:#E3AC64">설문 10 / 17</text>
           <line class="ln-w" x1="742" y1="59" x2="778" y2="59" marker-end="url(#b1)"/>
         </g>
         <g color="#8D96A8">
@@ -247,7 +337,8 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
         <g color="#E3AC64">
           <rect class="bx-w" x="248" y="150" width="490" height="62" rx="8"/>
           <text class="mn" x="268" y="174" style="fill:#B0B8C8">계층 · 서체 · 줄간격 · 표 폭 · 각주 · 배너 · 머리말</text>
-          <text class="lo" x="268" y="200" style="fill:#E3AC64">전부 사람 손 — 건당 2~3시간</text>
+          <text class="lo" x="268" y="200" style="fill:#E3AC64">전부 사람 손 — 건당 2~3시간 (발표자 본인 실측)</text>
+          <text class="mn s-xs" x="726" y="200" text-anchor="end" style="fill:#E3AC64">설문 14 / 17</text>
           <line class="ln-w" x1="742" y1="181" x2="778" y2="181" marker-end="url(#b1)"/>
         </g>
         <g color="#8D96A8">
@@ -256,18 +347,17 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
         </g>
         </g>
       </svg>
-      <figcaption>둘 다 VDI 안에서 벌어진다 — 도구를 깔 자리가 없다.</figcaption>
+      <figcaption>둘 다 VDI 안 — 도구를 깔 자리 없음</figcaption>
     </figure>
     <div class="metrics rise" data-cue="5">
-      <div class="metric"><b class="bad">2~3시간</b><span>건당 서식 작업 (도입 전)</span></div>
+      <div class="metric"><b class="bad">2~3시간</b><span>건당 서식 작업 — 본인 실측 (도입 전)</span></div>
       <div class="metric"><b class="ac">30분</b><span>기계 시간 상한 (도입 후)</span></div>
       <div class="metric"><b class="good">5건</b><span>9일간 실제 인도 · 07-30~08-07</span></div>
-      <div class="metric"><b class="bad">1건</b><span>업무망 반입 반려 실사고</span></div>
+      <div class="metric"><b class="bad">1건</b><span>업무망 반입 반려 실사고 — 같은 사고 설문 6 / 17</span></div>
     </div>
-    <p class="cap rise" data-cue="6"><b>누가</b> — 인터넷망 VDI에서 기관 보고서를 쓰는 실무자.
-    반려 사고는 서식이 아니라 <b>패키지 구조</b> 때문이었다. 손으로 만들 때는 원인조차 알기 어려운 실패다.</p>
-    <p class="cap rise"><span class="todo">특정 인물 한 명 — 부서 · 직무</span>
-    <span class="todo">연간 보고서 건수 · 담당자 수 · 면담 기록 유무</span></p>
+    <p class="cap rise" data-cue="6"><b>누가</b> — 인터넷망 VDI 에서 기관 보고서를 쓰는 실무자
+    · 반려 원인 — 서식이 아닌 <b>패키지 구조</b>, 손으로 만들면 원인 파악조차 곤란
+    · 위 2~3시간 <b>발표자 본인 실측</b> · 앞장 서식 1.33시간 <b>17명 평균</b> — 서로 다른 값</p>
   </div>
 </section>
 <!-- S3 · ② 해법 전체 구조 -->
@@ -319,7 +409,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 
         <g color="#8B99FA" data-cue="1 2">
           <rect class="bx-ac" x="234" y="30" width="476" height="368" rx="10"/>
-          <text class="ac" x="472" y="68" text-anchor="middle" style="font-size:26px">report-harness</text>
+          <text class="ac s-l" x="472" y="68" text-anchor="middle">report-harness</text>
         </g>
         <g color="#8D96A8" data-cue="1 2">
           <rect class="bx" x="248" y="88" width="448" height="40" rx="6"/>
@@ -373,10 +463,10 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
         </g>
         <g color="#8B99FA" data-cue="6">
           <line class="ln-ac dash" x1="714" y1="189" x2="756" y2="189" marker-end="url(#b2)"/>
-          <text class="ac" x="735" y="175" text-anchor="middle" style="font-size:17px">재배포</text>
+          <text class="ac s-s" x="735" y="175" text-anchor="middle">재배포</text>
         </g>
       </svg>
-      <figcaption>왼쪽은 아래에서 위로 승격된다. 원자료에서 승인 적재로, 다시 개념·주제 페이지로. 오른쪽으로는 완성된 스킬 파일 하나만 건너간다.</figcaption>
+      <figcaption>왼쪽 — 아래에서 위로 승격 (원자료 → 승인 적재 → 개념·주제 페이지) · 오른쪽 — 완성된 스킬 파일 하나만 통과</figcaption>
     </figure>
   </div>
 </section>
@@ -399,7 +489,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 ├── <span class="key">webapp/</span>                <span class="dim">웹앱 배포판 · 자립</span>
 ├── hooks/                 <span class="dim">검증 강제 훅</span>
 ├── commands/              <span class="dim">슬래시 커맨드 5종</span>
-└── docs/ scripts/ tests/  <span class="dim">문서·빌드·테스트 218</span></div>
+└── docs/ scripts/ tests/  <span class="dim">문서·빌드·테스트 227</span></div>
       <div class="shot" data-cue="6 7"><h4>작업폴더 — 무엇이 남나 (실제 1건)</h4>20260805/1828_공공도입-규제검토/
 ├── 00_context.md      <span class="dim">요구·게이트 답변</span>
 ├── research/fetched/  <span class="dim">_manifest.jsonl</span>
@@ -411,12 +501,12 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 ├── 40_qa.md           <span class="dim">검증 리포트</span>
 └── <span class="key">final/*.hwpx</span>       <span class="dim">최종 산출물</span></div>
     </div>
-    <p class="cap rise" data-cue="2 6 7">왼쪽에서 <b>판단(references)과 실행(scripts)이 갈라져</b> 있고, 웹앱 배포판은 따로 선다.
-    오른쪽은 건마다 하나씩 생기는 폴더다 — 조사부터 되읽기 검증까지 전부 파일로 남아
-    <b>"이 숫자 어디서 나왔냐"에 폴더를 열어 답한다.</b></p>
-    <p class="cap rise" data-cue="3 4 5"><b>재사용</b> — <code>kordoc</code> · <code>korean-law</code> · <code>humanizer</code> · <code>insane-search</code>,
-    범용은 전부 가져다 썼다. 전부 MIT고, 빌드가 원작자 고지와 상류 바이트 일치를 검사한다.
-    직접 만든 것은 <b>기관 양식에 붙는 부분</b>뿐이다 — 양식 정합 후처리, 검증 3층, 자립 변환기, 복리축적 규칙.</p>
+    <p class="cap rise" data-cue="2 6 7">왼쪽 — <b>판단(references)·실행(scripts) 분리</b>, 웹앱 배포판은 별도
+    · 오른쪽 — 건마다 하나씩 생기는 폴더, 조사~되읽기 검증 전 구간 파일로 잔존
+    · <b>"이 숫자 어디서 나왔냐" → 폴더를 열어 답변</b></p>
+    <p class="cap rise" data-cue="3 4 5"><b>재사용</b> — <code>kordoc</code> · <code>korean-law</code> · <code>humanizer</code> · <code>insane-search</code>
+    · 범용은 전부 차용 · 전부 MIT, 빌드가 원작자 고지·상류 바이트 일치 검사
+    · 자체 제작은 <b>기관 양식에 붙는 부분뿐</b> — 양식 정합 후처리 · 검증 3층 · 자립 변환기 · 복리축적 규칙</p>
   </div>
 </section>
 
@@ -484,20 +574,19 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <g data-sweep="3">
             <g data-step="1">
               <path class="ln-w dash" d="M632 213 L471 213 L471 128" marker-end="url(#b3)"/>
-              <text x="551" y="203" text-anchor="middle" style="fill:#E3AC64;font-size:17px">불일치 → 재변환 ≤2회</text>
+              <text class="s-s" x="551" y="203" text-anchor="middle" style="fill:#E3AC64">불일치 → 재변환 ≤2회</text>
             </g>
             <g data-step="2">
               <path class="ln-w dash" d="M700 246 L700 324 L368 324" marker-end="url(#b3)"/>
               <rect class="bx-w" x="4" y="294" width="360" height="60" rx="8"/>
-              <text x="184" y="331" text-anchor="middle" style="fill:#E3AC64;font-size:18px">불합격 → 어긋난 목록 + 마크다운 인도</text>
+              <text class="s-s" x="184" y="331" text-anchor="middle" style="fill:#E3AC64">불합격 → 어긋난 목록 + 마크다운 인도</text>
             </g>
           </g>
         </g>
       </svg>
-      <figcaption>후처리는 대상 0건이어도 정상 종료한다. 그래서 기대 하한을 따로 검사해 조용한 실패를 막는다.</figcaption>
+      <figcaption>후처리는 대상 0건이어도 정상 종료 — 기대 하한을 따로 검사해 조용한 실패 차단</figcaption>
     </figure>
-    <p class="cap rise" data-cue="4"><b>무슨 데이터로 도는가</b> — 지난 9일간 실제 업무 보고서 5건이 이 경로로 나갔다.
-    이 자리 시연은 합성 샘플로 돌린다(실보고서 본문은 기관 내부 내용이라 띄우지 않는다) — <b>코드 경로는 같다.</b></p>
+    <p class="cap rise" data-cue="4"><b>무슨 데이터로 도는가</b> — 지난 9일간 실제 업무 보고서 5건이 이 경로 통과</p>
   </div>
 </section>
 
@@ -508,23 +597,23 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
     <p class="crit rise">④ 사용성 <b>15%</b></p>
     <h2 class="rise">초급은 파일 하나, 중급은 자기 자산으로</h2>
     <figure class="rise">
-      <svg class="dg" viewBox="0 0 1000 350" role="img"
+      <svg class="dg" viewBox="0 0 1000 386" role="img"
            aria-label="초급자는 스킬 웹앱만 올려 바로 hwpx 를 얻고, 중급자는 하네스와 LLM 위키를 설치해 규칙과 지식을 개인 자산으로 쌓는 두 단계 진입 경로">
         <defs><marker id="b4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
           orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
 
         <!-- 두 트랙 = 두 환경. 존에 옅은 바탕 + 트랙 칩으로 초급/중급을 하이라이팅해 가른다 -->
-        <rect class="zone" x="1" y="4" width="998" height="170" rx="12" style="fill:rgba(150,165,205,.04)" data-cue="2 3"/>
-        <rect class="zone" x="1" y="218" width="998" height="128" rx="12" style="fill:rgba(150,165,205,.04)" data-cue="4 5"/>
+        <rect class="zone zone-a" x="1" y="4" width="998" height="170" rx="12" data-cue="2 3"/>
+        <rect class="zone zone-b" x="1" y="254" width="998" height="128" rx="12" data-cue="4 5"/>
 
         <g color="#8D96A8" data-cue="2 3">
           <rect x="16" y="16" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="hi" x="54" y="36" text-anchor="middle" style="font-size:19px">초급</text>
+          <text class="hi s-m" x="54" y="36" text-anchor="middle">초급</text>
           <text class="lo" x="108" y="36">설명 없이 바로 — VDI 브라우저</text>
           <rect class="bx" x="16" y="52" width="224" height="64" rx="8"/>
           <text x="128" y="75" text-anchor="middle">스킬 웹앱 설치</text>
           <rect x="62" y="82" width="132" height="22" rx="11" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="mn ac" x="128" y="98" text-anchor="middle" style="font-size:16px">허들 1개</text>
+          <text class="mn ac s-xs" x="128" y="98" text-anchor="middle">허들 1개</text>
           <line class="ln" x1="248" y1="84" x2="282" y2="84" marker-end="url(#b4)"/>
           <rect class="bx" x="286" y="52" width="206" height="64" rx="8"/>
           <text x="389" y="90" text-anchor="middle">자료 붙여넣기</text>
@@ -549,39 +638,42 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <text class="lo" x="369" y="147" text-anchor="middle" style="fill:#B0B8C8">교육 없음</text>
           <rect x="427" y="128" width="253" height="28" rx="14" fill="none" stroke="rgba(226,232,245,.24)"/>
           <text class="lo" x="553" y="147" text-anchor="middle" style="fill:#B0B8C8">프롬프트 · 모델 · 파라미터 노출 0</text>
+          <text class="mn s-xs" x="700" y="138" style="fill:#6BC098">설문 — 설치 권한 보유 1 / 17</text>
+          <text class="mn s-xs" x="700" y="160" style="fill:#6BC098">“교육이 필요하다” 0 명</text>
         </g>
 
         <g color="#8D96A8" data-cue="4">
-          <line class="ln dash" x1="30" y1="182" x2="30" y2="210" marker-end="url(#b4)"/>
-          <text class="lo" x="48" y="200">계속 쓰다 보면</text>
+          <!-- 화살표와 곁텍스트는 같은 중심(y=214)에 앉는다 — 화살촉이 y2 에서 끝나므로
+               선 190~238 의 중심이 곧 글리프 중심이고, 17px 텍스트는 baseline 222 가 그 중심이다 -->
+          <line class="ln dash" x1="30" y1="190" x2="30" y2="238" marker-end="url(#b4)"/>
+          <text class="lo" x="48" y="221">계속 쓰다 보면</text>
         </g>
         <g color="#8D96A8" data-cue="4 5">
-          <rect x="16" y="230" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
-          <text class="hi" x="54" y="250" text-anchor="middle" style="font-size:19px">중급</text>
-          <text class="lo" x="108" y="250">조사·분석까지 — 개발 노트북</text>
-          <rect class="bx" x="16" y="266" width="224" height="64" rx="8"/>
-          <text x="128" y="289" text-anchor="middle">하네스 + 위키 설치</text>
-          <text class="lo" x="128" y="313" text-anchor="middle">플러그인 + MCP</text>
-          <line class="ln" x1="248" y1="298" x2="282" y2="298" marker-end="url(#b4)"/>
-          <rect class="bx" x="286" y="266" width="206" height="64" rx="8"/>
-          <text x="389" y="289" text-anchor="middle">조사 · 분석까지</text>
-          <text class="lo" x="389" y="313" text-anchor="middle">전 구간 자동</text>
-          <line class="ln" x1="500" y1="298" x2="534" y2="298" marker-end="url(#b4)"/>
-          <rect class="bx" x="538" y="266" width="206" height="64" rx="8"/>
-          <text x="641" y="289" text-anchor="middle">규칙 · 지식 축적</text>
-          <text class="lo" x="641" y="313" text-anchor="middle">rules · wiki</text>
+          <rect x="16" y="266" width="76" height="28" rx="14" fill="rgba(139,153,250,.16)" stroke="#8B99FA"/>
+          <text class="hi s-m" x="54" y="286" text-anchor="middle">중급</text>
+          <text class="lo" x="108" y="286">조사·분석까지 — 개발 노트북</text>
+          <rect class="bx" x="16" y="302" width="224" height="64" rx="8"/>
+          <text x="128" y="325" text-anchor="middle">하네스 + 위키 설치</text>
+          <text class="lo" x="128" y="349" text-anchor="middle">플러그인 + MCP</text>
+          <line class="ln" x1="248" y1="334" x2="282" y2="334" marker-end="url(#b4)"/>
+          <rect class="bx" x="286" y="302" width="206" height="64" rx="8"/>
+          <text x="389" y="325" text-anchor="middle">조사 · 분석까지</text>
+          <text class="lo" x="389" y="349" text-anchor="middle">전 구간 자동</text>
+          <line class="ln" x1="500" y1="334" x2="534" y2="334" marker-end="url(#b4)"/>
+          <rect class="bx" x="538" y="302" width="206" height="64" rx="8"/>
+          <text x="641" y="325" text-anchor="middle">규칙 · 지식 축적</text>
+          <text class="lo" x="641" y="349" text-anchor="middle">rules · wiki</text>
         </g>
         <g color="#8B99FA" data-cue="5">
-          <line class="ln-ac" x1="752" y1="298" x2="786" y2="298" marker-end="url(#b4)"/>
-          <rect class="bx-ac" x="790" y="266" width="194" height="64" rx="8"/>
-          <text class="ac" x="887" y="289" text-anchor="middle">개인 자산</text>
-          <text class="lo" x="887" y="313" text-anchor="middle" style="fill:#B0B8C8">쓸수록 두꺼워지는 자산</text>
+          <line class="ln-ac" x1="752" y1="334" x2="786" y2="334" marker-end="url(#b4)"/>
+          <rect class="bx-ac" x="790" y="302" width="194" height="64" rx="8"/>
+          <text class="ac" x="887" y="325" text-anchor="middle">개인 자산</text>
+          <text class="lo" x="887" y="349" text-anchor="middle" style="fill:#B0B8C8">쓸수록 두꺼워지는 자산</text>
         </g>
       </svg>
-      <figcaption>초급은 설치 없이 결과만 얻는다. 중급은 설치를 감수하는 대신 쌓인 규칙과 지식을 자기 것으로 갖는다.</figcaption>
+      <figcaption>초급 — 설치 없이 결과만 · 중급 — 설치를 감수하는 대신 쌓인 규칙·지식을 자기 자산으로</figcaption>
     </figure>
-    <p class="cap rise">망분리 제약도 초급 경로가 흡수한다 — 전 구간 stdlib이라 VDI 브라우저 안에서 그대로 돈다.
-    <span class="todo">처음 쓰는 사람이 결과를 얻기까지 실측 소요시간(1인 시연 계측)</span></p>
+    <p class="cap rise">망분리 제약도 초급 경로가 흡수 — 전 구간 stdlib, VDI 브라우저에서 그대로 구동</p>
   </div>
 </section>
 
@@ -595,23 +687,24 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
       <svg class="dg" viewBox="0 0 1000 326" role="img"
            aria-label="기존 hwpx 변환 스킬이 담당하는 한 층 위에 하네스가 다섯 층을 더 얹는다는 층 구조와, 맥락 축의 위키 재인용 비교">
         <g color="#8D96A8" data-cue="1 2 3 4 5">
-          <text class="lo" x="4" y="16">서식 — 기존 스킬 위에 하네스가 더 얹는 것</text>
+          <text class="lo" x="4" y="16">서식 — 하네스가 더 얹는 층</text>
         </g>
         <g color="#8B99FA" data-cue="3 4 5">
           <rect class="bx-ac" x="4" y="26" width="600" height="40" rx="6"/>
-          <text class="ac" x="20" y="52" style="font-size:17px">+5</text>
-          <text class="mn" x="62" y="52" style="fill:#F4F6FA">초안 린트 20종 · 규칙 70건 축적</text>
+          <text class="ac s-s" x="20" y="52">+5</text>
+          <text class="mn" x="62" y="52" style="fill:#F4F6FA">초안 린트 20종 · 규칙 71건 축적</text>
           <rect class="bx-ac" x="4" y="72" width="600" height="40" rx="6"/>
-          <text class="ac" x="20" y="98" style="font-size:17px">+4</text>
+          <text class="ac s-s" x="20" y="98">+4</text>
           <text class="mn" x="62" y="98" style="fill:#F4F6FA">검증 3층 · 침묵 실패 차단</text>
           <rect class="bx-ac" x="4" y="118" width="600" height="40" rx="6"/>
-          <text class="ac" x="20" y="144" style="font-size:17px">+3</text>
+          <text class="ac s-s" x="20" y="144">+3</text>
           <text class="mn" x="62" y="144" style="fill:#F4F6FA">패키지 정본 지문 — 반입 통과</text>
+          <text class="mn s-xs" x="588" y="144" text-anchor="end" style="fill:#E3AC64">설문 6 / 17</text>
           <rect class="bx-ac" x="4" y="164" width="600" height="40" rx="6"/>
-          <text class="ac" x="20" y="190" style="font-size:17px">+2</text>
+          <text class="ac s-s" x="20" y="190">+2</text>
           <text class="mn" x="62" y="190" style="fill:#F4F6FA">표 폭 정합 · 캡션 표 내장 · 머리말 배너</text>
           <rect class="bx-ac" x="4" y="210" width="600" height="40" rx="6"/>
-          <text class="ac" x="20" y="236" style="font-size:17px">+1</text>
+          <text class="ac s-s" x="20" y="236">+1</text>
           <text class="mn" x="62" y="236" style="fill:#F4F6FA">양식 실측값 — 계층 간격 · 서체 · 정렬</text>
         </g>
         <g color="#E3AC64" data-cue="1 2">
@@ -640,13 +733,9 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
         </g>
       </svg>
     </figure>
-    <div class="axis2 rise">
-      <p class="cap" data-cue="8 9"><b>서식 → 채택</b> — 다섯 층 덕에 <b>서식을 안 만져도 반려되지 않는 파일</b>이 나온다.
-      실측값은 <code>format-profile</code> 한 곳 — 양식이 바뀌어도, 기관이 달라도 고칠 자리는 거기 하나, 코드는 그대로다.
-      <span class="todo">양식 개정 시 담당·인수인계 주체</span></p>
-      <p class="cap" data-cue="6 7"><b>맥락</b> — 한 번 확인한 기관 지식은 다시 찾지 않는다.
-      원출처가 병기돼 <b>오인식이 걸러진다.</b></p>
-    </div>
+    <!-- 큐 8·9 의 유일한 담당 요소 — 지우면 그 두 문장 동안 화면이 무반응이 된다.
+         나머지 문구(format-profile · 맥락)는 낭독이 말하므로 화면에서 뺐다 -->
+    <p class="cap rise" data-cue="8 9"><b>서식 → 채택</b> — 서식을 안 만져도 <b>반려되지 않는 파일</b></p>
     <figure class="rise">
       <svg class="dg" viewBox="0 0 1000 152" role="img"
            aria-label="확산 준비물 완비, 타 부서·타 기관 전개, 산출·자동화 확장으로 이어지는 3단계 로드맵 — 대본이 짚는 순서대로 왼쪽부터 놓았고, 가운데 전개 단계는 알릴 대상 확정이 남아 점선이다">
@@ -659,33 +748,32 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
           <line class="ln" x1="660" y1="86" x2="676" y2="86" marker-end="url(#b5)"/>
         </g>
 
+        <!-- 세 카드 모두 제목 1 + 항목 2 로 줄 수를 맞춘다 — 개조식 명사구, 서술형 금지.
+             y 66/92/114 는 상자(26~146) 세로 중앙. 종전 56/82/104/126 은 위로 쏠려 있었다 -->
         <g color="#8B99FA" data-cue="10">
-          <text class="hi" x="4" y="16" style="font-size:19px">지금</text>
+          <text class="hi s-m" x="4" y="16">지금</text>
           <rect class="bx-ac" x="4" y="26" width="312" height="120" rx="8"/>
-          <text class="ac" x="160" y="56" text-anchor="middle">확산 준비물 완비</text>
-          <text class="lo" x="160" y="82" text-anchor="middle" style="fill:#B0B8C8">.skill 패키지 · 빌드 기준 9</text>
-          <text class="lo" x="160" y="104" text-anchor="middle" style="fill:#B0B8C8">설치 문서 4종 · 자가진단 커맨드</text>
-          <text class="lo" x="160" y="126" text-anchor="middle" style="fill:#B0B8C8">회귀 테스트 218 · MIT 공개 저장소</text>
+          <text class="ac" x="160" y="66" text-anchor="middle">확산 준비물 완비</text>
+          <text class="lo" x="160" y="92" text-anchor="middle" style="fill:#B0B8C8">.skill 패키지 · 설치 문서 4종</text>
+          <text class="lo" x="160" y="114" text-anchor="middle" style="fill:#B0B8C8">회귀 테스트 227 · 자가진단</text>
         </g>
         <g color="#E3AC64" data-cue="11">
-          <text class="hi" x="342" y="16" style="font-size:19px">확산</text>
-          <text class="mn" x="398" y="16" style="fill:#E3AC64;font-size:15px">확인 필요</text>
-          <rect x="342" y="26" width="312" height="120" rx="8" fill="none"
-            stroke="#E3AC64" stroke-width="1.5" stroke-dasharray="5 5"/>
-          <text class="hi" x="498" y="56" text-anchor="middle" style="fill:#E3AC64">타 부서 · 타 기관 전개</text>
-          <text class="lo" x="498" y="82" text-anchor="middle" style="fill:#E3AC64">먼저 알릴 대상과 경로</text>
-          <text class="lo" x="498" y="104" text-anchor="middle" style="fill:#E3AC64">부서 회의 · 게시판 · 협의체 중 택</text>
+          <text class="hi s-m" x="342" y="16">확산</text>
+          <rect x="342" y="26" width="312" height="120" rx="8" fill="rgba(107,192,152,.10)"
+            stroke="#6BC098" stroke-width="1.6"/>
+          <text class="hi" x="498" y="66" text-anchor="middle" style="fill:#6BC098">첫 대상 확정</text>
+          <text class="lo" x="498" y="92" text-anchor="middle" style="fill:#6BC098">경영기획본부 17명 전원 도입 의사</text>
+          <text class="lo" x="498" y="114" text-anchor="middle" style="fill:#6BC098">즉시 5명 · 타 본부 순차</text>
         </g>
         <g color="#8D96A8" data-cue="12">
-          <text class="hi" x="680" y="16" style="font-size:19px">다음</text>
+          <text class="hi s-m" x="680" y="16">다음</text>
           <rect class="bx" x="680" y="26" width="316" height="120" rx="8"/>
-          <text class="hi" x="838" y="56" text-anchor="middle">산출 · 자동화 확장</text>
-          <text class="lo" x="838" y="82" text-anchor="middle">pptx · 경영실적 산출 확장</text>
-          <text class="lo" x="838" y="104" text-anchor="middle">CI 재배포</text>
-          <text class="lo" x="838" y="126" text-anchor="middle">절감 자동 실측</text>
+          <text class="hi" x="838" y="66" text-anchor="middle">산출 · 자동화 확장</text>
+          <text class="lo" x="838" y="92" text-anchor="middle">pptx · 경영실적 산출</text>
+          <text class="lo" x="838" y="114" text-anchor="middle">CI 재배포 · 절감 자동 실측</text>
         </g>
       </svg>
-      <figcaption>이탈이 생긴다면 변환이 실패해 마크다운만 쥐는 순간이다. 그래서 무엇이 어긋났는지 목록으로 돌려준다.</figcaption>
+      <figcaption>이탈 지점 — 변환 실패로 마크다운만 남는 순간 · 무엇이 어긋났는지 목록으로 반환</figcaption>
     </figure>
     <p class="repo rise" data-cue="13">github.com/kca-deep/report-harness · MIT</p>
   </div>
@@ -695,7 +783,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 <div class="notes" id="notes" hidden><b>발표자 노트</b><span id="notesBody"></span></div>
 
 <footer class="hud">
-  <span><b id="pos">1</b> / 7</span>
+  <span><b id="pos">1</b> / <span id="total">7</span></span>
   <span id="tc">0:00</span>
   <span id="partName"></span>
   <button id="notesBtn" type="button">N 노트</button>
@@ -708,6 +796,7 @@ figcaption{font-size:1.02cqw;color:var(--low);margin-top:.5cqw}
 const PARTS = [["1","① 문제 25%"],["2","② 해법 15%"],["3","③ 작동 15%"],
                ["4","④ 사용성 15%"],["5","⑤⑥ 채택·확산 30%"]];
 const NOTES = {
+  S0:"[라이브 — 낭독 파일 없음] 어제 무기명 설문을 돌렸고 실무자 열일곱 분이 답했습니다. 칸 하나가 한 사람입니다. 보고서 한 건에 내용 작성을 빼고 서식과 검수에만 두 시간 십팔 분이 듭니다. 서식이 한 시간 이십 분, 검수가 오십팔 분입니다. 기관 양식이 안 맞아 손봤다가 열일곱 중 열넷, 망분리로 자료를 못 넣었다가 열둘, 수치를 전량 손으로 검증한다가 열셋, 이미 반려나 지적을 겪었다가 열둘입니다. 그리고 쓰겠다는 답이 열일곱 대 열일곱, 전원입니다. 더 눈여겨볼 건 영이 네 개라는 겁니다. 결과를 그대로 쓴다는 사람 영 명, 문제가 없었다는 사람 영 명, 쓰지 않겠다는 사람 영 명, 교육이 필요하다는 사람 영 명. 여기서부터가 오늘 보여 드릴 내용입니다. — 질문 대비: 표본 열일곱은 자발적 응답이라 관심층이 몰렸을 수 있습니다. 그래서 백분율 대신 사람 수로 그렸습니다. 건당 시간은 응답자가 직접 답한 값이라 기간 해석 논란이 없고, 월 환산치는 기간 문항 해석에 따라 갈려 쓰지 않았습니다. 가장 오래 걸리는 단일 작업을 물으면 초안 문장 쓰기가 일 위인데, 이건 빈도가 아니라 절대 시간을 물은 것이라 서식이 일 위인 것과 모순이 아닙니다.",
   S1:"기관 보고서를 마크다운 하나에서 한글 파일까지 뽑는 하네스입니다. 만들어만 둔 게 아니라 지난 9일간 실제 보고서 다섯 건을 이걸로 냈습니다.",
   S2:"고통은 두 갈래였습니다. 쓰기 전에는 기관 맥락을 매번 다시 찾습니다. KCA, 주요사업 같은 걸 검색하고 컨텍스트로 다시 등록하는 일이 반복돼요. 다 쓴 뒤에는 서식을 손으로 맞춥니다. 서식에만 건당 두세 시간이 들었고 지금은 기계 시간 삼십 분 안입니다. 반입 반려도 한 번 있었는데 서식이 아니라 패키지 구조 때문이었습니다.",
   S3:"가운데가 하네스입니다. 위는 LLM이 읽는 판단 기준, 아래는 판단이 끼면 안 되는 스크립트, 그 사이에 네 단계가 있고 게이트는 초안에 몰려 있습니다. 왼쪽 위키는 아래에서 위로 쌓입니다. 원자료에서 승인 적재로, 다시 개념과 주제 페이지로요. 지금 97개 주제가 들어 있습니다. 오른쪽으로는 스킬 파일 하나만 건너갑니다.",
@@ -732,6 +821,7 @@ function show(n, push){
   slides.forEach((s, k) => k === i ? s.setAttribute("data-active","") : s.removeAttribute("data-active"));
   const s = slides[i];
   document.getElementById("pos").textContent = i + 1;
+  document.getElementById("total").textContent = slides.length;
   document.getElementById("tc").textContent = s.dataset.time;
   const p = PARTS.find(([n2]) => n2 === s.dataset.part);
   document.getElementById("partName").textContent = p ? p[1] : "";
@@ -795,6 +885,12 @@ player.addEventListener("timeupdate", () => {
 const SLIDE_GAP_MS = 600;   // 장 사이 호흡 — 낭독 파일 안의 문장 쉼과 별도
 const msg = document.getElementById("msg"), autoBtn = document.getElementById("autoBtn");
 function playSlide(){
+  // 라이브 내레이션 장은 낭독 파일이 없다 — 자동 발표를 끊지 않고 발표자가 → 를 누를 때까지 기다린다
+  if (slides[i].hasAttribute("data-live")){
+    player.pause();
+    msg.textContent = "라이브 설명 중 — → 로 다음 장";
+    return;
+  }
   player.src = "audio/" + slides[i].dataset.id + ".wav";
   player.play().catch(() => stopAuto("재생 실패 — 브라우저가 로컬 오디오를 막았는지 확인"));
 }
