@@ -3,7 +3,13 @@
 import sys, json, re
 
 ARROW = "\u2192"        # 수치 변화 표기 → (R065)
-FORMULA = re.compile(r"[^|]*=\s*[^=]*[×÷−]")   # 계층 문구 안 산식 (R064)
+# 완성형(cp949) 미수용 유사 기호 — hwpx는 UTF-8이라 파일은 멀쩡하지만 본문을 완성형으로
+# 뽑는 경로(자료교환 본문 검사·레거시 연계·euc-kr 적재)에서 깨진다. md-profile §1-3-2.
+LOOKALIKE = {"\u2212": "-", "\u2024": "\u00b7", "\u2027": "\u00b7",
+             "\u2010": "-", "\u2011": "-", "\ufe63": "-"}
+FORMULA = re.compile(r"[^|]*=\s*[^=]*(?:[×÷−]|\s-\s)")  # 계층 문구 안 산식 (R064).
+# 빼기는 하이픈 표기가 정본(md-profile §1-3-2 — U+2212는 완성형 미수용)이라
+# 공백으로 감싼 하이픈도 산식 표지로 인정한다. U+2212는 구 문서 호환으로 남긴다.
 LINE_CHARS = 35          # 휴먼명조 15pt·장평 95·본문폭 170mm 실측 1줄 글자수 (R062)
 MAX_BODY_CHARS = 90      # 자간 -10·장평 90까지 조여 2줄에 들어가는 상한 (R062)
 LEAD = re.compile(r"^\s*(□|ㅇ|○|-|※|＊|\d+\.|\[\d+\])\s")   # 항목 선두 허용 기호 (반각 * 제외 — 각주는 전각 ＊만 합법)
@@ -71,6 +77,11 @@ def lint_text(text):
         if not line.strip():
             continue
         stripped_ = line.strip()
+        _bad = sorted({c for c in line if c in LOOKALIKE})
+        if _bad:
+            out.append({"line": i, "rule": "lookalike-symbol",
+                        "text": stripped_[:80],
+                        "found": [f"U+{ord(c):04X}\u2192{LOOKALIKE[c]}" for c in _bad]})
         # --- 절·블록 상태 갱신 -------------------------------------------
         if stripped_.startswith("□") or ANNEX_BANNER.match(stripped_):
             close_section()
