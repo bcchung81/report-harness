@@ -163,7 +163,12 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 
 ### 프리플라이트
 
-`rules.md`의 `[draft]` 태그 항목 + `format-profile.kca.md`(또는 `state_dir`에 기관별
+**`references/style-guide.md`를 먼저 읽는다 — 생략 금지(R074).** 이 파일이 문서의 성격을
+정하는 본체다(§1 제목·발신 줄, §4 종결어미, §7 절 제목 어휘 풀·맺음말). 이것을 건너뛰고
+`md-profile.md`(변환 문법)와 `rules.md`(개별 규칙)만 들고 집필하면, **자가감사가 수치로 박힌
+항목만 검사하고 문체·제목 규칙은 검사 목록에서 통째로 빠진다** — '26.8.15 실제 사고.
+
+이어서 `rules.md`의 `[draft]` 태그 항목 + `format-profile.kca.md`(또는 `state_dir`에 기관별
 `format-profile.{기관}.md`가 있으면 그것 우선)를 로드해 집필 지시에 반영한다.
 
 ### 초안 집필
@@ -181,6 +186,17 @@ python3 "$SKILL_DIR/scripts/lint_md_profile.py" {work_dir}/20_draft.md
 exit 1(위반 있음)이면 위반 목록으로 즉시 수정 후 재실행 — 통과할 때까지 사용자에게 보이지
 않는다.
 
+**린트가 보는 것은 마크다운 문법·계층·밀도뿐이다.** 종결어미·절 제목·문서 제목은 md-profile
+§4가 "스코프 아웃 — 스타일 감사가 2차 방어"로 넘겨 둔 영역이므로, 아래 감사를 이어서 돌린다.
+
+```
+python3 "$SKILL_DIR/scripts/audit_style.py" {work_dir}/20_draft.md
+```
+
+exit 1이면 `violations`를 수정 후 재실행한다(린트와 같은 shift-left 게이트 — 사용자에게 보이기
+전에 통과시킨다). `warnings`는 문서 유형에 따라 합법일 수 있으므로 판단해서 처리하고, 무시할
+때는 그 사유를 게이트② 보고에 1줄로 남긴다.
+
 ### 스타일 감사 ∥ humanizer
 
 lint 통과 후 수행한다. **서브에이전트 스폰은 게이트② 승인 이후(④ export 직전)로 미룬다** —
@@ -188,7 +204,9 @@ lint 통과 후 수행한다. **서브에이전트 스폰은 게이트② 승인
 (실측: 초안 6판을 거친 건에서 검토 에이전트 2종 28만 토큰이 중간 판본에 걸려 재사용 불가).
 
 - **스타일 감사**: 게이트② 전에는 **메인 컨텍스트에서 직접** `style-guide.md` + `rules.md`
-  `[draft]` 태그로 자가감사한다(에이전트 0개). 승인 후 최종본에 한해 독립 서브에이전트로
+  `[draft]` 태그로 자가감사한다(에이전트 0개). `audit_style.py`가 잡는 항목은 이미 걸러졌으므로,
+  여기서는 스크립트가 못 보는 것을 본다 — 문장 전체 볼드, 감정 수식어, 나열이 술어를 대체한
+  문구, 사실과 주장의 절 분리(§10), 맺음말 계열이 문서 유형과 맞는지(§7). 승인 후 최종본에 한해 독립 서브에이전트로
   교차 감사할 수 있다 — 선택 사항이며 기본값은 자가감사다.
 - **humanizer**: 서술형 구간(배경 설명·근거 서술 등)에만 적용, 개조식 명사형 종결부는 대상에서
   제외. 원문 근거는 플러그인 번들 humanizer 스킬(skills/humanizer).
@@ -272,13 +290,13 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 3. **인도**: `final/{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다. 미검증 사실(팩트체크
    생략/경량 선택 시)·잔존 QA 이슈가 있으면 **1줄로만** 고지한다 — 장황한 나열 금지.
 
-   **vault 적재 금지 — 승인 게이트형 (R048)**: 작업폴더(`reports_dir` 아래)가 **유일한 1차
-   저장소**이며 인도는 여기서 끝난다. `knowledge_vault`가 설정돼 있어도 **export가 vault에
-   무엇도 쓰지 않는다** — 인도 보고에 "vault 적재 후보" 1줄만 덧붙이고 복사는 하지 않는다.
-   사용자가 명시 요청·승인한 경우에만 복사하며, 그때도 목적지는 **`acquired/`가 기본**이다.
-   **`raw/`는 원본 수집물 계층이라 하네스 산출물의 자리가 아니다** — 사용자가 그 경로를 콕
-   집어 지정한 경우로 한정하고 자동 판단하지 않는다. 승인 전에는 `wiki/log.md` 장부 기록을
-   포함해 vault의 어떤 파일도 쓰지 않는다(report-research §4와 동일 원칙의 export 확장).
+   **vault 적재 금지 — 수확은 vault가 한다 (R048)**: 작업폴더(`reports_dir` 아래)가 **유일한
+   1차 저장소**이며 인도는 여기서 끝난다. `knowledge_vault`가 설정돼 있어도 **export는 vault에
+   무엇도 쓰지 않는다** — `wiki/log.md` 장부 기록을 포함해 예외가 없다. 인도 보고에
+   **"vault 적재 후보 N건 — claudian `/ingest`로 수확"** 1줄만 덧붙인다. 승격은 claudian의
+   `/ingest` 모드 H가 작업폴더를 읽어 pull하며(claudian `CLAUDE.md` §5.2.1), 복합 슬러그
+   네임스페이싱·스키마 변환·멱등 마커(`research/_promoted.json`)도 그쪽이 처리한다
+   (report-research §4와 동일 원칙의 export 확장).
 4. **시간 상한 5분**.
 5. 종료 시 §6 복리 훅 수행(`gate:"convert"`, 팩트체크 오류는 `gate:"factcheck"`로 별도 기록).
 
@@ -339,6 +357,10 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 - `scripts/harness_config.py` — 설정 로드(`load_config`)·작업폴더 규약(`work_dir`)·
   상태 경로(`state_paths`). 모든 단계 진입 시 §0 절차로 먼저 실행.
 - `scripts/lint_md_profile.py <md>` — 결정론 린트. JSON 출력, exit 0(통과)/1(위반).
+- `scripts/audit_style.py <md>` — style-guide 결정론 감사(R074). 린트가 스코프 아웃한 종결어미
+  (`ending-forbidden`)·문서 제목 접미(`title-no-suffix`)·절 번호(`section-numbered`)·조문 §
+  표기(`article-symbol`)를 `violations`로, 절 제목 어휘 풀 이탈(`section-title-offpool`)·발신 줄
+  누락(`sender-line-missing`)을 `warnings`로 낸다. exit 0(통과·경고만)/1(위반)/2(인자·파일 오류).
 - `scripts/prep_report_md.py <src> -o <out>` — 변환 전 정규화. exit 0(성공)/2(모호한 입력
   거부).
 - `scripts/postprocess_hwpx.py <file.hwpx> --all` — **양식 정합 후처리(export
