@@ -298,6 +298,12 @@ python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
   열에만 되돌리는 방식으로 고쳤다. 위 3열 예시는 상한이 걸려 13.0·27.0·60.0%로 배분된다.
   `layout`(쪽수 추정)보다 **먼저**, `apply_fit_page_width`보다 먼저 돈다. 게이트는 `zero`
   (`--spacing`·`--all`) — 내용 기반 재조판이라 `--star-footnote` 단독 호출에서는 돌지 않는다.
+- **표 페이지 분할 `apply_table_pagination` (R063 · '26.9.10 배치 속성 추가)**: 모든 표에
+  `textWrap="TOP_AND_BOTTOM"`·`textFlow="BOTH_SIDES"`·`lock="0"`(본문 자리 차지 배치)와
+  `pageBreak="CELL"`·`repeatHeader="1"`을 보장한다. **배치 속성이 없으면 페이지 분할이 듣지
+  않는다** — 한글이 표를 본문 흐름 밖 개체로 다뤄 경계에서 나누지 않고 통째로 다음 장으로
+  민다. kordoc 산출 표에는 이 셋이 없다(인도본 실측 246개 중 218개 누락). 넓거나 긴 표를
+  페이지에 맞추려 글자·표를 줄이지 않는다 — 넘치면 다음 장으로 이어 붙이는 것이 규약이다.
 - **표 캡션·셀 12pt (R023)**: 캡션(내장 hp:caption 포함)과 본문 콘텐츠 표(제목 박스 제외) 셀
   문단의 charPr을 폰트 유지·높이 1200(12pt)으로 치환한다.
 - **□ 절 제목 볼드 (R024)**: dae 문단 run charPr에 `<hh:bold/>` 변형을 배정한다.

@@ -1618,16 +1618,29 @@ def estimate_layout(header_root, section_roots):
             "over_two_lines": over2, "est_pt": round(body_pt + tbl_h), "est_pages": pages}
 
 
+# 본문 자리를 차지하는 표의 배치 속성 (한컴 저장본·기관 양식 원본 전수 실측 — R063 확장).
+# kordoc 산출 표에는 이 셋이 아예 없다('26.9.10 실측: 인도본 17건에서 표 246개 중 218개
+# 누락, 붙어 있는 28개는 전부 이식 자산인 머리말 배너·제목 박스였다). 배치가 정해지지
+# 않으면 한글이 표를 본문 흐름 밖 개체로 다뤄 **페이지 경계에서 나뉘지 않고 통째로 다음
+# 장으로 밀린다** — pageBreak=CELL을 걸어도 소용이 없다.
+TABLE_PLACEMENT = {"textWrap": "TOP_AND_BOTTOM", "textFlow": "BOTH_SIDES", "lock": "0"}
+
+
 def apply_table_pagination(section_roots, rows_per_page=22):
     """표가 페이지를 벗어날 때의 처리를 강제한다 (R063).
 
-    ① 셀 단위 페이지 분할 허용(pageBreak=CELL) ② 첫 행 제목 반복(repeatHeader=1)을
-    모든 콘텐츠 표에 보장하고, 한 페이지를 넘길 것으로 보이는 표는 oversized로 보고한다."""
+    ① 본문 자리 차지 배치(textWrap=TOP_AND_BOTTOM·textFlow=BOTH_SIDES) ② 셀 단위
+    페이지 분할 허용(pageBreak=CELL) ③ 첫 행 제목 반복(repeatHeader=1)을 모든 표에
+    보장하고, 한 페이지를 넘길 것으로 보이는 표는 oversized로 보고한다."""
     fixed, oversized = 0, []
     for sec_root in section_roots:
         for tbl in sec_root.iter(qn("hp", "tbl")):
             rows = int(tbl.get("rowCnt", "1"))
             cols = int(tbl.get("colCnt", "1"))
+            for attr, value in TABLE_PLACEMENT.items():
+                if tbl.get(attr) is None:      # 기존 값은 존중한다 — 없을 때만 채운다
+                    tbl.set(attr, value)
+                    fixed += 1
             if tbl.get("pageBreak") != "CELL":
                 tbl.set("pageBreak", "CELL")
                 fixed += 1
@@ -1640,7 +1653,7 @@ def apply_table_pagination(section_roots, rows_per_page=22):
             if rows >= rows_per_page or (rows >= 6 and longest >= 90):
                 oversized.append({"rows": rows, "cols": cols, "longest_cell": longest})
     return {"attrs_fixed": fixed, "oversized": len(oversized), "detail": oversized[:10],
-            "rule": "pageBreak=CELL + repeatHeader=1"}
+            "rule": "textWrap=TOP_AND_BOTTOM + textFlow=BOTH_SIDES + pageBreak=CELL + repeatHeader=1"}
 
 
 def apply_formula_box(header_root, section_roots):
@@ -2065,39 +2078,83 @@ def ensure_charpr_sized(header_root, base_id, height, cache):
 # kordoc generate_document의 열 폭 산정이 내용량과 무관해, 가장 긴 열이 가장 좁아지면
 # 행 높이가 불어나 표가 페이지를 넘긴다 — '26.9.8 실측: 3열 표에서 내용 열 30.8% ·
 # 주제 열 49.8%로 역전돼 표 높이가 141mm(A4 본문의 60%)까지 늘었다.
-COL_FIT_MIN_SHARE = 0.10   # 한 열이 가질 수 있는 최소 폭 비중
-COL_FIT_MAX_SHARE = 0.60   # 한 열이 가질 수 있는 최대 폭 비중
+# 열 폭 하한은 **비중이 아니라 머리글 실폭**이다 — 종전의 정률 하한 10%·상한 60%는
+# 기관 보고서의 전형인 `구 분 | 담당 | 내 용` 표에서 거꾸로 작동했다: kordoc이 이미
+# 내용 열에 74%를 준 표를 상한 60%로 끌어내리고 그만큼을 라벨 열에 얹어 내용 열이
+# **좁아졌다**('26.9.10 실측 35315→28515). 내용 비례 배분이 목적인 단계가 정률 상한과
+# 싸운 셈이다. 하한은 '머리글이 한 줄에 들어갈 만큼'으로 족하고, 상한은 다른 열의
+# 하한 합에서 자연히 나온다.
+# 표 셀 12pt(R023) 기준 글자 폭(HWPUNIT). _weighted_len은 줄 길이 판정용이라 ASCII를
+# 0.5로 세는데, 그 값으로 열 하한을 잡으면 `No`가 `N`/`o`로 쪼개진다('26.9.10 렌더 실측).
+COL_FIT_HANGUL_HU = 1200   # 한글·전각 = 12pt 전각
+COL_FIT_ASCII_HU = 800     # 영숫자·기호
+COL_FIT_SPACE_HU = 600     # 공백
+COL_FIT_CELL_PAD = 566     # 셀 좌우 안여백(283×2) — 글자가 여백에 물리지 않게 확보
+COL_FIT_FLOOR_MAX = 0.25   # 열 하나의 하한 상한(표 폭 대비) — 긴 서술 열이 하한을 독식하지 않게
+COL_FIT_FLOOR_CAP = 0.80   # 하한 합이 표 폭을 잠식하지 않도록 두는 천장(합 기준)
 COL_FIT_TOLERANCE = 0.05   # 이 이내 차이는 손대지 않는다(멱등·무의미한 재작성 방지)
 
 
-def _fit_shares(weights):
-    """가중치를 열 폭 비중으로 배분하되 각 열을 [MIN, MAX] 안에 실제로 가둔다.
+def _cell_width_hu(text):
+    """12pt 표 셀에서 이 텍스트가 한 줄에 들어가는 데 필요한 폭(HWPUNIT)."""
+    w = 0
+    for ch in text:
+        if ch == " ":
+            w += COL_FIT_SPACE_HU
+        elif ord(ch) < 128:
+            w += COL_FIT_ASCII_HU
+        else:
+            w += COL_FIT_HANGUL_HU
+    return w
 
-    종전 구현은 클램프 뒤 합으로 정규화했는데, 그러면 한계값이 그대로 되밀려 **상·하한이
-    무력화**된다 — 2열 표 가중치 [2.5, 60]은 [0.04, 0.96] → 클램프 [0.10, 0.60] →
-    정규화 [0.143, 0.857]로 상한 0.60을 크게 넘었고(라벨 열이 24mm로 찌그러져 '구 분'이
-    줄바꿈), 11열 균등 표는 전 열이 하한 0.10 아래로 떨어졌다('26.9.10 실측).
-    잔여 몫은 **아직 한계에 닿지 않은 열**에만 가중치 비례로 되돌려 합을 1로 맞춘다.
-    열이 많아 하한 합이 1을 넘으면(n > 1/MIN) 하한을 균등 몫으로 완화한다 — 그래야
-    배분이 성립한다.
+
+def _column_floors(rows, cols, total):
+    """열별 최소 폭 비중 — 그 열에서 가장 긴 **셀 텍스트**가 한 줄에 들어갈 만큼.
+
+    머리글만 보면 `과제 10` 같은 본문 셀이 줄바꿈된다. 반대로 긴 서술 열까지 그대로
+    반영하면 하한이 표를 다 먹으므로 열당 COL_FIT_FLOOR_MAX로 자른다 — 그 열은 어차피
+    가중치 비례에서 큰 몫을 받는다.
+    """
+    floors = []
+    for idx in range(cols):
+        widest = 0
+        for tr in rows:
+            tcs = tr.findall(qn("hp", "tc"))
+            if idx >= len(tcs):
+                continue
+            text = "".join(t.text or "" for t in tcs[idx].iter(qn("hp", "t")))
+            widest = max(widest, _cell_width_hu(text.strip()))
+        need = widest + COL_FIT_CELL_PAD
+        floors.append(min(need / total, COL_FIT_FLOOR_MAX) if total else 0.0)
+    return floors
+
+
+def _fit_shares(weights, floors):
+    """가중치에 비례해 열 폭 비중을 나누되 각 열에 최소 몫(floors)은 보장한다.
+
+    floors는 머리글이 한 줄에 들어갈 실폭에서 나온 비중이다 — 정률 하한·상한을 쓰면
+    내용 비례 배분과 정면으로 부딪힌다(상수 주석 참조). 하한에 걸린 열을 고정하고
+    남은 몫만 나머지 열에 다시 비례 배분한다. 클램프 뒤 합으로 정규화하면 하한이
+    그대로 되밀려 무력화되므로 그 방식은 쓰지 않는다('26.9.10 실측).
     """
     n = len(weights)
-    lo, hi = min(COL_FIT_MIN_SHARE, 1.0 / n), max(COL_FIT_MAX_SHARE, 1.0 / n)
-    shares = [w / sum(weights) for w in weights]
-    for _ in range(n + 2):                      # 한 번에 한 열 이상 고정되므로 n회면 수렴
-        shares = [min(max(sh, lo), hi) for sh in shares]
-        residual = 1.0 - sum(shares)
-        if abs(residual) < 1e-9:
+    total_floor = sum(floors)
+    if total_floor > COL_FIT_FLOOR_CAP:          # 하한이 표를 다 먹으면 비례로 눌러 준다
+        floors = [f * COL_FIT_FLOOR_CAP / total_floor for f in floors]
+    shares = [w / sum(weights) for w in weights] if sum(weights) else [1.0 / n] * n
+    pinned = [False] * n
+    for _ in range(n + 1):
+        free = [i for i in range(n) if not pinned[i]]
+        budget = 1.0 - sum(shares[i] for i in range(n) if pinned[i])
+        base = sum(weights[i] for i in free)
+        for i in free:
+            shares[i] = budget * (weights[i] / base if base else 1.0 / len(free))
+        below = [i for i in free if shares[i] < floors[i]]
+        if not below:
             break
-        movable = [i for i in range(n)
-                   if (residual > 0 and shares[i] < hi - 1e-12)
-                   or (residual < 0 and shares[i] > lo + 1e-12)]
-        if not movable:
-            break
-        base = sum(weights[i] for i in movable)
-        for i in movable:
-            part = (weights[i] / base) if base else (1.0 / len(movable))
-            shares[i] += residual * part
+        for i in below:
+            shares[i] = floors[i]
+            pinned[i] = True
     return shares
 
 
@@ -2145,7 +2202,7 @@ def apply_table_column_fit(section_roots):
         if not ok or any(w is None for w in widths) or sum(weights) <= 0:
             continue
         total = sum(widths)
-        shares = _fit_shares(weights)
+        shares = _fit_shares(weights, _column_floors(rows, cols, total))
         current = [w / total for w in widths]
         if max(abs(a - b) for a, b in zip(shares, current)) <= COL_FIT_TOLERANCE:
             continue

@@ -1915,6 +1915,38 @@ def _column_fit_section(widths, texts):
             '</hp:tbl></hp:run></hp:p>\n</hs:sec>\n')
 
 
+def test_table_pagination_sets_placement_attrs(tmp_path):
+    """표에 본문 자리 차지 배치를 보장한다 — 없으면 페이지 분할이 듣지 않는다 (R063).
+
+    회귀 대상: kordoc 산출 표에는 textWrap·textFlow·lock이 아예 없다(인도본 17건 실측
+    246개 중 218개 누락). 배치가 정해지지 않으면 한글이 표를 본문 흐름 밖 개체로 다뤄
+    경계에서 나누지 않고 통째로 다음 장으로 민다 — pageBreak=CELL만으로는 듣지 않는다."""
+    p = tmp_path / "placement.hwpx"
+    build_hwpx(str(p), section_xml=_column_fit_section(
+        [9000, 24000, 15000], [["구 분", "주 제", "내 용"], ["a", "b", "c"]]))
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["table_pagination"]["attrs_fixed"] > 0
+    with zipfile.ZipFile(p) as z:
+        sec = ET.fromstring(z.read("Contents/section0.xml"))
+    for tbl in sec.iter(ph.qn("hp", "tbl")):
+        for attr, value in ph.TABLE_PLACEMENT.items():
+            assert tbl.get(attr) == value, f"{attr} 미설정"
+        assert tbl.get("pageBreak") == "CELL"
+
+
+def test_table_pagination_keeps_existing_placement(tmp_path):
+    """이미 배치가 잡힌 표(한컴 저장본·기관 양식)는 그 값을 존중한다 — 없을 때만 채운다."""
+    sec = _column_fit_section([9000, 24000, 15000],
+                              [["구 분", "주 제", "내 용"], ["a", "b", "c"]])
+    sec = sec.replace("<hp:tbl ", '<hp:tbl textWrap="SQUARE" ', 1)
+    p = tmp_path / "placement_keep.hwpx"
+    build_hwpx(str(p), section_xml=sec)
+    ph.process_file(str(p), star=False, spacing=True)
+    with zipfile.ZipFile(p) as z:
+        root = ET.fromstring(z.read("Contents/section0.xml"))
+    assert next(root.iter(ph.qn("hp", "tbl"))).get("textWrap") == "SQUARE"
+
+
 def test_column_fit_reverses_inverted_widths(tmp_path):
     # 내용이 가장 긴 3열이 가장 좁게 잡힌 표 — 재배분 후 3열이 가장 넓어야 한다
     widths = [9000, 24000, 15000]
@@ -1928,6 +1960,51 @@ def test_column_fit_reverses_inverted_widths(tmp_path):
     assert sum(after) == sum(widths)          # 표 총 폭 불변
     assert after[2] == max(after)             # 내용 열이 가장 넓다
     assert after[0] == min(after)             # 구분 열이 가장 좁다
+
+
+def test_column_fit_does_not_narrow_the_content_column(tmp_path):
+    """이미 내용 열이 넓게 잡힌 표를 좁히면 안 된다 — 정률 상한이 만든 역주행 회귀.
+
+    `구 분 | 담당 | 내 용` 표는 기관 보고서의 전형인데, 종전 상한 60%가 kordoc이 이미
+    74%를 준 내용 열을 끌어내리고 그만큼을 라벨 열에 얹었다('26.9.10 실측 35315→28515).
+    내용 비례 배분이 목적인 단계가 정률 상한과 싸운 것이다. 지금은 하한이 '가장 긴 셀이
+    한 줄에 들어갈 폭'이고 상한은 다른 열의 하한 합에서 자연히 생긴다 — 적정한 표는
+    아예 손대지 않는 것이 정답이다."""
+    widths = [4144, 8064, 35315]
+    texts = [["구 분", "담당", "내 용"],
+             ["도입", "기획팀", "기관 내부 업무 처리 절차를 단계별로 나누어 점검하고 병목 구간을 개선 과제로 정리"],
+             ["확산", "데이터전략팀", "시범 적용 결과를 바탕으로 적용 범위를 넓히며 담당자 교육과 매뉴얼 정비를 함께 추진"]]
+    p = tmp_path / "colfit_wide.hwpx"
+    build_hwpx(str(p), section_xml=_column_fit_section(widths, texts))
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    detail = summary["column_fit"]["detail"]
+    after = detail[0]["after"] if detail else widths
+    assert after[2] >= widths[2], "내용 열이 오히려 좁아졌다"
+    assert after[2] == max(after)
+
+
+def test_column_floors_keep_longest_cell_on_one_line():
+    """열 하한은 그 열에서 가장 긴 셀이 한 줄에 들어갈 폭이다.
+
+    회귀 대상: 하한을 머리글로만 잡아 `과제 10`이 `과제`/`10`으로, `No`가 `N`/`o`로
+    쪼개졌다('26.9.10 렌더 실측). _weighted_len은 줄 길이 판정용(ASCII 0.5)이라
+    열 폭 하한에 쓰면 영문 머리글을 과소평가한다."""
+    section = _column_fit_section([3627, 5878, 38018],
+                                  [["No", "과제명", "내 용"],
+                                   ["1", "과제 1", "긴 서술" * 20],
+                                   ["20", "과제 10", "긴 서술" * 20]])
+    root = ET.fromstring(section)
+    tbl = next(t for t, _ in ph._iter_content_tables([root]))
+    rows = tbl.findall(ph.qn("hp", "tr"))
+    total = 3627 + 5878 + 38018
+    floors = ph._column_floors(rows, 3, total)
+    assert floors[0] * total >= ph._cell_width_hu("No") + ph.COL_FIT_CELL_PAD
+    assert floors[1] * total >= ph._cell_width_hu("과제 10") + ph.COL_FIT_CELL_PAD
+    assert floors[2] == ph.COL_FIT_FLOOR_MAX, "긴 서술 열의 하한은 상한선에서 잘린다"
+    shares = ph._fit_shares([1.0, 3.5, 47.0], floors)
+    assert abs(sum(shares) - 1.0) < 1e-9
+    assert all(sh >= f - 1e-9 for sh, f in zip(shares, floors))
+    assert shares[2] == max(shares)
 
 
 def test_column_fit_is_idempotent(tmp_path):
