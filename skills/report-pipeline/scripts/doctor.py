@@ -53,7 +53,8 @@ def checks():
     expected = ("harness_config.py", "lint_md_profile.py", "prep_report_md.py",
                 "postprocess_hwpx.py", "validate_hwpx.py", "check_image_size.py",
                 "extract_format_profile.py", "consolidate_rules.py",
-                "audit_style.py", "archive_revision.py")
+                "audit_style.py", "archive_revision.py",
+                "to_kordoc_input.py", "qa_report.py")
     missing = [n for n in expected if not (SCRIPTS / n).exists()]
     out.append({"항목": f"결정론 스크립트 {len(expected)}종", "상태": OK if not missing else FATAL,
                 "값": f"{len(expected) - len(missing)}/{len(expected)}",

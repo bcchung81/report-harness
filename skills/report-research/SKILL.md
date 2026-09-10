@@ -46,24 +46,29 @@ description: "기관보고서 작성을 위한 자료조사 스킬 — 조사 '�
 ### 2-2. 경로 규약
 
 ```
-{work_dir}/research/
-├── provided/                  # 모드 I — 제공자료 원본 + kordoc 파싱본
-└── fetched/{주제슬러그}/       # 모드 R — 신규조사 산출 (+ 하위 images/)
-    ├── _manifest.jsonl        # 산출물 1건당 1줄 append
-    ├── {파일}.md               # 프론트매터 필수
-    └── images/                 # 이미지 후보 원본
+{work_dir}/research/           # 하위 폴더 없음 — 전부 평면 (R087)
+├── _manifest.jsonl            # 산출물 1건당 1줄 append (건별로 하나)
+├── 20260722-1031_제도개편안내.md          # 모드 R — 프론트매터 필수
+├── 20260722-1031_제도개편안내-차트1.png    # 그 조사의 이미지(같은 접두어로 묶인다)
+└── 20260818-2245_제공-추진안.hwpx         # 모드 I — 제공자료 원본(파싱본은 .md로 병치)
 ```
 
-- 모드 I: 드래그·지정된 파일을 `research/provided/`에 그대로 복사(원본 불변). hwp·hwpx·
-  pdf·docx는 kordoc `parse_document`(표는 `parse_table`)로 파싱해 `{원본명}.md`를 병치한다.
-  md·txt는 파싱을 생략한다. **모드 I 적재는 이 스킬이 소유한다** — pipeline analyze 단계는
-  이 산출을 재사용하며 재적재하지 않는다.
-- 모드 R: 조사 주제를 상호 독립 단위로 분해하고, 단위마다 `research/fetched/{주제슬러그}/`
-  하나를 배정한다. 폴더 이름은 그 조사 단위를 식별하는 짧은 한글/영문 슬러그로 정한다.
+**파일명 규약**: `{YYYYMMDD-HHMM}_{조사내용}.{확장자}`. 시각 접두어가 순서를, 슬러그가 내용을
+말한다. 제공자료는 슬러그 앞에 `제공-`을 붙인다. 종전에는 조사 단위를 폴더로 표현했는데
+(`fetched/{슬러그}/`) 한 건에 폴더 69개·매니페스트 63개가 흩어져 무엇이 있는지 목록으로
+보이지 않았다('26.9.10 실측). **조사 단위는 파일명으로 충분하다.**
+
+- 모드 I: 드래그·지정된 파일을 `research/{시각}_제공-{원본명}.{확장자}`로 그대로 복사
+  (원본 불변). hwp·hwpx·pdf·docx는 kordoc `parse_document`(표는 `parse_table`)로 파싱해
+  같은 접두어의 `.md`를 병치한다. md·txt는 파싱을 생략한다. **모드 I 적재는 이 스킬이
+  소유한다** — pipeline analyze 단계는 이 산출을 재사용하며 재적재하지 않는다.
+- 모드 R: 조사 주제를 상호 독립 단위로 분해하고, 단위마다 짧은 한글/영문 슬러그를 정해
+  `research/{시각}_{슬러그}.md`로 적재한다. 한 조사에서 파일이 여럿 나오면 슬러그 뒤에
+  구분어를 붙인다(`…_전파데이터-연계-현황.md`·`…_전파데이터-연계-쟁점.md`).
 
 ### 2-3. 프론트매터 + manifest 스키마
 
-`research/fetched/{주제슬러그}/` 안의 산출물 파일(`.md`)마다 프론트매터로 출처를 명시한다.
+`research/` 안의 산출물 파일(`.md`)마다 프론트매터로 출처를 명시한다.
 
 ```markdown
 ---
@@ -77,11 +82,11 @@ confidence: 확정
 (원문 발췌 — 의역 금지)
 ```
 
-같은 정보를 폴더의 `_manifest.jsonl`에도 산출물 1건당 1줄로 append한다(JSON Lines — append
+같은 정보를 `research/_manifest.jsonl`에도 산출물 1건당 1줄로 append한다(건별로 하나)(JSON Lines — append
 전용, 기존 줄을 고치지 않는다).
 
 ```json
-{"file":"제도개편안내.md","source_url":"https://example.go.kr/notice/123","title":"2026년 OO 제도 개편 안내","fetched_at":"2026-07-22T10:31:00+09:00","tool":"WebFetch","confidence":"확정"}
+{"file":"20260722-1031_제도개편안내.md","source_url":"https://example.go.kr/notice/123","title":"2026년 OO 제도 개편 안내","fetched_at":"2026-07-22T10:31:00+09:00","tool":"WebFetch","confidence":"확정"}
 ```
 
 ### 2-4. 확정/추정 태깅
@@ -97,7 +102,7 @@ confidence: 확정
 ### 2-5. 이미지 수집 규약
 
 보고서의 근거·기초가 될 수 있는 이미지(공식 통계 차트·구조도·공표 도표 등)만
-`research/fetched/{주제슬러그}/images/`에 원본 그대로 저장하고, `_manifest.jsonl`에 본문
+`research/{시각}_{슬러그}-{이름}.{확장자}`로 원본 그대로 저장하고(본문 md와 같은 접두어), `_manifest.jsonl`에 본문
 산출물과 **동일 스키마 전체**(`file`·`source_url`·`title`·`fetched_at`·`tool`·`confidence`)를
 기록한다 — `title`에는 발행기관을 포함한다.
 
@@ -110,7 +115,7 @@ confidence: 확정
 - 신규조사 주제를 분해한 독립 단위가 **2개 이상**이면 **한 메시지에서 여러 Agent를 동시
   스폰**해 팬아웃한다. 순차 호출로 나눠 쓰지 않는다 — 조사시간은 최장 단위 1개로 수렴시키는
   것이 목표다.
-- 각 Agent는 **자기 `research/fetched/{주제슬러그}/`에만 쓴다** — 다른 단위의 폴더에는 절대
+- 각 Agent는 **자기 슬러그 접두어의 파일에만 쓴다** — 다른 단위의 파일에는 절대
   쓰지 않는다(병렬 쓰기 충돌 금지 원칙). 폴더가 겹치면 안전하게 병렬화할 수 없다는 신호이므로
   단위 분해를 다시 한다.
 - 단위 간 의존성이 있으면(한 조사 결과가 다음 조사의 입력이 되는 경우) 그 두 단위는 병렬화
@@ -170,11 +175,11 @@ confidence: 확정
 조사가 끝나면 (팬아웃했다면 모든 단위 완료/실패 확정 후) 다음 두 가지를 반드시 수행한다.
 
 1. **조사 요약 1줄 보고**: 진행 상황을 장황하게 나열하지 않는다. 예:
-   `"조사 3단위 팬아웃 완료(1건 공백) — research/fetched/ 3폴더, 이미지 후보 2건"`.
+   `"조사 3단위 팬아웃 완료(1건 공백) — research/ 3단위, 이미지 후보 2건"`.
    실패·공백 단위가 있으면 이 한 줄에 반드시 포함한다. `knowledge_vault`가 설정돼 있으면
    같은 줄에 **"vault 적재 후보 N건 — claudian `/ingest`로 수확"**을 덧붙인다(§4 — 적재는
    vault 쪽이 pull하며 이 스킬은 쓰지 않는다. 이 보고는 후보 존재를 알리는 것뿐이다). 예:
-   `"조사 3단위 팬아웃 완료 — research/fetched/ 3폴더, vault 적재 후보 3건(claudian /ingest)"`.
+   `"조사 3단위 팬아웃 완료 — research/ 3단위, vault 적재 후보 3건(claudian /ingest)"`.
 2. **lessons 기록**: `python3 "$SKILL_DIR/../report-pipeline/scripts/harness_config.py"` 출력의
    `state_dir` 아래 `lessons.jsonl`에, 이번 조사 단계에서 발생한 특이사항(도구 미설치로 대체,
    교차검증 실패, 15분 초과, manifest 계약 위반 발견 등)을 `gate:"research"`로 1줄

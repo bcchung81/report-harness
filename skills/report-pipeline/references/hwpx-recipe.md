@@ -139,7 +139,7 @@ mcp__kordoc__generate_document(
 
 ```
 python3 "$SKILL_DIR/scripts/check_image_size.py" \
-    research/fetched/{주제슬러그}/images/{파일명} --max-w-mm 170 --max-h-mm 90 --dpi 96
+    research/{시각}_{슬러그}-{이름}.{확장자} --max-w-mm 170 --max-h-mm 90 --dpi 96
 ```
 
 - 출력 JSON: `{"w_mm":..,"h_mm":..,"fits":bool,"scale_to_fit":..}`.

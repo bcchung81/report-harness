@@ -76,21 +76,21 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
 
 - 게이트⓪(또는 조사 종료 요약)에서 **캡션 후보 2~3개를 번호와 함께 제시**하고 파일을 받는다.
   예: `① 규정 질의 응답  ② 참조문서·근거 조문  ③ 관리자 운영 콘솔`
-- 받은 파일은 `research/provided/images/`에 두고, 게이트①의 이미지 배치 설계에 반영한다.
+- 받은 파일은 `research/{시각}_제공-{이름}.{확장자}`로 두고, 게이트①의 이미지 배치 설계에 반영한다.
 - 사용자가 제공하지 않으면 **이미지 표를 만들지 않고 진행**하며, 인도 시 1줄로 고지한다
   (빈 이미지 자리·플레이스홀더를 남기지 않는다).
 - 캡션은 `① 화면명` 형태의 **번호+명사구**로 뽑고, 본문 표 헤더 행에 그대로 들어간다.
 
 ## ② analyze — 자료분석
 
-**입력**: 제공자료(`research/provided/`) + `research/` 전체 + 기존 `20_draft.md`(고도화인 경우).
+**입력**: 제공자료(`research/`의 `제공-` 접두어) + `research/` 전체 + 기존 `20_draft.md`(고도화인 경우).
 **산출**: `{work_dir}/05_analysis.md`.
 
-1. 제공자료가 새로 지정됐으면 먼저 `research/provided/`에 원본을 복사하고, hwp·hwpx·pdf·docx는
+1. 제공자료가 새로 지정됐으면 먼저 `research/{시각}_제공-{원본명}`으로 복사하고, hwp·hwpx·pdf·docx는
    kordoc `parse_document`(표는 `parse_table`)로 파싱해 `{원본명}.md`를 병치한다. 문서가
    **다수**면 문서 단위로 한 메시지 다중 Agent 병렬 팬아웃(각 Agent는 자기 문서의 파싱·1차
    요약만 맡고, 서로 다른 출력 파일에만 쓴다 — 병렬 쓰기 충돌 금지). **research 단계(모드 I)가
-   이미 적재·파싱한 자료는 재적재하지 않는다 — `research/provided/` 존재 여부로 판단한다.**
+   이미 적재·파싱한 자료는 재적재하지 않는다 — `research/`의 `제공-` 파일 존재로 판단한다.**
 2. `research/` 산출물 + 파싱본을 종합해 `05_analysis.md`에 3가지를 정리한다:
    - **논지 후보**: 이 건의 핵심 주장이 될 수 있는 후보 1~3개(각 후보를 뒷받침하는 근거 위치
      함께 명시).
@@ -134,7 +134,7 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
 과제별로 각 항이 무엇으로 채워지는지를 안 써서 너무 추상적". **형태를 아무리 정확히 물어도
 내용 요구는 안 나온다.**
 
-**기존 문서가 있으면 승계 관계를 함께 확인한다** — `research/provided/`에 이전 버전·유사
+**기존 문서가 있으면 승계 관계를 함께 확인한다** — `research/`의 제공자료에 이전 버전·유사
 문서가 있으면 **개정본인가 독립 최종안인가**를 이 게이트에서 묻는다. 같은 건에서 개정 대조
 틀로 썼다가 "독립 최종안으로 다시 쓰라"는 반려를 받아 본문을 통째로 재구성했다 — 착수 후에는
 되돌리기 가장 비싼 결정이다.
@@ -246,9 +246,12 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 
 **입력**: 게이트② 승인된 `20_draft.md` + 팩트체크 선택값. **산출**:
 `final/r{NN}_{YYYYMMDD}_{제목}.hwpx` + `40_qa.md`. **사용자 게이트 없음** — 자동 검증만.
-**변환 시작 전에 `python3 "$SKILL_DIR/scripts/archive_revision.py" revise {work_dir}`를 한 번
-돌린다(R086)** — 직전 변환 세트를 `history/rNN_{시각}/`으로 내리고 쓸 판본 번호(`next_version`)를
-알려 준다. 최초 변환이면 `skipped: no_delivered_hwpx`로 아무 일도 하지 않고 r01을 쓴다.
+**변환은 판본 폴더를 먼저 잡고 시작한다(R087)** —
+`python3 "$SKILL_DIR/scripts/archive_revision.py" begin {work_dir}`가 `history/rNN_{시각}/`을
+만들고 `rev`·`dir`·`hwpx_prefix`를 돌려준다. **변환 산출물 4종(`40_prepared`·
+`43_convert_input`·`40_roundtrip`·`40_qa`)은 전부 그 폴더 안에 쓴다 — 작업폴더 루트에 두지
+않는다.** 루트에 두면 초안만 고쳤을 때 넷이 함께 낡고, 실제로 '26.9.10 전수 측정에서 10건 중
+4건이 그 상태였다(최대 201조각·12일 차이). 인도본만 `final/{hwpx_prefix}{제목}.hwpx`로 나간다.
 
 1. **팩트체크(게이트②에서 선택된 값대로) ∥ 회귀검사(`rules.md` `[export]` 태그 +
    `md-profile.md`)를 한 메시지 다중 Agent로 동시 스폰**한다. 전수는 독립 서브에이전트가
@@ -260,16 +263,19 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
    한다) — 이 경우에만 사용자 개입이 생긴다.
 2. 둘 다 통과하면 `skills/report-pipeline/references/hwpx-recipe.md` recipe 절차(생성→이미지
    규격판정·주입→**후처리**→검증) 그대로 실행: prep 정규화(`prep_report_md.py`, exit 2면 사유·줄
-   번호 보고 후 20_draft.md 수정부터 재시도) → kordoc `generate_document` 변환(도식 마커 치환
-   포함) → 이미지 마커는 생성 후 별도 단계(recipe §3)로 `check_image_size.py` 규격판정 →
+   번호 보고 후 20_draft.md 수정부터 재시도, 출력은 `{판본폴더}/40_prepared.md`) →
+   **`to_kordoc_input.py`로 kordoc 입력 생성**(`--figure 슬러그=파일명|캡션`으로 도식 마커
+   치환, 출력은 `{판본폴더}/43_convert_input.md`. 손으로 표기를 바꾸지 않는다 — 결정론
+   변환이고 미치환 마커가 남으면 exit 1로 걸린다, R087) → kordoc `generate_document` 변환 → 이미지 마커는 생성 후 별도 단계(recipe §3)로 `check_image_size.py` 규격판정 →
    통과분만 `patch_document`로 주입 → **양식 정합 후처리(`postprocess_hwpx.py`, 아래 2-1)** →
-   `validate_hwpx.py structural` → 왕복 되읽기 → `validate_hwpx.py compare` — 불일치는 최대
+   `validate_hwpx.py structural` → 왕복 되읽기 → `validate_hwpx.py compare {work_dir}/20_draft.md
+   {판본폴더}/40_roundtrip.md`(대조 기준은 **초안** — prepared는 초안의 결정론 파생이라 결과가
+   같고, 기준을 초안에 두면 인도본이 초안과 맞는지가 곧바로 드러난다) — 불일치는 최대
    2회 재변환 루프, 그래도 잔존하면 목록을 사용자에게 명시 보고하고 `20_draft.md`(SSOT)를
    그대로 인도한다. `compare`는 개수·수치뿐 아니라 **문장 자체**를 대조한다(`content-dropped`).
-   **개정 건이라 기존 `40_prepared.md`가 이미 있으면 변환 전에
-   `validate_hwpx.py freshness {work_dir}/20_draft.md {work_dir}/40_prepared.md`를 먼저
-   돌린다(R085)** — `prepared-stale`이면 그 산출물 세트가 지금 초안과 다른 판이므로 prep부터
-   다시 태운다. 이 검사를 건너뛰면 초안만 고치고 인도본은 옛 판인 상태가 조용히 남는다.
+   **개정 건은 착수 전에 `archive_revision.py status {work_dir}`로 초안↔인도본 대응을
+   확인한다(R085·R087)** — `draft_ahead`면 인도본이 지금 초안과 다른 판이라는 뜻이므로
+   재변환이 필요하다. 이 검사를 건너뛰면 초안만 고치고 인도본은 옛 판인 상태가 조용히 남는다.
 
    ### 2-1. 양식 정합 후처리 — 생략 금지 (recipe §3.5)
 
@@ -380,10 +386,14 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   재정의용이다(`--star-indent`는 R019 폐기로 제거 — 넘기면 exit 2). 표 폭 정합(R036·R042)·
   패키지 정합(R043 — 내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
   exit 0(적용)/1(대상 0건 — 원인 확인)/2(인자·파일·구조 오류).
-- `scripts/archive_revision.py snapshot|revise|migrate <work_dir>` — 이력 관리(R086).
-  `snapshot --label <사유>`는 현행 초안을 `history/drafts/`로 복사(현행본 불변), `revise`는
-  재변환 직전 변환 세트를 `history/rNN_{시각}/`으로 내리고 인도본에 판본 접두어를 붙인다,
-  `migrate`는 흩어진 구 판본을 모으는 1회 정리(기본 계획 출력, `--apply`로 수행).
+- `scripts/archive_revision.py snapshot|begin|status|migrate|flatten <work_dir>` — 이력·정리
+  (R086·R087). `snapshot --label <사유>`는 현행 초안을 `history/drafts/`로 복사(현행본 불변),
+  `begin`은 변환 판본 폴더를 선할당하고 접두어를 알려 준다, `status`는 초안↔마지막 인도본
+  대응을 본다, `migrate`·`flatten`은 구 구조 1회 정리(기본 계획 출력, `--apply`로 수행).
+- `scripts/to_kordoc_input.py <prepared.md> -o <convert_input.md> [--figure 슬러그=파일|캡션]`
+  — 개조식 표기를 kordoc 입력 마크다운으로 되돌린다. 미치환 도식 마커가 남으면 exit 1.
+- `scripts/qa_report.py --postprocess … --structural … --compare … -o 40_qa.md` — 각 단계
+  JSON을 모아 변환 QA 기록을 찍는다. 손으로 쓰지 않는다(빠뜨려도 드러나지 않기 때문).
 - `scripts/validate_hwpx.py structural|compare|numbers|freshness` — 구조 검증/왕복 대조(문장 단위 포함)/경량 팩트체크/산출물 신선도(초안↔prepared 대응, R085).
   시그니처는 `hwpx-recipe.md` 부록 표 참조(중복 서술 안 함).
 - `scripts/check_image_size.py <img>` — 이미지 규격 판정. exit 0(이내)/1(초과)/2(오류).

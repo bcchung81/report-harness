@@ -64,54 +64,46 @@ def test_snapshot_never_touches_current_names(tmp_path):
 
 # --- 변환 판본 --------------------------------------------------------------
 
-def test_revise_archives_set_and_versions_hwpx(tmp_path):
-    """재변환 직전 — md 세트는 history로, 인도본은 final/에 판본 접두어로 남는다."""
-    wd = build(tmp_path, hwpx="전파데이터 현황조사.hwpx")
-    ar.snapshot(wd, "교차검증전")
-    out = ar.revise(wd)
-    assert out["next_version"] == 2
-    arch = wd / "history" / out["archived"]
-    assert sorted(p.name for p in arch.glob("*.md")) == ["20_draft.md", "40_prepared.md", "40_roundtrip.md"]
-    assert (arch / "drafts").is_dir() and list((arch / "drafts").glob("*.md"))
-    assert not list((wd / "history/drafts").glob("*.md")), "판본에 딸린 스냅샷이 _wip에 남았다"
-    names = [p.name for p in (wd / "final").glob("*.hwpx")]
-    assert names == ["r01_" + out["renamed"][0]["to"].split("_", 2)[1] + "_전파데이터 현황조사.hwpx"]
-
-
-def test_revise_keeps_hwpx_in_final_and_accumulates(tmp_path):
-    """인도본은 history로 옮기지 않고 final/에 판본별로 쌓인다(접두어로 즉시 판별)."""
-    wd = build(tmp_path, hwpx="r01_20260907_보고.hwpx")
-    ar.revise(wd)
-    (wd / "20_draft.md").write_text("□ 개 요\n\n ㅇ 둘째 판\n", encoding="utf-8")
-    (wd / "final" / "r02_20260910_보고.hwpx").write_bytes(b"hwpx2")
-    out = ar.revise(wd)
-    assert out["next_version"] == 3
-    assert sorted(p.name for p in (wd / "final").glob("*.hwpx")) == [
-        "r01_20260907_보고.hwpx", "r02_20260910_보고.hwpx"]
-    assert not list((wd / "history").glob("**/*.hwpx")), "인도본이 이력으로 복사됐다"
-
-
-def test_revise_is_idempotent_between_conversions(tmp_path):
-    """변환 없이 다시 부르면 같은 판본을 또 내리지 않는다 — 판본 폴더가 분 단위로 늘어난다."""
-    wd = build(tmp_path, hwpx="r01_20260907_보고.hwpx")
-    first = ar.revise(wd)
-    again = ar.revise(wd)
-    assert again["skipped"] == "already_archived"
-    assert again["archived"] == first["archived"]
-    assert len([p for p in (wd / "history").iterdir() if p.is_dir() and p.name.startswith("r")]) == 1
-
-
-def test_revise_on_first_conversion_is_noop(tmp_path):
-    """인도본이 없으면 내릴 직전 판본도 없다 — 최초 변환은 r01이다."""
+def test_begin_allocates_revision_folder(tmp_path):
+    """변환 시작 시 판본 폴더를 선할당한다 — 파생물이 루트에 태어나지 않게 하는 장치."""
     wd = build(tmp_path)
-    out = ar.revise(wd)
-    assert out == {"archived": None, "next_version": 1, "renamed": [], "skipped": "no_delivered_hwpx"}
+    ar.snapshot(wd, "교차검증전")
+    out = ar.begin(wd)
+    assert out["rev"] == 1 and out["hwpx_prefix"].startswith("r01_")
+    holder = pathlib.Path(out["dir"])
+    assert holder.is_dir() and holder.name.startswith("r01_")
+    assert (holder / "drafts").is_dir(), "그 판본에 딸린 스냅샷이 함께 내려가야 한다"
+    assert not list((wd / "history/drafts").glob("*.md"))
 
 
-def test_current_version_reads_filenames_not_index(tmp_path):
-    """판본의 진실은 파일 이름이다 — index가 지워져도 인도본만 있으면 복원된다."""
+def test_begin_counts_from_delivered_hwpx(tmp_path):
+    """다음 판본 번호는 final/ 인도본에서 읽는다 — 이력이 지워져도 어긋나지 않는다."""
     wd = build(tmp_path, hwpx="r03_20260910_보고.hwpx")
-    assert ar.current_version(wd) == 3
+    assert ar.begin(wd)["rev"] == 4
+
+
+def test_begin_leaves_root_clean(tmp_path):
+    """루트에는 사람이 고치는 파일만 남는다 — 낡을 파생물이 애초에 없다(R087)."""
+    wd = build(tmp_path)
+    before = {p.name for p in wd.glob("*.md")}
+    ar.begin(wd)
+    assert {p.name for p in wd.glob("*.md")} == before
+
+
+# --- 초안↔인도본 대응 --------------------------------------------------------
+
+def test_status_reports_draft_ahead(tmp_path):
+    """초안을 고치고 재변환을 안 하면 인도본이 낡는다 — 이력 지문으로 판정한다."""
+    wd = build(tmp_path)
+    ar.begin(wd)
+    assert ar.status(wd)["state"] == "current"
+    (wd / "20_draft.md").write_text("□ 개 요\n\n ㅇ 고친 판\n", encoding="utf-8")
+    st = ar.status(wd)
+    assert st["state"] == "draft_ahead" and st["rev"] == 1 and st["detail"]
+
+
+def test_status_before_first_export(tmp_path):
+    assert ar.status(build(tmp_path))["state"] == "never_exported"
 
 
 # --- 기존 폴더 1회 정리 -------------------------------------------------------
@@ -146,3 +138,18 @@ def test_migration_dry_run_moves_nothing(tmp_path):
     assert out["applied"] is True and not (wd / "20_draft_v1.md").exists()
     assert list((wd / "history/drafts").glob("*.md"))
     assert index_rows(wd)[-1]["kind"] == "migration"
+
+
+def test_migration_relocates_derived_files(tmp_path):
+    """루트에 남은 파생물 4종도 판본 폴더로 내린다 (R087 구조 전환)."""
+    wd = build(tmp_path, hwpx="r02_20260910_보고.hwpx")
+    for n in ("43_convert_input.md", "40_qa.md"):
+        (wd / n).write_text("x\n", encoding="utf-8")
+    out = ar.migrate(wd, apply=True)
+    assert out["applied"]
+    assert not [p.name for p in wd.glob("4*_*.md")], "파생물이 루트에 남았다"
+    holder = next(p for p in (wd / "history").iterdir() if p.is_dir() and p.name.startswith("r02_"))
+    assert sorted(p.name for p in holder.glob("*.md")) == [
+        "40_prepared.md", "40_qa.md", "40_roundtrip.md", "43_convert_input.md"]
+    kinds = [r["kind"] for r in index_rows(wd)]
+    assert "revision" in kinds and kinds[-1] == "migration"
