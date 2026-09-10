@@ -232,9 +232,11 @@ report-harness/
 │   │   │   └── …                       설정·이미지 규격·프로파일 추출
 │   │   └── assets/          기관 양식 원본 · 도식 Pool · 머리말 배너
 │   ├── report-research/     ① 조사 — 방법은 자유, 산출 계약만 강제
+│   ├── cross-verify/        교차검증 — 다중 CLI 패널 + 수치 근거 대조
+│   │   └── scripts/verify_claims.py   패널이 지어낸 수치·오귀속 검출
 │   └── humanizer/           윤문 — AI 문체 흔적 제거 (MIT © DaleSeo)
 │
-├── commands/                슬래시 커맨드 5종
+├── commands/                슬래시 커맨드 6종
 ├── hooks/                   hwpx 검증 강제 훅 — 검증 우회 산출 차단 안전망
 │
 ├── webapp/kca-report-hwpx/  ★ 웹앱 배포판 원본 — MCP 없이 자립

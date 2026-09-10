@@ -93,7 +93,52 @@ def checks():
     except Exception:
         out.append({"항목": "규칙 체계", "상태": WARN, "값": "점검 실패", "조치": ""})
 
+    # ⑧ 조치 예고된 미승격 lesson — 잊히는 경로를 눈에 보이게 한다
+    out.append(pending_lessons_check())
+
     return out
+
+
+# fix란이 '앞으로 고치겠다'로 읽히는 표현. 완료형 서술("… 신설 — 적용")과 가르는 신호다.
+PLEDGE = ("항구 대책", "보강", "필요", "검토", "해야", "추가 검토")
+
+
+def pending_lessons_check():
+    """게이트 피드백 중 **코드 조치를 예고해 놓고 승격되지 않은 것**을 센다.
+
+    규칙 승격 경로(2회 반복 → R0NN)는 문체·구성 교훈을 위한 것이라, fix란에
+    "…하도록 보강" 같은 코드 조치를 적어 둔 lesson은 어디에도 걸리지 않고 잊힌다.
+    실제로 '26.9.8 미승격 7건 중 둘이 '26.9.10 전수 검증에서 그대로 재현됐다
+    (em대시 미검출·＊ 0건 문서에서 후처리 전면 중단). 강제하지 않고 세어서 보여만 준다 —
+    판단은 사람이 한다.
+    """
+    try:
+        cfg = json.loads(subprocess.run([sys.executable, str(SCRIPTS / "harness_config.py")],
+                                        capture_output=True, text=True, timeout=20).stdout)
+        path = pathlib.Path(cfg["state_dir"]) / "lessons.jsonl"
+    except Exception:
+        return {"항목": "미조치 lesson", "상태": OK, "값": "확인 불가 — 설정 해석 실패", "조치": ""}
+    if not path.exists():
+        return {"항목": "미조치 lesson", "상태": OK, "값": "축적본 없음 — 신규 설치", "조치": ""}
+    pending = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if row.get("promoted"):
+            continue
+        fix = row.get("fix") or ""
+        if any(k in fix for k in PLEDGE):
+            pending.append(row)
+    if not pending:
+        return {"항목": "미조치 lesson", "상태": OK, "값": "조치 예고분 없음", "조치": ""}
+    oldest = min(r.get("date", "") for r in pending)
+    return {"항목": "미조치 lesson", "상태": WARN,
+            "값": f"코드 조치 예고분 {len(pending)}건 (가장 오래된 것 {oldest})",
+            "조치": "lessons.jsonl에서 promoted=false + fix에 조치 예고가 있는 건을 훑어 처리하거나 사유를 남긴다"}
 
 
 def main():
