@@ -57,7 +57,8 @@ TRANSITIONS = {
     ("dae", "yo"): ("dae_to_yo", 600),
     ("yo", "yo"): ("yo_to_yo", 600),            # 연속 ㅇ 문단 사이 (사용자 확정)
     ("dash", "yo"): ("dash_to_yo", 600),        # 하위 대시에서 다음 ㅇ 복귀
-    ("yo", "dash"): ("yo_to_dash", 600),
+    ("yo", "dash"): ("yo_to_dash", 300),   # ㅇ→대시는 3pt — 상위·하위가 한 덩어리로
+                                           # 읽혀야 한다('26.9.10 사용자 확정 정정, 종전 6pt)
     ("dash", "star"): ("dash_to_star", 300),
     ("yo", "star"): ("yo_to_star", 300),        # 양식 미실측 전환 — dash→star 3pt 유추 적용
     # ※·＊ 단서/각주 뒤 ㅇ 복귀(R038) — 양식·실무본 모두 해당 전환 실물이 없어 실측 불가,
@@ -184,23 +185,34 @@ def find_ref_charpr_id(header_root):
 
 
 def apply_star_footnote(header_root, section_roots):
+    """＊로 시작하는 각주 문단을 참고 스타일(13pt 맑은고딕)로 돌린다(R011).
+
+    대상을 먼저 세고 참고 charPr은 **필요할 때만** 찾는다 — 종전에는 순서가 반대여서
+    ＊ 문단이 하나도 없는 문서에서도 전제 실패로 예외를 던졌고, 그러면 `--all`의
+    **뒤 단계가 통째로 건너뛰어진다**(머리말 배너·표 폭 정합·제목 박스 복원은 물론
+    R043 패키지 정합까지). 실제 재현: 기관 서식 채움본 TASK-11 v6은 ＊ 0건인데
+    13pt 글꼴이 맑은고딕이 아니라는 이유로 후처리 전 구간이 무적용됐다
+    ('26.9.8 lessons 기록 → '26.9.10 조치).
+    """
+    targets = [p for sec_root in section_roots
+               for p in sec_root.iter(qn("hp", "p"))
+               if para_text(p).strip().startswith(STAR)]
+    if not targets:
+        return {"ref_charpr_id": None, "stars_found": 0, "runs_changed": 0,
+                "skipped": "no_star_targets"}
     ref_id = find_ref_charpr_id(header_root)
     if ref_id is None:
         raise PostprocessError(
             "참고 charPr(header.xml height=1300·fontRef=맑은고딕 계열)을 찾지 못했습니다"
         )
-    stars_found = 0
     runs_changed = 0
-    for sec_root in section_roots:
-        for p in sec_root.iter(qn("hp", "p")):
-            if not para_text(p).strip().startswith(STAR):
-                continue
-            stars_found += 1
-            for run in p.findall(qn("hp", "run")):
-                if run.get("charPrIDRef") != ref_id:
-                    run.set("charPrIDRef", ref_id)
-                    runs_changed += 1
-    return {"ref_charpr_id": ref_id, "stars_found": stars_found, "runs_changed": runs_changed}
+    for p in targets:
+        for run in p.findall(qn("hp", "run")):
+            if run.get("charPrIDRef") != ref_id:
+                run.set("charPrIDRef", ref_id)
+                runs_changed += 1
+    return {"ref_charpr_id": ref_id, "stars_found": len(targets),
+            "runs_changed": runs_changed, "skipped": None}
 
 
 # ---------------------------------------------------------------------------
@@ -410,6 +422,49 @@ def _iter_content_tables(section_roots):
                     yield tbl, not seen_dae
 
 
+def _title_box(header_root, section_roots):
+    """문서의 제목 박스 표를 반환한다(없으면 None) — 제목 박스는 문서에 하나뿐이다.
+
+    판정: 첫 □ 문단 이전의 표 가운데 배너가 아니고 **모든 행이 1열**이며 텍스트가 있는
+    **첫 번째** 표. 종전에는 `_iter_content_tables`의 is_title(= 첫 □ 이전 표 전부)을
+    그대로 제목 박스로 썼는데, kordoc 보고서 산출물은 그 구간에 요약 박스(1행 1열
+    #DFE6F7)·문서정보표(2열)·장 배너(3열)를 함께 싣는다 — '26.9.10 실측에서 첫 □ 앞
+    표 5개가 전부 제목 박스로 판정됐고, 그 결과 요약 박스가 제목 박스로 개조돼 음영을
+    잃고 20pt로 부풀었다. 요약 박스는 제목 박스 **뒤**에 오므로 '첫 번째'만 취하면
+    걸러지고, 문서정보표·장 배너는 1열 조건에서 걸러진다.
+    """
+    for tbl, is_title in _iter_content_tables(section_roots):
+        if not is_title or _is_banner_table(tbl):
+            continue
+        rows = tbl.findall(qn("hp", "tr"))
+        if not rows or any(len(tr.findall(qn("hp", "tc"))) != 1 for tr in rows):
+            continue
+        idx = _title_row_index(rows)
+        if idx is None:
+            continue
+        # 제목 행 셀에는 채움이 없다(양식·실산출물 실측 — 채움은 밴드 행만 진다).
+        # 위치만으로 판정하면 body_title_box=False 산출물에서 첫 1열 표가 요약 박스가
+        # 되어 그 음영이 지워진다 — 판정에 양성 신호를 하나 둔다.
+        cell_bf = rows[idx].find(qn("hp", "tc")).get("borderFillIDRef")
+        for bf in header_root.iter(qn("hh", "borderFill")):
+            if bf.get("id") == cell_bf:
+                if bf.find(qn("hc", "fillBrush")) is not None:
+                    cell_bf = None
+                break
+        if cell_bf is None:
+            continue
+        return tbl
+    return None
+
+
+def _title_row_index(rows):
+    """제목 행(텍스트가 있는 첫 행)의 인덱스 — 밴드 행은 비어 있어 건너뛴다."""
+    for idx, tr in enumerate(rows):
+        if "".join(t.text or "" for t in tr.iter(qn("hp", "t"))).strip():
+            return idx
+    return None
+
+
 def apply_center_cell_text(header_root, section_roots):
     """본문 콘텐츠 표(제목 박스 제외)의 hp:tbl 내부 subList 문단 전부를 가운데 정렬한다.
     붙임·참고 배너 표(R027)의 제목 셀(3번째)은 제외 — R037 양쪽정렬(JUSTIFY)은
@@ -440,6 +495,13 @@ def apply_center_cell_text(header_root, section_roots):
 
 
 BORDER_TAGS = ("leftBorder", "rightBorder", "topBorder", "bottomBorder")
+# 제목 박스에서 지우는 테두리는 좌·우뿐이다 — kordoc이 제목표를 3행(밴드+제목+그라데이션
+# 밴드)에서 1행(상·하 SOLID 0.4mm)으로 바꾼 뒤로는 4변을 전부 지우면 제목부의 유일한 시각
+# 요소가 통째로 사라진다('26.9.8 실측 회귀). 원형 복원(apply_title_box_form)이 성립하면 밴드가
+# 시각을 담당하고 3행 모두 4변 NONE이 되므로 이 처리는 무동작이다 — 복원이 불가능한 문서
+# 형태(밴드 없는 1행 산출물)를 위한 안전망이다. format-profile §7이 적은 '밑줄 행 = 4변 실선'은
+# 양식 OLE 원본의 서술이고, 인도본 계보는 밴드 4변 NONE이다(R022 미고침 사항·R084).
+TITLE_BOX_STRIP_BORDERS = ("leftBorder", "rightBorder")
 
 
 def ensure_borderless_variant(header_root, base_id, cache):
@@ -458,14 +520,14 @@ def ensure_borderless_variant(header_root, base_id, cache):
         cache[base_id] = base_id
         return base_id
     if all((el := base.find(qn("hh", t))) is not None and el.get("type") == "NONE"
-           for t in BORDER_TAGS):
+           for t in TITLE_BOX_STRIP_BORDERS):
         cache[base_id] = base_id
         return base_id
     new_bf = copy.deepcopy(base)
     max_id = max(int(bf.get("id")) for bf in borderfills.findall(qn("hh", "borderFill")))
     new_id = str(max_id + 1)
     new_bf.set("id", new_id)
-    for t in BORDER_TAGS:
+    for t in TITLE_BOX_STRIP_BORDERS:
         el = new_bf.find(qn("hh", t))
         if el is not None:
             el.set("type", "NONE")
@@ -478,20 +540,19 @@ def ensure_borderless_variant(header_root, base_id, cache):
 def apply_title_box_borderless(header_root, section_roots):
     """제목 박스(첫 □ 이전 표)의 hp:tbl·hp:tc 등 borderFillIDRef를 '원본 배경 보존 +
     테두리만 NONE' 변형으로 교체한다(그라데이션 등 fillBrush 유지)."""
-    title_tables = [tbl for tbl, is_title in _iter_content_tables(section_roots) if is_title]
-    if not title_tables:
+    tbl = _title_box(header_root, section_roots)
+    if tbl is None:
         return {"found": False, "fills_replaced": 0}
     cache = {}
     replaced = 0
-    for tbl in title_tables:
-        for el in tbl.iter():
-            ref = el.get("borderFillIDRef")
-            if ref is None:
-                continue
-            new_ref = ensure_borderless_variant(header_root, ref, cache)
-            if new_ref != ref:
-                el.set("borderFillIDRef", new_ref)
-                replaced += 1
+    for el in tbl.iter():
+        ref = el.get("borderFillIDRef")
+        if ref is None:
+            continue
+        new_ref = ensure_borderless_variant(header_root, ref, cache)
+        if new_ref != ref:
+            el.set("borderFillIDRef", new_ref)
+            replaced += 1
     return {"found": True, "fills_replaced": replaced,
             "variants": {k: v for k, v in cache.items() if k != v}}
 
@@ -525,6 +586,153 @@ def ensure_linespacing_parapr(header_root, base_id, percent, cache):
     paraprops.set("itemCnt", str(len(paraprops.findall(qn("hh", "paraPr")))))
     cache[key] = new_id
     return new_id
+
+
+# 제목 박스 원형 (양식 실측 — 같은 파이프라인 산출물 3건이 동일: 이음5G '26.7.30 ·
+# cert-poc '26.8.3 · xmos '26.8.7). 3행 1열이고 위·아래 3.8pt 밴드가 파란 띠를 만든다 —
+# 0행 단색 #0080C0, 2행 방사형 그라데이션 #0080C0 → #3CBFFF, 1행이 제목(28.5pt).
+# kordoc이 '26.9월 이 구조를 1행(상·하 실선·채움 없음)으로 바꾸면서 파란 띠가 원천에서
+# 사라졌다. 파이프라인에는 제목표를 만드는 단계가 애초에 없었고(후처리는 있는 fillBrush를
+# 보존만 한다) 생성기 산출물에 의존해 왔다 — 그 의존을 여기서 끊는다.
+TITLE_BOX_BAND_HEIGHT = 382      # 3.8pt 밴드 행
+TITLE_BOX_TITLE_HEIGHT = 2850    # 28.5pt 제목 행
+TITLE_BOX_SIDE_MARGIN = 283      # outMargin 좌·우 (1.0mm)
+TITLE_BOX_BAND_PT = 1            # 밴드 행 빈 run 크기
+TITLE_BOX_TOP_FILL = '<hc:winBrush faceColor="#0080C0" hatchColor="#000000" alpha="0"/>'
+TITLE_BOX_BOTTOM_FILL = (
+    '<hc:gradation type="RADIAL" angle="0" centerX="0" centerY="0" step="50"'
+    ' colorNum="2" stepCenter="50" alpha="0">'
+    '<hc:color value="#0080C0"/><hc:color value="#3CBFFF"/></hc:gradation>')
+
+
+def ensure_title_band_fill(header_root, base_id, fill_xml, cache):
+    """base_id borderFill을 4변 NONE + 지정 fillBrush로 바꾼 복제본 id를 반환한다."""
+    key = (base_id, fill_xml)
+    if key in cache:
+        return cache[key]
+    borderfills = header_root.find(f".//{qn('hh', 'borderFills')}")
+    base = None
+    for bf in borderfills.findall(qn("hh", "borderFill")):
+        if bf.get("id") == base_id:
+            base = bf
+            break
+    if base is None:
+        cache[key] = base_id
+        return base_id
+    new_bf = copy.deepcopy(base)
+    new_id = str(max(int(bf.get("id")) for bf in borderfills.findall(qn("hh", "borderFill"))) + 1)
+    new_bf.set("id", new_id)
+    for t in BORDER_TAGS:
+        el = new_bf.find(qn("hh", t))
+        if el is not None:
+            el.set("type", "NONE")
+    old_fill = new_bf.find(qn("hc", "fillBrush"))
+    if old_fill is not None:
+        new_bf.remove(old_fill)
+    if fill_xml:
+        wrapped = (f'<hc:fillBrush xmlns:hc="{NS["hc"]}">{fill_xml}</hc:fillBrush>')
+        new_bf.append(ET.fromstring(wrapped))
+    borderfills.append(new_bf)
+    borderfills.set("itemCnt", str(int(borderfills.get("itemCnt", "0")) + 1))
+    cache[key] = new_id
+    return new_id
+
+
+def apply_title_box_form(header_root, section_roots):
+    """제목 박스를 양식 원형(제목 행을 파란 밴드 + 그라데이션 밴드로 감싼 꼴)으로 되돌린다.
+
+    원형 실측 3건은 3행 1열 — 0행 단색 밴드·1행 제목·2행 그라데이션 밴드다. kordoc
+    `report_info`를 쓰면 제목 행 아래에 담당자 행이 하나 더 붙는데(2행 산출), 이때도
+    **제목 행만** 감싸고 부가 행은 그대로 둔다(원형에 없는 행이라 손대지 않는다).
+    이미 감싸여 있으면 무동작이다(멱등). 대상을 못 찾거나 건너뛴 사유는 summary의
+    `skipped`로 남긴다 — '대상 없음'과 '조용한 실패'가 구분되지 않던 결함의 대책.
+    """
+    result = {"restored": 0, "band_height": TITLE_BOX_BAND_HEIGHT, "skipped": None}
+    tbl = _title_box(header_root, section_roots)
+    if tbl is None:
+        result["skipped"] = "no_title_box"
+        return result
+    rows = tbl.findall(qn("hp", "tr"))
+    idx = _title_row_index(rows)
+    if idx is None:
+        result["skipped"] = "no_title_row"
+        return result
+    if idx > 0:
+        # 1열 제목 박스에서 제목 행 위에 올 수 있는 행은 밴드(빈 행)뿐이다 — 이미 원형이다.
+        # 채움 유무로 판정하지 않는다: 밴드가 채움을 잃은 상태를 행 삽입으로 고치면
+        # 행이 불어난다(R022 '행 삭제 금지'의 대칭 — 있는 밴드는 그대로 둔다).
+        result["skipped"] = "already_restored"
+        return result
+    title_tc = rows[idx].find(qn("hp", "tc"))
+    base_bf = title_tc.get("borderFillIDRef")
+    sz = tbl.find(qn("hp", "sz"))
+    cell_sz = title_tc.find(qn("hp", "cellSz"))
+    if base_bf is None or sz is None or cell_sz is None:
+        result["skipped"] = "incomplete_geometry"
+        return result
+
+    cache, char_cache = {}, {}
+    # 총 폭(표 폭 + outMargin 좌우)을 보존한 채 원형 여백으로 되돌린다
+    out = tbl.find(qn("hp", "outMargin"))
+    if out is None:
+        # 없으면 만든다 — 폭만 줄이고 여백을 안 만들면 총 폭이 1mm 조용히 줄어든다
+        out = ET.SubElement(tbl, qn("hp", "outMargin"))
+        tbl.remove(out)
+        tbl.insert(min(1, len(tbl)), out)
+    prev_side = int(out.get("left") or 0) + int(out.get("right") or 0)
+    out.set("left", str(TITLE_BOX_SIDE_MARGIN))
+    out.set("right", str(TITLE_BOX_SIDE_MARGIN))
+    out.set("top", "0")
+    out.set("bottom", str(TITLE_BOX_SIDE_MARGIN))
+    width = int(sz.get("width")) + prev_side - 2 * TITLE_BOX_SIDE_MARGIN
+    cell_sz.set("height", str(TITLE_BOX_TITLE_HEIGHT))
+    title_tc.set("borderFillIDRef",
+                 ensure_title_band_fill(header_root, base_bf, "", cache))
+    tbl_bf = tbl.get("borderFillIDRef")
+    if tbl_bf is not None:   # 원형의 표 자체 테두리도 4변 NONE (밴드가 시각을 담당)
+        tbl.set("borderFillIDRef",
+                ensure_title_band_fill(header_root, tbl_bf, "", cache))
+
+    bands = []
+    for fill in (TITLE_BOX_TOP_FILL, TITLE_BOX_BOTTOM_FILL):
+        band_tr = copy.deepcopy(rows[idx])
+        band_tc = band_tr.find(qn("hp", "tc"))
+        band_tc.set("name", "")
+        band_tc.set("borderFillIDRef",
+                    ensure_title_band_fill(header_root, base_bf, fill, cache))
+        for run in band_tc.iter(qn("hp", "run")):
+            t = run.find(qn("hp", "t"))
+            if t is not None:
+                t.text = None
+            base_cid = run.get("charPrIDRef")
+            if base_cid is not None:
+                run.set("charPrIDRef", ensure_charpr_sized(
+                    header_root, base_cid, TITLE_BOX_BAND_PT * 100, char_cache))
+        bsz = band_tc.find(qn("hp", "cellSz"))
+        if bsz is not None:
+            bsz.set("height", str(TITLE_BOX_BAND_HEIGHT))
+        bands.append(band_tr)
+    pos = list(tbl).index(rows[idx])
+    tbl.insert(pos, bands[0])
+    tbl.insert(pos + 2, bands[1])
+    tbl.set("rowCnt", str(len(rows) + 2))
+
+    # 삽입으로 행 번호가 밀렸다 — 폭·행 주소를 전 행에 다시 매기고 총 높이를 재계산한다
+    heights = []
+    for row_addr, tr in enumerate(tbl.findall(qn("hp", "tr"))):
+        tc = tr.find(qn("hp", "tc"))
+        addr = tc.find(qn("hp", "cellAddr"))
+        if addr is not None:
+            addr.set("rowAddr", str(row_addr))
+        csz = tc.find(qn("hp", "cellSz"))
+        if csz is not None:
+            csz.set("width", str(width))
+            heights.append(int(csz.get("height")))
+    sz.set("width", str(width))
+    if len(heights) == len(tbl.findall(qn("hp", "tr"))):
+        sz.set("height", str(sum(heights)))
+    result["restored"] = 1
+    return result
 
 
 def apply_title_box_topgap(header_root, section_roots):
@@ -1853,6 +2061,104 @@ def ensure_charpr_sized(header_root, base_id, height, cache):
 
 
 
+# 열 폭 재배분 (R036 계열 — 표 총 폭은 건드리지 않는다).
+# kordoc generate_document의 열 폭 산정이 내용량과 무관해, 가장 긴 열이 가장 좁아지면
+# 행 높이가 불어나 표가 페이지를 넘긴다 — '26.9.8 실측: 3열 표에서 내용 열 30.8% ·
+# 주제 열 49.8%로 역전돼 표 높이가 141mm(A4 본문의 60%)까지 늘었다.
+COL_FIT_MIN_SHARE = 0.10   # 한 열이 가질 수 있는 최소 폭 비중
+COL_FIT_MAX_SHARE = 0.60   # 한 열이 가질 수 있는 최대 폭 비중
+COL_FIT_TOLERANCE = 0.05   # 이 이내 차이는 손대지 않는다(멱등·무의미한 재작성 방지)
+
+
+def _fit_shares(weights):
+    """가중치를 열 폭 비중으로 배분하되 각 열을 [MIN, MAX] 안에 실제로 가둔다.
+
+    종전 구현은 클램프 뒤 합으로 정규화했는데, 그러면 한계값이 그대로 되밀려 **상·하한이
+    무력화**된다 — 2열 표 가중치 [2.5, 60]은 [0.04, 0.96] → 클램프 [0.10, 0.60] →
+    정규화 [0.143, 0.857]로 상한 0.60을 크게 넘었고(라벨 열이 24mm로 찌그러져 '구 분'이
+    줄바꿈), 11열 균등 표는 전 열이 하한 0.10 아래로 떨어졌다('26.9.10 실측).
+    잔여 몫은 **아직 한계에 닿지 않은 열**에만 가중치 비례로 되돌려 합을 1로 맞춘다.
+    열이 많아 하한 합이 1을 넘으면(n > 1/MIN) 하한을 균등 몫으로 완화한다 — 그래야
+    배분이 성립한다.
+    """
+    n = len(weights)
+    lo, hi = min(COL_FIT_MIN_SHARE, 1.0 / n), max(COL_FIT_MAX_SHARE, 1.0 / n)
+    shares = [w / sum(weights) for w in weights]
+    for _ in range(n + 2):                      # 한 번에 한 열 이상 고정되므로 n회면 수렴
+        shares = [min(max(sh, lo), hi) for sh in shares]
+        residual = 1.0 - sum(shares)
+        if abs(residual) < 1e-9:
+            break
+        movable = [i for i in range(n)
+                   if (residual > 0 and shares[i] < hi - 1e-12)
+                   or (residual < 0 and shares[i] > lo + 1e-12)]
+        if not movable:
+            break
+        base = sum(weights[i] for i in movable)
+        for i in movable:
+            part = (weights[i] / base) if base else (1.0 / len(movable))
+            shares[i] += residual * part
+    return shares
+
+
+def apply_table_column_fit(section_roots):
+    """본문 콘텐츠 표의 열 폭을 열별 내용량에 비례해 재배분한다(표 총 폭 불변).
+
+    셀 병합이 없는 표만 대상이다(md-profile은 병합을 금지하므로 파이프라인 산출물은
+    전부 해당한다). 제목 박스·붙임 배너는 제외한다 — 폭이 양식 실측값으로 고정돼 있다."""
+    fitted = 0
+    detail = []
+    for tbl, is_title in _iter_content_tables(section_roots):
+        if is_title or _is_banner_table(tbl):
+            continue
+        rows = tbl.findall(qn("hp", "tr"))
+        if not rows:
+            continue
+        cols = int(tbl.get("colCnt") or 0)
+        if cols < 2:
+            continue
+        spanned = any(
+            (sp := tc.find(qn("hp", "cellSpan"))) is not None
+            and (sp.get("colSpan") != "1" or sp.get("rowSpan") != "1")
+            for tr in rows for tc in tr.findall(qn("hp", "tc"))
+        )
+        if spanned:
+            continue
+        weights = [0] * cols
+        widths = [None] * cols
+        cells_by_col = [[] for _ in range(cols)]
+        ok = True
+        for tr in rows:
+            tcs = tr.findall(qn("hp", "tc"))
+            if len(tcs) != cols:
+                ok = False
+                break
+            for idx, tc in enumerate(tcs):
+                text = "".join(t.text or "" for t in tc.iter(qn("hp", "t")))
+                weights[idx] = max(weights[idx], _weighted_len(text))
+                sz = tc.find(qn("hp", "cellSz"))
+                if sz is None:
+                    ok = False
+                    break
+                cells_by_col[idx].append(sz)
+                widths[idx] = int(sz.get("width"))
+        if not ok or any(w is None for w in widths) or sum(weights) <= 0:
+            continue
+        total = sum(widths)
+        shares = _fit_shares(weights)
+        current = [w / total for w in widths]
+        if max(abs(a - b) for a, b in zip(shares, current)) <= COL_FIT_TOLERANCE:
+            continue
+        new_widths = [int(total * sh) for sh in shares]
+        new_widths[-1] = total - sum(new_widths[:-1])   # 합계 == 표 폭 정확 일치
+        for idx, width in enumerate(new_widths):
+            for sz in cells_by_col[idx]:
+                sz.set("width", str(width))
+        fitted += 1
+        detail.append({"cols": cols, "before": widths, "after": new_widths})
+    return {"tables_fitted": fitted, "detail": detail}
+
+
 FIT_PAGE_SLACK = 283  # HWPUNIT(1.0mm) — R042: 총 폭은 본문 폭 '미만'이어야 한다(같으면 줄바꿈)
 
 
@@ -1966,6 +2272,79 @@ def apply_fit_page_width(section_roots):
 # 발신 줄 크기 실측값(R018, format-profile.kca.md §서체) — --all이 이 값을 기본 적용한다.
 # 종전에는 호출자가 --sender-size 12를 매번 손으로 넘겨야 해 9곳 문서에 값이 복제됐고,
 # 빠뜨리면 규칙 위반본이 그대로 나갔다.
+# 계층별 확정 글자 크기 (format-profile.kca.md §2 — R008 값의 후처리 방어선).
+# kordoc generate_document가 sizes 인자(dae·bodyTitle)를 무시하고 preset 기본값으로
+# □ 17pt·대시 14pt·제목 23~25pt를 산출하는 것을 '26.9.8 실측 확인했다 — 생성기 기본값에
+# 양식 정합을 맡기지 않고 여기서 결정론으로 되돌린다. 표 셀은 대상이 아니다(R023 12pt는
+# apply_caption_table_font 소관).
+FORM_SIZES_PT = {"dae": 15, "yo": 15, "dash": 15, "arrow": 15, "star": 13, "cham": 13}
+TITLE_BOX_SIZE_PT = 20
+# 본문 계층 안에서 의도적으로 작게 남겨 둔 높이 — 괄호 13pt(R033·R039)가 유일하다.
+# 이 패스를 재실행해도 앞선 apply_paren_small의 결과를 되돌리지 않도록 건너뛴다(멱등).
+FORM_SIZES_KEEP = (1300,)
+
+
+def _charpr_heights(header_root):
+    """{charPr id: height} — 문단마다 전역 탐색하면 charPr이 늘수록 제곱으로 느려진다
+    (apply_paren_small이 이미 쓰는 방식)."""
+    out = {}
+    for cp in header_root.iter(qn("hh", "charPr")):
+        try:
+            out[cp.get("id")] = int(cp.get("height"))
+        except (TypeError, ValueError):
+            out[cp.get("id")] = None
+    return out
+
+
+def apply_form_sizes(header_root, section_roots):
+    """계층 문단·제목 박스 run의 글자 크기를 양식 확정값으로 되돌린다(폰트·볼드 유지)."""
+    p_tag = qn("hp", "p")
+    cache = {}
+    counts = {}
+    changed = 0
+    heights = _charpr_heights(header_root)
+    for sec_root in section_roots:
+        for child in sec_root:
+            if child.tag != p_tag:
+                continue
+            kind = classify(child)
+            pt = FORM_SIZES_PT.get(kind)
+            if pt is None:
+                continue
+            counts[kind] = counts.get(kind, 0) + 1
+            for run in child.findall(qn("hp", "run")):
+                base_id = run.get("charPrIDRef")
+                if base_id is None:
+                    continue
+                if heights.get(base_id) in FORM_SIZES_KEEP:
+                    continue
+                new_id = ensure_charpr_sized(header_root, base_id, pt * 100, cache)
+                if new_id != base_id:
+                    run.set("charPrIDRef", new_id)
+                    changed += 1
+    title_changed = 0
+    title_tbl = _title_box(header_root, section_roots)
+    title_rows = title_tbl.findall(qn("hp", "tr")) if title_tbl is not None else []
+    title_idx = _title_row_index(title_rows)
+    if title_idx is not None:
+        # 제목 행만 대상 — 밴드 행의 빈 1pt run(행 높이 3.8pt)과 부가 행(담당자 행)은
+        # 제목 크기로 부풀리면 안 된다
+        for run in title_rows[title_idx].iter(qn("hp", "run")):
+            t = run.find(qn("hp", "t"))
+            if t is None or not (t.text or "").strip():
+                continue
+            base_id = run.get("charPrIDRef")
+            if base_id is None:
+                continue
+            new_id = ensure_charpr_sized(header_root, base_id,
+                                         TITLE_BOX_SIZE_PT * 100, cache)
+            if new_id != base_id:
+                run.set("charPrIDRef", new_id)
+                title_changed += 1
+    return {"paragraphs": counts, "runs_changed": changed,
+            "title_runs_changed": title_changed, "title_pt": TITLE_BOX_SIZE_PT}
+
+
 SENDER_SIZE_PT = 12
 
 
@@ -2264,7 +2643,12 @@ def canonicalize_package(data):
 #   · caption_embed → spacing (R034: 캡션 문단이 hp:caption으로 사라지면
 #     X→caption·caption→table 전환이 X→table 전환으로 바뀐다)
 #   · zero 게이트 그룹은 spacing 뒤 (R014: 콘텐츠 paraPr 여백 0화로 스페이서 단독 체계 유지)
-#   · always 게이트 4종은 플래그 무관 상시 적용 (R036·R042 표 폭 정합 등)
+#   · title_box_form → title_box → title_box_topgap (R084: 원형 복원이 4변 NONE을 만든 뒤
+#     borderless가 무동작이 되고, topgap은 복원된 표의 앵커를 본다)
+#   · column_fit → layout (열 폭이 행 높이를 결정하므로 재배분 전 수치로 쪽수를 재면 안 된다)
+#   · always 게이트 5종은 플래그 무관 상시 적용 — **양식이 요구하는 불변식만** 둔다
+#     (R036·R042 표 폭 정합·R043 패키지 정합). 내용 기반 재조판인 column_fit은 zero
+#     게이트다: --star-footnote 하나로 본문 표 열 폭이 통째로 바뀌면 안 된다
 # 판정이 None이면 그 축(found/changed)에 세지 않는다 — effective_gaps·layout은 보고 전용.
 _never = None
 
@@ -2281,6 +2665,10 @@ STAGES = (
     ("caption_embed", "spacing",
      lambda c: apply_caption_embed(c["header"], c["secs"]),
      lambda r: r["embedded"] > 0, lambda r: r["embedded"] > 0),
+    ("form_sizes", "spacing",
+     lambda c: apply_form_sizes(c["header"], c["secs"]),
+     lambda r: bool(r["paragraphs"]),
+     lambda r: bool(r["runs_changed"] or r["title_runs_changed"])),
     ("spacing", "spacing",
      lambda c: {k: v for k, v in apply_spacing(c["header"], c["secs"]).items()
                 if k in ("inserted", "modified", "events")},
@@ -2315,6 +2703,9 @@ STAGES = (
     ("center_cells", "zero",
      lambda c: apply_center_cell_text(c["header"], c["secs"]),
      lambda r: r["tables"] > 0, lambda r: r["paragraphs"] > 0),
+    ("title_box_form", "zero",
+     lambda c: apply_title_box_form(c["header"], c["secs"]),
+     lambda r: bool(r["restored"]), lambda r: bool(r["restored"])),
     ("title_box", "zero",
      lambda c: apply_title_box_borderless(c["header"], c["secs"]),
      lambda r: bool(r["found"]), lambda r: r["fills_replaced"] > 0),
@@ -2348,6 +2739,9 @@ STAGES = (
     ("line_fit", "always",
      lambda c: apply_line_fit(c["header"], c["secs"]),
      _never, lambda r: r["fitted"] > 0),
+    ("column_fit", "zero",
+     lambda c: apply_table_column_fit(c["secs"]),
+     lambda r: bool(r["tables_fitted"]), lambda r: bool(r["tables_fitted"])),
     ("layout", "always",
      lambda c: estimate_layout(c["header"], c["secs"]), _never, _never),
     ("fit_page_width", "always",

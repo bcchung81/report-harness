@@ -50,7 +50,8 @@ def check(post, exp):
             fails.append({"check": path, "got": got, "expected": "truthy"})
 
     truthy("title_box.found", post.get("title_box", {}).get("found"))
-    truthy("star_footnote.ref_charpr_id", post.get("star_footnote", {}).get("ref_charpr_id"))
+    if exp["star"]:   # ＊ 각주가 없으면 참고 charPr을 찾을 이유도 없다(단계가 스킵된다)
+        truthy("star_footnote.ref_charpr_id", post.get("star_footnote", {}).get("ref_charpr_id"))
     eq("sender_size.runs_changed", post.get("sender_size", {}).get("runs_changed"), 1)
     eq("dae_bold.runs_changed", post.get("dae_bold", {}).get("runs_changed"), exp["dae"])
     eq("annex_banner.title_justified",

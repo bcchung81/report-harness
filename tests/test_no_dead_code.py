@@ -15,7 +15,7 @@ REMOVED_CTX = re.compile(r"제거|폐기|거부|exit 2|쓰지 않는|사용하�
 
 
 def _scripts():
-    for g in ("skills/report-pipeline/scripts/*.py", "scripts/*.py", "hooks/*.py",
+    for g in ("skills/*/scripts/*.py", "scripts/*.py", "hooks/*.py",
               "webapp/kca-report-hwpx/scripts/*.py"):
         yield from ROOT.glob(g)
 

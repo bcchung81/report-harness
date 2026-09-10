@@ -52,6 +52,17 @@ def test_first_dae_gap_matches_code():
     assert ph.TRANSITIONS[("sending", "dae")][1] == gaps[key]
 
 
+def test_yo_to_dash_gap_matches_code():
+    """ㅇ → 대시 간격이 프로파일과 TRANSITIONS에서 같다 (R013 '26.9.10 정정 3pt).
+
+    종전 드리프트 검사는 §7 간격표 8행 중 두 행(발신→□·블록 경계)만 코드와 대조했다 —
+    나머지는 프로파일만 고치고 코드를 안 고쳐도(또는 그 반대여도) 통과했다."""
+    gaps = _hwpunits_from_gap_table()
+    key = next(k for k in gaps if k.replace(" ", "") == "ㅇ→-")
+    assert gaps[key] == 300, "프로파일의 ㅇ→대시 간격이 3pt가 아니다"
+    assert ph.TRANSITIONS[("yo", "dash")][1] == gaps[key]
+
+
 def test_block_boundary_matches_code():
     """두 번째 이후 □ 상단 간격이 프로파일과 BLOCK_BOUNDARY_HEIGHT에서 같다 (R060)."""
     gaps = _hwpunits_from_gap_table()
@@ -79,6 +90,47 @@ def test_sender_size_default_matches_profile():
     프로파일과 코드 상수 두 곳만 남기고, 그 둘의 일치를 여기서 강제한다."""
     assert re.search(r"발신 줄 12pt\(R018\)", _profile_text()), "프로파일의 발신 줄 실측 서술이 사라졌다"
     assert ph.SENDER_SIZE_PT == 12
+
+
+def test_form_sizes_match_profile():
+    """계층 글자 크기 재강제 값이 format-profile §2 명시값과 같다.
+
+    kordoc generate_document가 sizes 인자를 무시하고 □ 17pt·대시 14pt·제목 23~25pt를
+    산출한 '26.9.8 회귀 이후, 양식 값을 후처리가 되돌린다 — 그 값이 프로파일과 갈리면
+    되돌린 결과 자체가 틀리므로 두 곳의 일치를 여기서 강제한다."""
+    profile = _profile_text()
+    assert "| 문서 제목 | HY헤드라인M | 20pt |" in profile, "프로파일의 제목 20pt 행이 사라졌다"
+    assert "| □ (1단 제목) | HY헤드라인M | 15pt |" in profile, "프로파일의 □ 15pt 행이 사라졌다"
+    assert "| ㅇ (2단 요지) | 휴먼명조 | 15pt |" in profile, "프로파일의 ㅇ 15pt 행이 사라졌다"
+    assert "| - (3단 상세) | 휴먼명조 | 15pt |" in profile, "프로파일의 대시 15pt 행이 사라졌다"
+    assert ph.TITLE_BOX_SIZE_PT == 20
+    assert ph.FORM_SIZES_PT["dae"] == 15
+    assert ph.FORM_SIZES_PT["yo"] == 15
+    assert ph.FORM_SIZES_PT["dash"] == 15
+    assert ph.FORM_SIZES_PT["cham"] == 13
+
+
+def test_title_box_form_matches_profile():
+    """제목 박스 원형 값이 프로파일 서술과 코드에서 같다.
+
+    format-profile §7이 '상단 얇은 행(3.8pt)은 양식 원형(1열×3행)의 그라데이션 배경
+    밴드이므로 삭제 금지'라고 못박은 그 구조를, kordoc이 더 이상 만들지 않아 후처리가
+    복원한다 — 밴드 높이가 갈리면 복원 결과가 양식과 어긋난다."""
+    profile = _profile_text()
+    assert "양식 원형(1열×3행)" in profile, "프로파일의 제목표 3행 원형 서술이 사라졌다"
+    assert "3.8pt" in profile, "프로파일의 밴드 높이 서술이 사라졌다"
+    assert ph.TITLE_BOX_BAND_HEIGHT == 382          # 3.8pt
+    assert ph.TITLE_BOX_TITLE_HEIGHT == 2850        # 28.5pt
+    # 어느 행이 어떤 채움을 갖는지까지 대조한다 — 색 문자열만 훑으면 상·하 밴드가
+    # 뒤바뀌어도 통과한다(종전 검사의 구멍)
+    assert '<hc:winBrush faceColor="#0080C0"' in ph.TITLE_BOX_TOP_FILL, "0행은 단색 #0080C0"
+    assert "gradation" not in ph.TITLE_BOX_TOP_FILL, "0행에 그라데이션이 들어갔다"
+    assert 'type="RADIAL"' in ph.TITLE_BOX_BOTTOM_FILL, "2행은 방사형 그라데이션"
+    assert (ph.TITLE_BOX_BOTTOM_FILL.index("#0080C0")
+            < ph.TITLE_BOX_BOTTOM_FILL.index("#3CBFFF")), "2행 그라데이션 색 순서 역전"
+    # 프로파일이 같은 값을 단일 출처로 들고 있다(CLAUDE.md 값 드리프트 규약)
+    for token in ('winBrush #0080C0', 'RADIAL', '#0080C0→#3CBFFF', '4변 `NONE`'):
+        assert token in profile, f"프로파일에 복원 확정값 서술이 없다: {token}"
 
 
 def test_line_fit_floors_match_rules():

@@ -165,7 +165,7 @@ def test_classify_symbols():
 def test_transition_lookup_values():
     assert ph.transition_for("sending", "dae") == ("sending_to_dae", 1200)
     assert ph.transition_for("dae", "yo") == ("dae_to_yo", 600)
-    assert ph.transition_for("yo", "dash") == ("yo_to_dash", 600)
+    assert ph.transition_for("yo", "dash") == ("yo_to_dash", 300)   # R013 정정 '26.9.10
     assert ph.transition_for("dash", "star") == ("dash_to_star", 300)
     assert ph.transition_for("star", "caption") == ("star_to_caption", 1000)
     assert ph.transition_for("yo", "dae") == ("block_boundary", 800)
@@ -205,6 +205,27 @@ def test_star_footnote_missing_ref_raises(tmp_path):
         ph.process_file(str(p), star=True, spacing=False)
 
 
+def test_star_footnote_skips_when_no_targets(tmp_path):
+    """＊ 문단이 없으면 참고 charPr이 없어도 중단하지 않고 뒤 단계가 이어진다.
+
+    회귀 대상: 기관 서식 채움본(TASK-11 v6 — ＊ 0건, 13pt 글꼴이 맑은고딕이 아님)에서
+    이 전제 실패가 예외로 터져 `--all`의 **모든 뒤 단계가 무적용**됐다. 표 폭 정합
+    (R036·R042)과 패키지 정합(R043)까지 건너뛰므로 반입 가능성에도 영향이 간다."""
+    header_no_ref = HEADER_XML.replace(
+        '<hh:font id="1" face="맑은고딕" type="TTF" isEmbedded="0"/>',
+        '<hh:font id="1" face="휴먼명조" type="TTF" isEmbedded="0"/>',
+    )
+    section_no_star = SECTION_XML.replace("＊", "·")
+    p = tmp_path / "nostar.hwpx"
+    build_hwpx(str(p), header_xml=header_no_ref, section_xml=section_no_star)
+    summary = ph.process_file(str(p), star=True, spacing=True)
+    assert summary["star_footnote"]["skipped"] == "no_star_targets"
+    assert summary["star_footnote"]["stars_found"] == 0
+    # 뒤 단계가 실제로 돌았다 — 패키지 정합이 보고에 잡힌다
+    assert "package_canonical" in summary
+    assert "fit_page_width" in summary
+
+
 # --- ②전환 유형별 스페이서 높이 판정 ---------------------------------------
 
 def test_spacing_inserts_and_modifies(hwpx_file):
@@ -242,7 +263,7 @@ def test_spacing_inserts_and_modifies(hwpx_file):
     assert height_of(tops[idx_yo1 - 1]) == "600"
 
     idx_dash1 = texts.index("- 상세1")
-    assert height_of(tops[idx_dash1 - 1]) == "600"
+    assert height_of(tops[idx_dash1 - 1]) == "300"   # ㅇ→대시 3pt (R013 정정 '26.9.10)
 
     idx_star1 = texts.index("＊ 각주1")
     assert height_of(tops[idx_star1 - 1]) == "300"
@@ -606,7 +627,11 @@ def test_title_box_borderless_creates_fill_when_missing(tmp_path):
         hdr = z.read("Contents/header.xml").decode()
     assert 'itemCnt="3"' in re.search(r'<hh:borderFills itemCnt="(\d+)"', hdr).group()
     new_fill = re.search(r'<hh:borderFill id="3"[^>]*>.*?</hh:borderFill>', hdr, re.S).group()
-    assert len(re.findall(r'Border type="NONE"', new_fill)) == 4  # left/right/top/bottom 전부 NONE
+    # 좌·우만 NONE — 상·하 괘선은 양식 제목부의 시각 요소라 보존한다('26.9.8 회귀)
+    assert re.search(r'leftBorder type="NONE"', new_fill)
+    assert re.search(r'rightBorder type="NONE"', new_fill)
+    assert re.search(r'topBorder type="SOLID"', new_fill)
+    assert re.search(r'bottomBorder type="SOLID"', new_fill)
     assert 'slash type="NONE"' in new_fill  # 대각선(slash/backSlash)은 원본 그대로 보존(원래도 NONE)
 
 
@@ -714,8 +739,10 @@ def test_main_all_sender_size_override(hwpx_file, capsys):
 
 
 def test_title_box_keeps_gradient_fill(tmp_path):
-    # 그라데이션 배경 + SOLID 테두리 borderFill을 참조하는 제목 박스 →
-    # 테두리만 NONE, fillBrush(gradation) 보존된 변형으로 교체돼야 한다
+    # 그라데이션 배경 + SOLID 테두리 borderFill을 참조하는 제목 박스 밴드 행 →
+    # 좌·우 테두리만 NONE, fillBrush(gradation) 보존된 변형으로 교체돼야 한다.
+    # 채움은 밴드 행이 지고 제목 행은 비어 있다(양식·실산출물 실측) — R084 판정이
+    # 요구하는 형태이기도 하다.
     header = HEADER_XML.replace(
         "</hh:borderFills>",
         '''<hh:borderFill id="7" threeD="0" shadow="0" centerLine="NONE" breakCellSeparateLine="0">
@@ -729,7 +756,7 @@ def test_title_box_keeps_gradient_fill(tmp_path):
     </hh:borderFill></hh:borderFills>''')
     section = '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
-  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="1" rowCnt="1" colCnt="1" borderFillIDRef="7"><hp:tr><hp:tc borderFillIDRef="7"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>제목</hp:t></hp:run></hp:p></hp:subList></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="1" rowCnt="3" colCnt="1" borderFillIDRef="7"><hp:sz width="47909" height="3614"/><hp:tr><hp:tc borderFillIDRef="7"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t/></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="0"/><hp:cellSz width="47909" height="382"/></hp:tc></hp:tr><hp:tr><hp:tc borderFillIDRef="1"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>제목</hp:t></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="1"/><hp:cellSz width="47909" height="2850"/></hp:tc></hp:tr><hp:tr><hp:tc borderFillIDRef="7"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t/></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="2"/><hp:cellSz width="47909" height="382"/></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
   <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>□ 절</hp:t></hp:run></hp:p>
 </hs:sec>
 '''
@@ -737,7 +764,8 @@ def test_title_box_keeps_gradient_fill(tmp_path):
     build_hwpx(str(p), header_xml=header, section_xml=section)
     summary = ph.process_file(str(p), star=False, spacing=True)
     assert summary["title_box"]["found"] is True
-    assert summary["title_box"]["fills_replaced"] == 2
+    assert summary["title_box_form"]["skipped"] == "already_restored"   # 이미 3행 원형
+    assert summary["title_box"]["fills_replaced"] == 4   # 표 + 셀 3개
     import xml.etree.ElementTree as _ET
     with zipfile.ZipFile(str(p)) as z:
         hdr_root = _ET.fromstring(z.read("Contents/header.xml"))
@@ -748,8 +776,10 @@ def test_title_box_keeps_gradient_fill(tmp_path):
         if bf.get("id") == new_id:
             target = bf
     assert target is not None
-    for tname in ("leftBorder", "rightBorder", "topBorder", "bottomBorder"):
+    for tname in ("leftBorder", "rightBorder"):
         assert target.find(ph.qn("hh", tname)).get("type") == "NONE"
+    for tname in ("topBorder", "bottomBorder"):   # 상·하 괘선 보존
+        assert target.find(ph.qn("hh", tname)).get("type") == "SOLID"
     assert target.find(ph.qn("hc", "fillBrush")) is not None  # 그라데이션 보존
     assert f'borderFillIDRef="{new_id}"' in sec_txt
 
@@ -1788,3 +1818,338 @@ def test_body_justify_idempotent(tmp_path):
         sec2 = ET.fromstring(z.read("Contents/section0.xml"))
     assert [pp.get("id") for pp in hdr2.iter(ph.qn("hh", "paraPr"))] == before_ids
     assert _para_align_by_text(hdr2, sec2) == before
+
+
+# --- 계층 글자 크기 재강제 (FORM_SIZES_PT) -----------------------------------
+# 근거: '26.9.8 실측 — kordoc generate_document가 sizes.dae·sizes.bodyTitle을 무시하고
+# □ 17pt·대시 14pt·제목 23~25pt로 산출한 회귀. 후처리가 양식 값으로 되돌려야 한다.
+
+FORM_SIZES_SECTION_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="1" rowCnt="1" colCnt="1" borderFillIDRef="2"><hp:tr><hp:tc borderFillIDRef="2"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="3"><hp:t>문서 제목</hp:t></hp:run></hp:p></hp:subList></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="4"><hp:t>□ 추진 배경</hp:t></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t> ㅇ 요지 문장</hp:t></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="5"><hp:t>   - 상세 문장</hp:t></hp:run></hp:p>
+</hs:sec>
+"""
+
+
+def _charpr_xml(cid, height):
+    return (
+        f'<hh:charPr id="{cid}" height="{height}" textColor="#000000" shadeColor="none" useFontSpace="0" useKerning="0" symMark="NONE" borderFillIDRef="2">'
+        '<hh:fontRef hangul="0" latin="0" hanja="0" japanese="0" other="0" symbol="0" user="0"/>'
+        '<hh:ratio hangul="100" latin="100" hanja="100" japanese="100" other="100" symbol="100" user="100"/>'
+        '<hh:spacing hangul="0" latin="0" hanja="0" japanese="0" other="0" symbol="0" user="0"/>'
+        '<hh:relSz hangul="100" latin="100" hanja="100" japanese="100" other="100" symbol="100" user="100"/>'
+        '<hh:offset hangul="0" latin="0" hanja="0" japanese="0" other="0" symbol="0" user="0"/></hh:charPr>'
+    )
+
+
+def _form_sizes_header():
+    # charPr 3=제목 2300 · 4=□ 1700 · 5=대시 1400 (kordoc 회귀 산출값)
+    extra = "".join(_charpr_xml(cid, h)
+                    for cid, h in (("3", "2300"), ("4", "1700"), ("5", "1400")))
+    return HEADER_XML.replace("</hh:charProperties>", extra + "</hh:charProperties>")
+
+
+def _heights_by_text(path):
+    import xml.etree.ElementTree as _ET
+    with zipfile.ZipFile(path) as z:
+        hdr = _ET.fromstring(z.read("Contents/header.xml"))
+        sec = z.read("Contents/section0.xml").decode()
+    heights = {cp.get("id"): int(cp.get("height"))
+               for cp in hdr.iter(ph.qn("hh", "charPr"))}
+    out = {}
+    for m in re.finditer(r'charPrIDRef="(\d+)"><hp:t>([^<]*)</hp:t>', sec):
+        out[m.group(2)] = heights.get(m.group(1))
+    return out
+
+
+def test_form_sizes_restores_form_values(tmp_path):
+    p = tmp_path / "form_sizes.hwpx"
+    build_hwpx(str(p), header_xml=_form_sizes_header(),
+               section_xml=FORM_SIZES_SECTION_XML)
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["form_sizes"]["runs_changed"] > 0
+    assert summary["form_sizes"]["title_runs_changed"] == 1
+    h = _heights_by_text(str(p))
+    assert h["문서 제목"] == ph.TITLE_BOX_SIZE_PT * 100 == 2000
+    assert h["□ 추진 배경"] == ph.FORM_SIZES_PT["dae"] * 100 == 1500
+    assert h["   - 상세 문장"] == ph.FORM_SIZES_PT["dash"] * 100 == 1500
+
+
+def test_form_sizes_is_idempotent(tmp_path):
+    p = tmp_path / "form_sizes_idem.hwpx"
+    build_hwpx(str(p), header_xml=_form_sizes_header(),
+               section_xml=FORM_SIZES_SECTION_XML)
+    ph.process_file(str(p), star=False, spacing=True)
+    second = ph.process_file(str(p), star=False, spacing=True)
+    assert second["form_sizes"]["runs_changed"] == 0
+    assert second["form_sizes"]["title_runs_changed"] == 0
+
+
+# --- 열 폭 재배분 (apply_table_column_fit) ------------------------------------
+# 근거: '26.9.8 실측 — 3열 표에서 내용량이 가장 많은 열이 가장 좁게 산출돼 행 높이가
+# 불어나고 표가 페이지를 넘겼다. 총 폭은 유지한 채 내용량 비례로 되돌린다.
+
+def _column_fit_section(widths, texts):
+    cells = []
+    for row_i, row in enumerate(texts):
+        tcs = "".join(
+            f'<hp:tc borderFillIDRef="2"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0">'
+            f'<hp:run charPrIDRef="0"><hp:t>{cell}</hp:t></hp:run></hp:p></hp:subList>'
+            f'<hp:cellAddr colAddr="{c}" rowAddr="{row_i}"/><hp:cellSpan colSpan="1" rowSpan="1"/>'
+            f'<hp:cellSz width="{widths[c]}" height="1000"/></hp:tc>'
+            for c, cell in enumerate(row))
+        cells.append(f"<hp:tr>{tcs}</hp:tr>")
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n'
+            '<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" '
+            'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">\n'
+            '  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0">'
+            '<hp:t>□ 절</hp:t></hp:run></hp:p>\n'
+            '  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0">'
+            f'<hp:tbl id="1" rowCnt="{len(texts)}" colCnt="{len(widths)}" borderFillIDRef="2">'
+            f'<hp:sz width="{sum(widths)}" height="2000"/>'
+            '<hp:outMargin left="0" right="0" top="0" bottom="0"/>'
+            + "".join(cells) +
+            '</hp:tbl></hp:run></hp:p>\n</hs:sec>\n')
+
+
+def test_column_fit_reverses_inverted_widths(tmp_path):
+    # 내용이 가장 긴 3열이 가장 좁게 잡힌 표 — 재배분 후 3열이 가장 넓어야 한다
+    widths = [9000, 24000, 15000]
+    texts = [["구 분", "주 제", "내 용"],
+             ["도입", "짧은 주제", "아주 긴 내용이 들어가는 열이며 실제로 여러 줄을 차지한다" * 2]]
+    p = tmp_path / "colfit.hwpx"
+    build_hwpx(str(p), section_xml=_column_fit_section(widths, texts))
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["column_fit"]["tables_fitted"] == 1
+    after = summary["column_fit"]["detail"][0]["after"]
+    assert sum(after) == sum(widths)          # 표 총 폭 불변
+    assert after[2] == max(after)             # 내용 열이 가장 넓다
+    assert after[0] == min(after)             # 구분 열이 가장 좁다
+
+
+def test_column_fit_is_idempotent(tmp_path):
+    widths = [9000, 24000, 15000]
+    texts = [["구 분", "주 제", "내 용"],
+             ["도입", "짧은 주제", "아주 긴 내용이 들어가는 열" * 3]]
+    p = tmp_path / "colfit_idem.hwpx"
+    build_hwpx(str(p), section_xml=_column_fit_section(widths, texts))
+    ph.process_file(str(p), star=False, spacing=True)
+    second = ph.process_file(str(p), star=False, spacing=True)
+    assert second["column_fit"]["tables_fitted"] == 0
+
+
+def test_column_fit_skips_merged_tables(tmp_path):
+    sec = _column_fit_section([9000, 24000, 15000],
+                              [["구 분", "주 제", "내 용"], ["a", "b", "c" * 40]])
+    sec = sec.replace('<hp:cellSpan colSpan="1" rowSpan="1"/>',
+                      '<hp:cellSpan colSpan="2" rowSpan="1"/>', 1)
+    p = tmp_path / "colfit_merged.hwpx"
+    build_hwpx(str(p), section_xml=sec)
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["column_fit"]["tables_fitted"] == 0
+
+
+# --- 제목 박스 원형 복원 (apply_title_box_form) --------------------------------
+# 근거: 양식 실측 3건(이음5G '26.7.30 · cert-poc '26.8.3 · xmos '26.8.7) 동일 —
+# 3행 1열, 0행 단색 #0080C0 · 2행 방사형 그라데이션 #0080C0→#3CBFFF.
+# kordoc이 '26.9월 1행(상·하 실선·채움 없음)으로 바꾸며 파란 띠가 사라진 회귀.
+
+ONE_ROW_TITLE_SECTION = '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="1" rowCnt="1" colCnt="1" borderFillIDRef="1"><hp:sz width="47907" height="4084"/><hp:outMargin left="0" right="0" top="0" bottom="600"/><hp:tr><hp:tc borderFillIDRef="1"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>문서 제목</hp:t></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="0"/><hp:cellSpan colSpan="1" rowSpan="1"/><hp:cellSz width="47907" height="4084"/></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>□ 절</hp:t></hp:run></hp:p>
+</hs:sec>
+'''
+
+
+def _title_box_rows(path):
+    import xml.etree.ElementTree as _ET
+    with zipfile.ZipFile(path) as z:
+        sec = _ET.fromstring(z.read("Contents/section0.xml"))
+        hdr = _ET.fromstring(z.read("Contents/header.xml"))
+    tbl = next(t for t in sec.iter(ph.qn("hp", "tbl")))
+    fills = {bf.get("id"): bf for bf in hdr.iter(ph.qn("hh", "borderFill"))}
+    out = []
+    for tr in tbl.findall(ph.qn("hp", "tr")):
+        tc = tr.find(ph.qn("hp", "tc"))
+        sz = tc.find(ph.qn("hp", "cellSz"))
+        bf = fills[tc.get("borderFillIDRef")]
+        fill = bf.find(ph.qn("hc", "fillBrush"))
+        kind = None
+        if fill is not None:
+            kind = "gradation" if fill.find(ph.qn("hc", "gradation")) is not None else "winBrush"
+        out.append((int(sz.get("height")), kind))
+    return tbl, out
+
+
+def test_title_box_form_restores_blue_bands(tmp_path):
+    p = tmp_path / "title_form.hwpx"
+    build_hwpx(str(p), section_xml=ONE_ROW_TITLE_SECTION)
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["title_box_form"]["restored"] == 1
+    tbl, rows = _title_box_rows(str(p))
+    assert tbl.get("rowCnt") == "3"
+    assert [h for h, _ in rows] == [ph.TITLE_BOX_BAND_HEIGHT,
+                                    ph.TITLE_BOX_TITLE_HEIGHT,
+                                    ph.TITLE_BOX_BAND_HEIGHT]
+    assert [k for _, k in rows] == ["winBrush", None, "gradation"]
+    # 총 폭(sz + outMargin 좌우) 불변 — 47907
+    sz = tbl.find(ph.qn("hp", "sz"))
+    out = tbl.find(ph.qn("hp", "outMargin"))
+    assert (int(sz.get("width")) + int(out.get("left")) + int(out.get("right"))) == 47907
+    assert out.get("left") == out.get("right") == str(ph.TITLE_BOX_SIDE_MARGIN)
+
+
+def test_title_box_form_is_idempotent(tmp_path):
+    p = tmp_path / "title_form_idem.hwpx"
+    build_hwpx(str(p), section_xml=ONE_ROW_TITLE_SECTION)
+    ph.process_file(str(p), star=False, spacing=True)
+    second = ph.process_file(str(p), star=False, spacing=True)
+    assert second["title_box_form"]["restored"] == 0
+    _, rows = _title_box_rows(str(p))
+    assert [k for _, k in rows] == ["winBrush", None, "gradation"]
+
+
+def test_title_box_form_keeps_gradient_through_borderless(tmp_path):
+    """복원된 밴드의 그라데이션이 뒤이은 borderless 처리에서 살아남는다."""
+    p = tmp_path / "title_form_keep.hwpx"
+    build_hwpx(str(p), section_xml=ONE_ROW_TITLE_SECTION)
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["title_box"]["fills_replaced"] == 0   # 이미 4변 NONE → 재교체 없음
+    _, rows = _title_box_rows(str(p))
+    assert rows[2][1] == "gradation"
+
+
+# --- 제목 박스 판정 정밀화 ('26.9.10) -----------------------------------------
+# 종전 판정은 "첫 □ 문단 이전의 표 전부 = 제목 박스"였다. kordoc 보고서 산출물은 그
+# 구간에 요약 박스(1행 1열 #DFE6F7)·문서정보표·장 배너를 함께 싣기 때문에 요약 박스가
+# 제목 박스로 개조돼 음영을 잃고 20pt로 부풀었다('26.9.10 실측 재현).
+
+SUMMARY_FILL_HEADER = HEADER_XML.replace(
+    "</hh:borderFills>",
+    '''<hh:borderFill id="3" threeD="0" shadow="0" centerLine="NONE" breakCellSeparateLine="0">
+      <hh:slash type="NONE" Crooked="0" isCounter="0"/>
+      <hh:backSlash type="NONE" Crooked="0" isCounter="0"/>
+      <hh:leftBorder type="SOLID" width="0.12 mm" color="#000000"/>
+      <hh:rightBorder type="SOLID" width="0.12 mm" color="#000000"/>
+      <hh:topBorder type="SOLID" width="0.12 mm" color="#000000"/>
+      <hh:bottomBorder type="SOLID" width="0.12 mm" color="#000000"/>
+      <hc:fillBrush><hc:winBrush faceColor="#DFE6F7" hatchColor="#000000" alpha="0"/></hc:fillBrush>
+    </hh:borderFill></hh:borderFills>''')
+
+# 제목 박스(1행 1열, 채움 없음) + 요약 박스(1행 1열, #DFE6F7) — 둘 다 첫 □ 이전
+TITLE_WITH_SUMMARY_SECTION = '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="1" rowCnt="1" colCnt="1" borderFillIDRef="1"><hp:sz width="47907" height="4084"/><hp:outMargin left="0" right="0" top="0" bottom="600"/><hp:tr><hp:tc borderFillIDRef="1"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>문서 제목</hp:t></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="0"/><hp:cellSpan colSpan="1" rowSpan="1"/><hp:cellSz width="47907" height="4084"/></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="2" rowCnt="1" colCnt="1" borderFillIDRef="3"><hp:sz width="47907" height="3280"/><hp:outMargin left="0" right="0" top="0" bottom="600"/><hp:tr><hp:tc borderFillIDRef="3"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>보고 목적을 밝히고자 함</hp:t></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="0"/><hp:cellSpan colSpan="1" rowSpan="1"/><hp:cellSz width="47907" height="3280"/></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>□ 절</hp:t></hp:run></hp:p>
+</hs:sec>
+'''
+
+# 제목 박스가 2행인 산출물(kordoc report_info — 제목 행 + 담당자 행)
+TWO_ROW_TITLE_SECTION = '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:tbl id="1" rowCnt="2" colCnt="1" borderFillIDRef="1"><hp:sz width="47907" height="6027"/><hp:outMargin left="0" right="0" top="0" bottom="600"/><hp:tr><hp:tc borderFillIDRef="1"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>문서 제목</hp:t></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="0"/><hp:cellSpan colSpan="1" rowSpan="1"/><hp:cellSz width="47907" height="4084"/></hp:tc></hp:tr><hp:tr><hp:tc borderFillIDRef="1"><hp:subList><hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>('26. 9. 10., 데이터전략팀)</hp:t></hp:run></hp:p></hp:subList><hp:cellAddr colAddr="0" rowAddr="1"/><hp:cellSpan colSpan="1" rowSpan="1"/><hp:cellSz width="47907" height="1943"/></hp:tc></hp:tr></hp:tbl></hp:run></hp:p>
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>□ 절</hp:t></hp:run></hp:p>
+</hs:sec>
+'''
+
+
+def _table_rows(path, tbl_index):
+    """(cellSz height, 채움 종류, 텍스트) 목록을 표 단위로 뽑는다."""
+    with zipfile.ZipFile(path) as z:
+        sec = ET.fromstring(z.read("Contents/section0.xml"))
+        hdr = ET.fromstring(z.read("Contents/header.xml"))
+    fills = {bf.get("id"): bf for bf in hdr.iter(ph.qn("hh", "borderFill"))}
+    tbl = [t for t, _ in ph._iter_content_tables([sec])][tbl_index]
+    out = []
+    for tr in tbl.findall(ph.qn("hp", "tr")):
+        tc = tr.find(ph.qn("hp", "tc"))
+        bf = fills[tc.get("borderFillIDRef")]
+        fill = bf.find(ph.qn("hc", "fillBrush"))
+        kind = None
+        if fill is not None:
+            kind = ("gradation" if fill.find(ph.qn("hc", "gradation")) is not None
+                    else fill.find(ph.qn("hc", "winBrush")).get("faceColor"))
+        out.append((int(tc.find(ph.qn("hp", "cellSz")).get("height")), kind,
+                    "".join(t.text or "" for t in tc.iter(ph.qn("hp", "t")))))
+    return tbl, out
+
+
+def test_title_box_form_leaves_summary_box_intact(tmp_path):
+    """요약 박스(첫 □ 이전 1행 1열 #DFE6F7)를 제목 박스로 오인해 개조하지 않는다."""
+    p = tmp_path / "title_summary.hwpx"
+    build_hwpx(str(p), header_xml=SUMMARY_FILL_HEADER,
+               section_xml=TITLE_WITH_SUMMARY_SECTION)
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["title_box_form"]["restored"] == 1   # 제목 박스 하나뿐
+    _, title_rows = _table_rows(str(p), 0)
+    assert [k for _, k, _ in title_rows] == ["#0080C0", None, "gradation"]
+    _, summary_rows = _table_rows(str(p), 1)
+    assert len(summary_rows) == 1, "요약 박스에 밴드 행이 생겼다"
+    assert summary_rows[0][1] == "#DFE6F7", "요약 박스 음영이 지워졌다"
+    assert summary_rows[0][2] == "보고 목적을 밝히고자 함"
+
+
+def test_form_sizes_leaves_summary_box_size(tmp_path):
+    """요약 박스 글자를 제목 박스 20pt로 부풀리지 않는다(본문 15pt 유지)."""
+    p = tmp_path / "title_summary_size.hwpx"
+    build_hwpx(str(p), header_xml=SUMMARY_FILL_HEADER,
+               section_xml=TITLE_WITH_SUMMARY_SECTION)
+    ph.process_file(str(p), star=False, spacing=True)
+    with zipfile.ZipFile(p) as z:
+        sec = ET.fromstring(z.read("Contents/section0.xml"))
+        hdr = ET.fromstring(z.read("Contents/header.xml"))
+    heights = {cp.get("id"): cp.get("height") for cp in hdr.iter(ph.qn("hh", "charPr"))}
+    sized = {}
+    for tbl, _ in ph._iter_content_tables([sec]):
+        for run in tbl.iter(ph.qn("hp", "run")):
+            t = run.find(ph.qn("hp", "t"))
+            if t is not None and (t.text or "").strip():
+                sized[t.text] = heights[run.get("charPrIDRef")]
+    assert sized["문서 제목"] == str(ph.TITLE_BOX_SIZE_PT * 100)
+    assert sized["보고 목적을 밝히고자 함"] == "1500"
+
+
+def test_title_box_form_restores_two_row_title(tmp_path):
+    """제목 행 + 부가 행(담당자) 2행 산출물도 제목 행만 밴드로 감싼다."""
+    p = tmp_path / "title_two_row.hwpx"
+    build_hwpx(str(p), section_xml=TWO_ROW_TITLE_SECTION)
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["title_box_form"]["restored"] == 1
+    tbl, rows = _table_rows(str(p), 0)
+    assert tbl.get("rowCnt") == "4"
+    assert [k for _, k, _ in rows] == ["#0080C0", None, "gradation", None]
+    assert [h for h, _, _ in rows] == [ph.TITLE_BOX_BAND_HEIGHT,
+                                       ph.TITLE_BOX_TITLE_HEIGHT,
+                                       ph.TITLE_BOX_BAND_HEIGHT, 1943]
+    assert rows[1][2] == "문서 제목"
+    assert rows[3][2] == "('26. 9. 10., 데이터전략팀)", "부가 행이 사라졌다"
+    # cellAddr rowAddr은 삽입 후에도 0..n-1로 연속이어야 한다
+    addrs = [tc.find(ph.qn("hp", "cellAddr")).get("rowAddr")
+             for tc in tbl.iter(ph.qn("hp", "tc"))]
+    assert addrs == ["0", "1", "2", "3"]
+
+
+def test_title_box_form_two_row_is_idempotent(tmp_path):
+    p = tmp_path / "title_two_row_idem.hwpx"
+    build_hwpx(str(p), section_xml=TWO_ROW_TITLE_SECTION)
+    ph.process_file(str(p), star=False, spacing=True)
+    second = ph.process_file(str(p), star=False, spacing=True)
+    assert second["title_box_form"]["restored"] == 0
+    tbl, rows = _table_rows(str(p), 0)
+    assert tbl.get("rowCnt") == "4"
+    assert [k for _, k, _ in rows] == ["#0080C0", None, "gradation", None]
+
+
+def test_title_box_form_reports_skip_reason(tmp_path):
+    """대상이 없거나 이미 복원된 경우를 '무동작'과 구분해 보고한다."""
+    p = tmp_path / "title_skip.hwpx"
+    build_hwpx(str(p), section_xml=ONE_ROW_TITLE_SECTION)
+    first = ph.process_file(str(p), star=False, spacing=True)
+    assert first["title_box_form"]["skipped"] is None
+    second = ph.process_file(str(p), star=False, spacing=True)
+    assert second["title_box_form"]["skipped"] == "already_restored"

@@ -28,6 +28,8 @@ FIXTURE = """AI 활용성과 측정 기준(안)
 
 ※ 도입 전 투입시간은 실측 또는 도입 전 시스템 기록으로 확보하고 항별 증거 등급을 병기
 
+＊ 순절감시간은 재작업 시간을 뺀 값으로, 도입 전후 처리 건수가 같은 과제에만 적용
+
 □ 과제별 적용
 
  ㅇ **(계열 배정)** 과제 20건을 산출값 성격별 계열로 배정해 대장에 고정
@@ -73,6 +75,10 @@ def test_postprocess_applies_all_rules(converted):
     """생성기 산출물이 하네스 후처리를 무수정으로 통과하고 룰이 실제로 적용된다."""
     _, _, post = converted
     assert post["title_box"]["found"] is True
+    # ＊ 각주가 있으므로 단계가 실제로 돌고 참고 charPr이 해석된다(R011).
+    # runs_changed는 단정하지 않는다 — md2hwpx는 kordoc과 달리 ＊ 문단을 이미
+    # 참고 스타일로 내보내므로 치환 0건이 정상이다.
+    assert post["star_footnote"]["stars_found"] == 1
     assert post["star_footnote"]["ref_charpr_id"] is not None
     assert post["dae_bold"]["runs_changed"] == 2
     assert post["annex_banner"]["title_justified"] == 1
