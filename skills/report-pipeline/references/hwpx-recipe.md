@@ -90,7 +90,7 @@ mcp__kordoc__extract_profile(
 ```
 mcp__kordoc__generate_document(
     markdown="{43_convert_input.md 전문 — 도식 마커 치환 완료본}",
-    output_path="{work_dir}/final/{제목}.hwpx",
+    output_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx",
     preset="보고서",
     body_pt=15,                      # ㅇ·- 본문 15pt
     fonts={"heading": "HY헤드라인M",  # □·제목 계열
@@ -153,10 +153,10 @@ python3 "$SKILL_DIR/scripts/check_image_size.py" \
 
 ```
 mcp__kordoc__patch_document(
-    file_path="{work_dir}/final/{제목}.hwpx",
+    file_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx",
     edited_markdown="{parse_document로 얻은 마크다운에서 도해 마커 문단만
                       출처 캡션이 붙은 이미지로 치환한 전체 텍스트}",
-    output_path="{work_dir}/final/{제목}.hwpx")
+    output_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx")
 ```
 
 - `patch_document`는 블록 추가/삭제를 지원하지 않는다 — 이미지 마커 문단이 이미 존재하는
@@ -171,7 +171,7 @@ mcp__kordoc__patch_document(
 
 ```
 python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
-    {work_dir}/final/{제목}.hwpx --all
+    {work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx --all
 ```
 
 `--all`은 `--star-footnote`·`--spacing`·`--header-banner`에 더해 발신 줄 12pt(R018)를 기본
@@ -334,7 +334,7 @@ python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
 
 ```
 python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
-    structural {work_dir}/final/{제목}.hwpx
+    structural {work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx
 ```
 
 - zip 무결성(`testzip`) + 내부 xml 전체 파싱(`ET.fromstring`) 검사.
@@ -344,7 +344,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 ### 4-2. 왕복 되읽기
 
 ```
-mcp__kordoc__parse_document(file_path="{work_dir}/final/{제목}.hwpx")
+mcp__kordoc__parse_document(file_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx")
 ```
 
 결과 마크다운을 모델이 `{work_dir}/40_roundtrip.md`로 저장한다(스크립트는 MCP를 직접 호출할
@@ -398,7 +398,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 
 ## 7. 인도
 
-- `{work_dir}/final/{제목}.hwpx` + `{work_dir}/40_roundtrip.md`(왕복 대조 근거) +
+- `{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx`(판본 접두어 — R086) + `{work_dir}/40_roundtrip.md`(왕복 대조 근거) +
   대조 결과 요약을 `40_qa.md`로 정리해 함께 인도한다.
 - 1회 변환(재시도 0회)으로 통과한 경우가 표준 경로 — 초안 단계 lint가 이미 변환 가능
   프로파일만 통과시켰기 때문에 재변환 루프는 예외 처리다.

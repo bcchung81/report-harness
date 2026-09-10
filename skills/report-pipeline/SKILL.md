@@ -104,7 +104,10 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
 
 ## ③ draft — 초안작성
 
-**입력**: `05_analysis.md` + `research/`. **산출**: `10_outline.md` → `20_draft.md` (vN).
+**입력**: `05_analysis.md` + `research/`. **산출**: `10_outline.md` → `20_draft.md`.
+초안 판본은 파일명에 붙이지 않는다 — 의미 있는 지점(게이트② 승인 직후·교정 착수 전·
+교차검증 전)마다 `archive_revision.py snapshot {work_dir} --label <사유>`로 이력 폴더에
+남긴다(R086). 현행본은 언제나 `20_draft.md` 하나다.
 **게이트 3개(⓪①②)가 이 단계에 전부 몰려 있다** — 아래 순서를 반드시 지킨다.
 
 ### 게이트⓪ — Q&A (AskUserQuestion, 4문항 이내)
@@ -241,8 +244,11 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 
 ## ④ export — hwpx 변환
 
-**입력**: 게이트② 승인된 `20_draft.md` + 팩트체크 선택값. **산출**: `final/{제목}.hwpx` +
-`40_qa.md`. **사용자 게이트 없음** — 자동 검증만.
+**입력**: 게이트② 승인된 `20_draft.md` + 팩트체크 선택값. **산출**:
+`final/r{NN}_{YYYYMMDD}_{제목}.hwpx` + `40_qa.md`. **사용자 게이트 없음** — 자동 검증만.
+**변환 시작 전에 `python3 "$SKILL_DIR/scripts/archive_revision.py" revise {work_dir}`를 한 번
+돌린다(R086)** — 직전 변환 세트를 `history/rNN_{시각}/`으로 내리고 쓸 판본 번호(`next_version`)를
+알려 준다. 최초 변환이면 `skipped: no_delivered_hwpx`로 아무 일도 하지 않고 r01을 쓴다.
 
 1. **팩트체크(게이트②에서 선택된 값대로) ∥ 회귀검사(`rules.md` `[export]` 태그 +
    `md-profile.md`)를 한 메시지 다중 Agent로 동시 스폰**한다. 전수는 독립 서브에이전트가
@@ -291,7 +297,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
      결과가 규칙과 어긋나 보이면 그 절을 읽고 판정한다(여기서는 중복 서술하지 않는다).
    - `--star-indent`는 R019에서 폐기돼 **CLI에서 제거됐다** — 지금 넘기면 exit 2로 거부된다.
      계층 내어쓰기는 `--spacing` 묶음의 `apply_space_hierarchy`가 담당한다.
-3. **인도**: `final/{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다. 미검증 사실(팩트체크
+3. **인도**: `final/r{NN}_{YYYYMMDD}_{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다. 미검증 사실(팩트체크
    생략/경량 선택 시)·잔존 QA 이슈가 있으면 **1줄로만** 고지한다 — 장황한 나열 금지.
 
    **vault 적재 금지 — 수확은 vault가 한다 (R048)**: 작업폴더(`reports_dir` 아래)가 **유일한
@@ -374,6 +380,10 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   재정의용이다(`--star-indent`는 R019 폐기로 제거 — 넘기면 exit 2). 표 폭 정합(R036·R042)·
   패키지 정합(R043 — 내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
   exit 0(적용)/1(대상 0건 — 원인 확인)/2(인자·파일·구조 오류).
+- `scripts/archive_revision.py snapshot|revise|migrate <work_dir>` — 이력 관리(R086).
+  `snapshot --label <사유>`는 현행 초안을 `history/drafts/`로 복사(현행본 불변), `revise`는
+  재변환 직전 변환 세트를 `history/rNN_{시각}/`으로 내리고 인도본에 판본 접두어를 붙인다,
+  `migrate`는 흩어진 구 판본을 모으는 1회 정리(기본 계획 출력, `--apply`로 수행).
 - `scripts/validate_hwpx.py structural|compare|numbers|freshness` — 구조 검증/왕복 대조(문장 단위 포함)/경량 팩트체크/산출물 신선도(초안↔prepared 대응, R085).
   시그니처는 `hwpx-recipe.md` 부록 표 참조(중복 서술 안 함).
 - `scripts/check_image_size.py <img>` — 이미지 규격 판정. exit 0(이내)/1(초과)/2(오류).

@@ -49,13 +49,15 @@ def checks():
                 "값": _v(["node", "-v"]) or "없음",
                 "조치": "" if npx else "Node.js 18+ 설치 — kordoc MCP가 npx로 실행된다"})
 
-    # ③ 스크립트 8종 존재·구문
-    missing = [n for n in ("harness_config.py", "lint_md_profile.py", "prep_report_md.py",
-                           "postprocess_hwpx.py", "validate_hwpx.py", "check_image_size.py",
-                           "extract_format_profile.py", "consolidate_rules.py")
-               if not (SCRIPTS / n).exists()]
-    out.append({"항목": "결정론 스크립트 8종", "상태": OK if not missing else FATAL,
-                "값": f"{8 - len(missing)}/8", "조치": f"누락: {missing}" if missing else ""})
+    # ③ 결정론 스크립트 존재·구문 (audit_style·archive_revision이 인벤토리에서 빠져 있었다)
+    expected = ("harness_config.py", "lint_md_profile.py", "prep_report_md.py",
+                "postprocess_hwpx.py", "validate_hwpx.py", "check_image_size.py",
+                "extract_format_profile.py", "consolidate_rules.py",
+                "audit_style.py", "archive_revision.py")
+    missing = [n for n in expected if not (SCRIPTS / n).exists()]
+    out.append({"항목": f"결정론 스크립트 {len(expected)}종", "상태": OK if not missing else FATAL,
+                "값": f"{len(expected) - len(missing)}/{len(expected)}",
+                "조치": f"누락: {missing}" if missing else ""})
 
     # ④ 규약 문서
     miss_ref = [n for n in ("style-guide.md", "md-profile.md", "hwpx-recipe.md",

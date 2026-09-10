@@ -33,6 +33,19 @@ def work_dir(config, slug, now=None):
     d.mkdir(parents=True, exist_ok=True)
     return d
 
+def history_paths(work_dir):
+    """건별 이력 폴더 규약 (R086) — 현행 산출물과 절대 겹치지 않는 자리.
+
+    `history/drafts/`는 아직 변환되지 않은 초안 스냅샷, `history/rNN_{시각}/`은 그 판본
+    인도본을 만든 변환 세트다. 인도본 hwpx는 `final/`에 `rNN_YYYYMMDD_` 접두어로 쌓이므로
+    이력 폴더로 복사하지 않는다(중복). 조작은 `archive_revision.py`가 맡는다.
+    """
+    wd = pathlib.Path(work_dir)
+    h = wd / "history"
+    return {"history": h, "drafts": h / "drafts", "index": h / "index.jsonl",
+            "final": wd / "final"}
+
+
 def state_paths(config):
     sd = pathlib.Path(config["state_dir"])
     sd.mkdir(parents=True, exist_ok=True)
