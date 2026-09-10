@@ -259,7 +259,11 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
    통과분만 `patch_document`로 주입 → **양식 정합 후처리(`postprocess_hwpx.py`, 아래 2-1)** →
    `validate_hwpx.py structural` → 왕복 되읽기 → `validate_hwpx.py compare` — 불일치는 최대
    2회 재변환 루프, 그래도 잔존하면 목록을 사용자에게 명시 보고하고 `20_draft.md`(SSOT)를
-   그대로 인도한다.
+   그대로 인도한다. `compare`는 개수·수치뿐 아니라 **문장 자체**를 대조한다(`content-dropped`).
+   **개정 건이라 기존 `40_prepared.md`가 이미 있으면 변환 전에
+   `validate_hwpx.py freshness {work_dir}/20_draft.md {work_dir}/40_prepared.md`를 먼저
+   돌린다(R085)** — `prepared-stale`이면 그 산출물 세트가 지금 초안과 다른 판이므로 prep부터
+   다시 태운다. 이 검사를 건너뛰면 초안만 고치고 인도본은 옛 판인 상태가 조용히 남는다.
 
    ### 2-1. 양식 정합 후처리 — 생략 금지 (recipe §3.5)
 
@@ -370,6 +374,6 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   재정의용이다(`--star-indent`는 R019 폐기로 제거 — 넘기면 exit 2). 표 폭 정합(R036·R042)·
   패키지 정합(R043 — 내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
   exit 0(적용)/1(대상 0건 — 원인 확인)/2(인자·파일·구조 오류).
-- `scripts/validate_hwpx.py structural|compare|numbers` — 구조 검증/왕복 대조/경량 팩트체크.
+- `scripts/validate_hwpx.py structural|compare|numbers|freshness` — 구조 검증/왕복 대조(문장 단위 포함)/경량 팩트체크/산출물 신선도(초안↔prepared 대응, R085).
   시그니처는 `hwpx-recipe.md` 부록 표 참조(중복 서술 안 함).
 - `scripts/check_image_size.py <img>` — 이미지 규격 판정. exit 0(이내)/1(초과)/2(오류).

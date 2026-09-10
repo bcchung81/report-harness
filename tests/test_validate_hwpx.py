@@ -1,6 +1,7 @@
 import sys, pathlib, zipfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "skills/report-pipeline/scripts"))
-from validate_hwpx import structural_check, profile_counts, compare_texts
+from validate_hwpx import (structural_check, profile_counts, compare_texts,
+                           content_pieces, freshness_check)
 
 MIMETYPE = b"application/hwp+zip"
 
@@ -135,3 +136,67 @@ def test_numbers_mode_ignores_korean_dates(tmp_path):
 def test_highlight_marker_leftover_detected():   # R040: 되읽기에 == 마커 잔존 시 검출
     issues = compare_texts("ㅇ 핵심 강조 문구\n", "ㅇ 핵심 ==강조== 문구\n")
     assert any(i["rule"] == "markdown-leftover" for i in issues)
+
+
+# --- 문장 단위 대조 ('26.9.10 신설) ------------------------------------------
+# 종전 compare는 개수(sections·points·subs·footnotes·tables·max_cols)·수치 집합·
+# 마크다운 잔재만 봤다 — 문장이 통째로 갈려도 총량과 수치가 맞으면 통과했다.
+
+def test_compare_detects_swapped_sentence():
+    """개수·수치가 모두 같은데 문장만 바뀐 경우를 잡는다."""
+    src = "□ 개 요\n ㅇ (조사 결론) 공통 번호가 없어 기관 간 연계가 끊긴 상태\n"
+    rt = "□ 개 요\n ㅇ (조사 결론) 담당자 면담으로 연계 경로를 확인한 상태\n"
+    a = {i["rule"] for i in compare_texts(src, src)}
+    b = [i for i in compare_texts(src, rt) if i["rule"] == "content-dropped"]
+    assert not a
+    assert b and b[0]["count"] == 1
+
+
+def test_compare_ignores_lead_symbol_mapping():
+    """마크다운 `- `가 개조식 `ㅇ `·`□ `로 바뀌는 것은 손실이 아니다.
+
+    변환 규약 자체가 그 매핑이라, 선두 기호를 그대로 대조하면 정상 변환이 전량
+    '소실'로 뒤집힌다('26.9.10 실측 — 인도 4건에서 문장 100%가 오탐)."""
+    src = "- 개 요\n- (조사 범위) 자료 목록 23종을 대조\n"
+    rt = "□ 개 요\nㅇ (조사 범위) 자료 목록 23종을 대조\n"
+    assert not [i for i in compare_texts(src, rt) if i["rule"] == "content-dropped"]
+
+
+def test_compare_ignores_readback_escapes():
+    """되읽기가 붙이는 `\\~` 이스케이프는 손실이 아니다.
+
+    실측에서 이 잡음 하나로 멀쩡한 문장 47조각이 소실로 잡혔다."""
+    src = " ㅇ 결제 후 3 ~ 5개월 소요\n"
+    rt = " ㅇ 결제 후 3 \\~ 5개월 소요\n"
+    assert not [i for i in compare_texts(src, rt) if i["rule"] == "content-dropped"]
+
+
+def test_content_pieces_flattens_table_cells():
+    pieces = content_pieces("| 구 분 | 내 용 |\n| --- | --- |\n| 도입 | 절차 점검 |\n")
+    assert pieces == ["구 분", "내 용", "도입", "절차 점검"]
+
+
+# --- 산출물 신선도 ('26.9.10 신설) -------------------------------------------
+
+def test_freshness_detects_stale_prepared():
+    """초안을 고치고 재변환을 안 하면 인도본이 조용히 낡는다 — 그 상태를 잡는다.
+
+    실측('26.9.10): 인도 건 4개 중 3개에서 20_draft가 40_prepared보다 최신이었고
+    본문 수치까지 달랐다(초안 `16건` vs 인도본 `17건`)."""
+    draft = "□ 개 요\n\n ㅇ (조사 결론) 대상 16건을 대조\n"
+    prepared = "□ 개 요\n\n ㅇ (조사 결론) 대상 17건을 대조\n"
+    issues = freshness_check(draft, prepared)
+    assert issues and issues[0]["rule"] == "prepared-stale"
+    assert issues[0]["drifted"] == 1
+
+
+def test_freshness_clean_when_prepared_matches_draft():
+    draft = "□ 개 요\n\n ㅇ (조사 결론) 대상 16건을 대조\n"
+    assert freshness_check(draft, draft) == []
+
+
+def test_freshness_ignores_prep_normalization():
+    """prep이 지우는 단일행 HTML 주석은 어긋남이 아니다 — prep을 다시 태워 비교한다."""
+    draft = "<!-- 작업 메모 -->\n□ 개 요\n\n ㅇ (조사 결론) 대상 16건을 대조\n"
+    prepared = "□ 개 요\n\n ㅇ (조사 결론) 대상 16건을 대조\n"
+    assert freshness_check(draft, prepared) == []
