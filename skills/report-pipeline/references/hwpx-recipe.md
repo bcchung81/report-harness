@@ -33,7 +33,7 @@
 
 ```
 python3 "$SKILL_DIR/scripts/prep_report_md.py" \
-    {work_dir}/20_draft.md -o {work_dir}/40_prepared.md
+    {work_dir}/20_draft.md -o {판본폴더}/40_prepared.md
 ```
 
 - `prep_report_md.py`는 의미 콘텐츠를 보존한다 — 단일행 HTML 주석 제거·문맥 확인된 구분선
@@ -49,7 +49,9 @@ python3 "$SKILL_DIR/scripts/prep_report_md.py" \
 - **exit 2**(`FATAL: {reason} at line {line} — 모호한 입력 거부`, stderr)면 **변환을 중단**하고
   사용자에게 사유·줄 번호를 그대로 보고한다. 20_draft.md를 수정해 원인을 제거한 뒤 이 단계부터
   재시도한다 — 다음 단계로 넘어가지 않는다.
-- exit 0(`OK {work_dir}/40_prepared.md`)이면 §2로 진행.
+- exit 0(`OK {판본폴더}/40_prepared.md`)이면 §2로 진행.
+- **`{판본폴더}`는 `archive_revision.py begin {work_dir}`가 돌려주는 `history/rNN_{시각}/`이다**
+  (R087). 변환 산출물은 전부 그 안에 쓴다 — 작업폴더 루트에 두면 초안만 고쳤을 때 함께 낡는다.
 
 ## 2. 문서 생성 — kordoc `generate_document`
 
@@ -83,13 +85,13 @@ mcp__kordoc__extract_profile(
 ※·＊ 라인·표·캡션은 그대로 둔다. **발신 줄은 `<right>< '연. 월. 일.(요일), 본부 팀 ></right>`로
 래핑**해 전달한다(R012 — kordoc `generate_document`의 우측정렬 출처행 문법. 미래핑 시 좌측/양쪽
 정렬로 떨어져 양식과 어긋난다. 근거: 양식 바이너리 실측, 20260722건). 이 변환본은
-`43_convert_input.md`로 저장한다(40_prepared는 compare 기준으로 불변 유지).
+`{판본폴더}/43_convert_input.md`로 저장한다. **손으로 표기를 바꾸지 않는다** — `to_kordoc_input.py {판본폴더}/40_prepared.md -o {판본폴더}/43_convert_input.md --figure 슬러그=파일명|캡션`이 결정론으로 만든다(인도 10건 재현 9건 100%·1건 99.8%, R087). 매핑 없는 도식 마커가 남으면 exit 1로 걸린다.
 
 **KCA 프로파일 파라미터 (R008 — 필수 전달, format-profile.kca.md §2 매핑)**:
 
 ```
 mcp__kordoc__generate_document(
-    markdown="{43_convert_input.md 전문 — 도식 마커 치환 완료본}",
+    markdown="{판본폴더}/43_convert_input.md 전문 — to_kordoc_input.py 산출",
     output_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx",
     preset="보고서",
     body_pt=15,                      # ㅇ·- 본문 15pt
@@ -347,17 +349,17 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 mcp__kordoc__parse_document(file_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx")
 ```
 
-결과 마크다운을 모델이 `{work_dir}/40_roundtrip.md`로 저장한다(스크립트는 MCP를 직접 호출할
+결과 마크다운을 모델이 `{판본폴더}/40_roundtrip.md`로 저장한다(스크립트는 MCP를 직접 호출할
 수 없으므로 이 저장은 모델 책임).
 
 ### 4-3. 내용 대조
 
-compare의 src는 40_prepared.md — prep이 마크업(주석·구분선·각주 표기)을 바꾸므로 변환 입력과
+compare의 src는 **`20_draft.md`**(R087 — 정합 6건에서 prepared 기준과 결과가 같았고, 기준을 초안에 두면 인도본이 초안과 맞는지가 곧바로 드러난다). 옛 서술은 prep이 마크업을 바꾸므로 변환 입력과
 동일본을 기준으로 대조해야 오탐이 없다. draft↔prepared 정합은 prep의 삭제 회계가 별도 보증한다.
 
 ```
 python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
-    compare {work_dir}/40_prepared.md {work_dir}/40_roundtrip.md
+    compare {work_dir}/20_draft.md {판본폴더}/40_roundtrip.md
 ```
 
 - 대조 항목: □ 섹션 수·ㅇ/○ 요지 수·대시 상세 수·＊ 각주 수·표 개수·표 최대 열 수·수치 표본
@@ -398,8 +400,11 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 
 ## 7. 인도
 
-- `{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx`(판본 접두어 — R086) + `{work_dir}/40_roundtrip.md`(왕복 대조 근거) +
-  대조 결과 요약을 `40_qa.md`로 정리해 함께 인도한다.
+- `{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx`(판본 접두어 — R086)를 인도한다. 왕복 대조
+  근거 `{판본폴더}/40_roundtrip.md`와 QA 기록 `{판본폴더}/40_qa.md`는 그 판본 폴더에 남는다
+  (R087) — `qa_report.py --postprocess … --structural … --compare … -o {판본폴더}/40_qa.md`가
+  각 단계 JSON에서 찍는다. **손으로 쓰지 않는다** — 손글씨였을 때 건마다 1.7~12KB로
+  들쭉날쭉했고 0바이트인 건도 있었는데 아무도 눈치채지 못했다.
 - 1회 변환(재시도 0회)으로 통과한 경우가 표준 경로 — 초안 단계 lint가 이미 변환 가능
   프로파일만 통과시켰기 때문에 재변환 루프는 예외 처리다.
 
@@ -411,8 +416,12 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 |---|---|---|---|---|
 | `prep_report_md.py` | `prep_report_md.py <src> -o <out>` | 정규화 성공, `<out>` 기록 | — (사용 안 함) | `PrepError`(모호한 입력 거부) |
 | `validate_hwpx.py structural` | `validate_hwpx.py structural <path.hwpx>` | 구조 정상(`errors:[]`) | 구조 손상 발견(파일 미존재·zip 손상, `errors` 목록에 담겨 exit 1로 재변환 루프) | 인자 부족 |
-| `validate_hwpx.py compare` | `validate_hwpx.py compare <src.md> <rt.md>` | 전항목 일치(`issues:[]`) | 불일치 발견 | 인자 부족(파일 접근 오류 시도 exit 2) |
+| `validate_hwpx.py compare` | `validate_hwpx.py compare <20_draft.md> <40_roundtrip.md>` | 전항목 일치(`issues:[]`) | 불일치 발견 | 인자 부족(파일 접근 오류 시도 exit 2) |
 | `validate_hwpx.py numbers` | `validate_hwpx.py numbers <draft.md> <research_dir>` | 초안 수치 전부 근거 있음(`issues:[]`) | 근거 없는 수치 발견(`numbers-unsourced`) | 인자 부족 |
+| `to_kordoc_input.py` | `to_kordoc_input.py <prepared.md> -o <out.md> [--figure 슬러그=파일\|캡션]` | 변환 성공 | 매핑 없는 도식 마커 잔존 | 파일 접근·인자 오류 |
+| `qa_report.py` | `qa_report.py [--postprocess/--structural/--compare/--numbers <json>] -o 40_qa.md` | 기록 생성(구조 오류 없음) | 구조 검증 errors 존재 | JSON 파싱·파일 오류 |
+| `archive_revision.py` | `archive_revision.py snapshot\|begin\|status\|migrate\|flatten <work_dir>` | 수행 완료(JSON 보고) | — (사용 안 함) | 파일 접근 오류 |
+| `validate_hwpx.py freshness` | `validate_hwpx.py freshness <draft.md> <prepared.md>` | 대응 일치 | `prepared-stale`(초안이 앞섬) | 인자 부족 |
 | `check_image_size.py` | `check_image_size.py <img> [--max-w-mm 170] [--max-h-mm 90] [--dpi 96]` | 규격 이내(`fits:true`) | 규격 초과(`fits:false`) | 포맷 인식 실패 등 예외 |
 | `postprocess_hwpx.py` | `postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all] [--sender-size PT]` | 변경 적용 완료(요약 JSON) | 적용한 모든 처리에서 대상 0건 | 인자/파일/zip·xml 구조 오류(참고 charPr 미발견 포함) |
 

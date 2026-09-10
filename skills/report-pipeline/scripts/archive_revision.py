@@ -35,6 +35,7 @@ import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from prep_report_md import content_fingerprint          # noqa: E402  (같은 scripts/ 폴더)
+from harness_config import history_paths                # noqa: E402  (경로 규약 단독 출처)
 
 # 판본 폴더 안에 놓이는 변환 산출물. 루트에는 두지 않는다 — 사람이 고치는 것은 20_draft
 # 하나뿐인데 파생물이 옆에 나란히 있으면 초안을 고치는 순간 넷이 함께 낡는다(R087).
@@ -54,7 +55,7 @@ def stamp(now=None):
 
 
 def _history(work_dir):
-    return pathlib.Path(work_dir) / HISTORY
+    return history_paths(work_dir)["history"]
 
 
 def read_index(work_dir):
@@ -93,10 +94,14 @@ def current_version(work_dir):
     return best
 
 
-def versioned_name(rev, title, now=None):
-    """rNN_YYYYMMDD_{제목}.hwpx — 접두어를 앞에 두어 이름이 길어져도 판본이 먼저 읽힌다."""
-    day = (now or datetime.datetime.now()).strftime("%Y%m%d")
-    return f"r{rev:02d}_{day}_{title}"
+def version_prefix(rev, when=None):
+    """`rNN_YYYYMMDD_` — 인도본 이름의 판본 접두어. 이름이 길어져도 판본이 먼저 읽힌다.
+
+    조립을 여기 하나로 둔다 — begin과 1회 정리가 각자 포맷 문자열을 들고 있으면 한쪽만
+    고쳐져 `final/`에 두 표기가 섞인다.
+    """
+    day = (when or datetime.datetime.now()).strftime("%Y%m%d")
+    return f"r{rev:02d}_{day}_"
 
 
 def snapshot(work_dir, label, filename="20_draft.md", now=None):
@@ -153,9 +158,8 @@ def begin(work_dir, now=None):
     row = {"kind": "revision", "rev": rev, "at": at, "dir": dst.name,
            "drafts": moved, "fingerprint": fp}
     append_index(work_dir, row)
-    day = (now or datetime.datetime.now()).strftime("%Y%m%d")
     return {"rev": rev, "dir": str(dst), "drafts": moved,
-            "hwpx_prefix": f"r{rev:02d}_{day}_"}
+            "hwpx_prefix": version_prefix(rev, now)}
 
 
 def status(work_dir):
@@ -245,8 +249,9 @@ def final_prefix_plan(work_dir):
     start = current_version(work_dir)
     plan = []
     for i, q in enumerate(sorted(plain, key=lambda x: x.stat().st_mtime), start + 1):
-        day = datetime.datetime.fromtimestamp(q.stat().st_mtime).strftime("%Y%m%d")
-        plan.append({"from": f"final/{q.name}", "to": f"final/r{i:02d}_{day}_{q.name}"})
+        when = datetime.datetime.fromtimestamp(q.stat().st_mtime)
+        plan.append({"from": f"final/{q.name}",
+                     "to": f"final/{version_prefix(i, when)}{q.name}"})
     return plan
 
 

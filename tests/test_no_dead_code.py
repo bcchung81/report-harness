@@ -40,8 +40,13 @@ def test_no_uncalled_functions():
     dead = []
     for f in _scripts():
         src = f.read_text(encoding="utf-8")
-        defs = {n.name for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)}
-        for d in defs - set(re.findall(r"\b(\w+)\s*\(", src)) - {"main"}:
+        tree = ast.parse(src)
+        defs = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+        # 사용처는 **AST 식별자**로 센다. 정규식 `\b(\w+)\s*\(`는 `def foo(` 자기 자신을
+        # 호출로 세어 defs - called가 언제나 비었다 — 이 검사는 '26.9.10까지 공회전이었다.
+        used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+        used |= {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+        for d in defs - used - {"main"}:
             if not any(d in o.read_text(encoding="utf-8", errors="ignore")
                        for o in corpus if o != f):
                 dead.append(f"{f.name}:{d}")
