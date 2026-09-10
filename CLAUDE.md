@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | | 무엇 | 어디에 |
 |---|---|---|
 | **하네스** | `skills/` + `commands/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code 플러그인 |
-| **웹앱 스킬** | `webapp/kca-report-hwpx/` — ③초안·④변환만, MCP 없이 자립 | claude.ai·ChatGPT·Gemini 업로드 |
+| **웹앱 스킬** | `webapp/kca-report-hwpx/` — ③초안·④변환만, MCP 없이 자립 | claude.ai·ChatGPT·Gemini 업로드 / Codex·Antigravity는 `.agents/skills/`에 설치 |
 | **claudian 위키** | 별도 저장소([bcchung81/claudian](https://github.com/bcchung81/claudian)) | 선택 결합 |
 
 ## 명령
@@ -27,7 +27,7 @@ python3 -m pytest tests/test_no_dead_code.py::test_no_orphan_scripts -q   # 테�
 python3 -m pytest -q -k postprocess            # 이름 매칭
 
 bash scripts/package_check.sh                  # 배포 가드 — 금지 폴더 추적·PII 스캔
-python3 scripts/build_webapp_skill.py --target all   # dist/에 3플랫폼 패키지 (기준 9종 검사)
+python3 scripts/build_webapp_skill.py --target all   # dist/에 5플랫폼 패키지 (기준 9종 검사)
 
 python3 skills/report-pipeline/scripts/doctor.py            # 자가진단
 python3 skills/report-pipeline/scripts/consolidate_rules.py --check   # 규칙 통폐합 현황
@@ -118,7 +118,7 @@ prep 정규화 → generate → 이미지 규격판정·주입 → postprocess_h
 
 ## 저장소 경계 — 절대 커밋하지 않는 것
 
-`form/`(기관 양식 원본)·`report/`(실보고서 산출물·운영 규칙)·`docs/analysis/`·`dist/`·
+`form/`(기관 양식 원본)·`report/`(실보고서 산출물·운영 규칙)·`docs/analysis/`·
 `docs/talk/`는 gitignore이며 `package_check.sh`가 `git ls-files`로 재확인한다. public 배포
 저장소라 기관 내부 내용이 올라가면 안 된다.
 

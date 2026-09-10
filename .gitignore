@@ -14,9 +14,11 @@ docs/analysis/
 # 하네스 코드는 이 폴더에 의존하지 않는다(경로는 ~/.claude/report-harness.json 설정 주입).
 report/
 
-# 빌드 산출물 — zip 바이트가 빌드마다 달라 git 이력에 쌓이면 안 된다.
-# 배포는 scripts/build_webapp_skill.py로 재빌드해 전달한다 (docs/install-webapp.md).
-dist/
+# dist/는 추적한다 ('26.9.10 전환). 종전에 제외한 이유는 'zip 바이트가 빌드마다 달라
+# 이력에 쌓인다'였는데, 빌드를 결정론으로 바꿔(멤버 정렬 + 고정 타임스탬프) 내용이 같으면
+# 바이트도 같아진 뒤로는 그 사유가 사라졌다. 배포 대상이 5종(claude·chatgpt·gemini·codex·
+# antigravity)으로 늘어 매번 재빌드해 전달하는 것보다 받은 사람이 바로 내려받는 편이 낫다.
+# 담기는 것은 전부 이미 추적 중인 webapp/kca-report-hwpx/ 사본이라 새로 공개되는 내용은 없다.
 
 # 발표자료 — 하네스 코드가 아니라 1회성 소개 슬라이드다. 산출물은 Vercel 에
 # 배포돼 있고(README 상단 링크) 저장소가 들고 있을 이유가 없다. 동봉 폰트만

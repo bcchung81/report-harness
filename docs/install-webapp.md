@@ -2,7 +2,7 @@
 > hwpx 변환을 쓴다. 조사·분석까지 필요하면 [하네스판 설치](install-harness.md)를 보면 된다.
 > 전체 소개는 [README](../README.md).
 
-# 웹앱 스킬 설치 — Claude · ChatGPT · Gemini
+# 웹앱 스킬 설치 — Claude · ChatGPT · Gemini · Codex · Antigravity
 
 터미널을 쓰지 않는 실무자에게는 이쪽을 준다. **MCP도 플러그인도 필요 없고 파일 하나면 된다.**
 
@@ -15,6 +15,19 @@
 | **Claude** | `kca-report-hwpx-claude.skill` | 설정 → Capabilities → Skills → 업로드 |
 | **ChatGPT** | `kca-report-hwpx-chatgpt.zip` | Plugins → Skills → Create → Upload from your computer |
 | **Gemini Spark** | `kca-report-hwpx-gemini.zip` | Skills → 파일 업로드 |
+| **Codex CLI** | `kca-report-hwpx-codex.zip` | 압축을 풀어 `<repo>/.agents/skills/` 또는 `~/.agents/skills/`에 둔다 |
+| **Antigravity** | `kca-report-hwpx-antigravity.zip` | 압축을 풀어 `<workspace>/.agents/skills/` 또는 `~/.gemini/antigravity/skills/`에 둔다 |
+
+**Codex·Antigravity는 업로드가 아니라 파일시스템 설치**다. 두 CLI 모두 `SKILL.md`가 든 폴더
+하나를 스킬로 인식하고 위 경로를 스캔한다. 패키지가 이미 `kca-report-hwpx/`를 최상위로
+담고 있으므로 그 경로에서 `unzip` 한 번이면 끝난다.
+
+```bash
+mkdir -p ~/.agents/skills && unzip -o dist/kca-report-hwpx-codex.zip -d ~/.agents/skills/
+```
+
+업로드형(Claude·ChatGPT·Gemini)과 달리 바이너리 제약이 없어 머리말 배너 이미지가 원본
+그대로 실린다(Gemini판만 base64 텍스트로 바뀐다).
 
 올린 뒤 대화에서 `"이 내용으로 개조식 보고서 만들어줘"`라고 하고 자료를 붙여넣으면 된다.
 아웃라인과 초안을 각각 한 번씩 확인해 주면 `.hwpx` 파일이 나온다(한글 2014 이상에서 열린다).
@@ -36,7 +49,7 @@ python3 scripts/build_webapp_skill.py --target all --rules report/_harness/rules
 python3 scripts/build_webapp_skill.py --target chatgpt
 ```
 
-산출: `dist/kca-report-hwpx-{claude,chatgpt,gemini}.{skill,zip}` (각 180~200KB).
+산출: `dist/kca-report-hwpx-{claude,chatgpt,gemini,codex,antigravity}.{skill,zip}` (각 199~201KB). 빌드는 결정론이라 내용이 같으면 바이트도 같다 — `dist/`를 저장소가 추적하므로 받는 쪽은 재빌드 없이 그대로 내려받으면 된다.
 
 `dist/`는 git에 올리지 않는다 — zip 바이트가 빌드마다 달라 이력만 불린다. 배포할 파일은
 그때그때 위 명령으로 재빌드해 전달한다. 빌드 기준(아래)이 매번 다시 걸리므로 갓 빌드한

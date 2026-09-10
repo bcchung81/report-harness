@@ -28,11 +28,13 @@
 | `claude` | `.skill` | 그대로 | claude.ai Skills |
 | `chatgpt` | `.zip` | 그대로 | Plugins → Skills → Upload |
 | `gemini` | `.zip` | **`.b64` 텍스트로 변환** | Gemini Apps: 바이너리 업로드 불가 |
+| `codex` | `.zip` | 그대로 | Codex CLI: `.agents/skills/`에 풀어 넣는다 |
+| `antigravity` | `.zip` | 그대로 | Antigravity: `.agents/skills/` 또는 `~/.gemini/antigravity/skills/` |
 
 gemini 타깃은 `assets/*.png|bmp`를 base64 텍스트로 바꿔 싣고, 변환 직전에
 `scripts/decode_assets.py`가 원본으로 되돌린다(멱등이라 타 타깃에서도 무해).
 
-usage: build_webapp_skill.py [--target claude|chatgpt|gemini|all] [-o PATH] [--rules PATH]
+usage: build_webapp_skill.py [--target claude|chatgpt|gemini|codex|antigravity|all] [-o PATH] [--rules PATH]
 exit 0 성공 / 1 기준 위반 / 2 구조 오류
 """
 import sys, re, json, base64, hashlib, zipfile, pathlib, argparse
@@ -51,7 +53,16 @@ COPIED = ("postprocess_hwpx.py", "validate_hwpx.py",
 # (웹앱판은 도식 Pool 원형 hwpx를 싣지 않아 관련 서술이 다르다 — 설계문서 §4).
 SYNCED_REFS = ("md-profile.md", "style-guide.md", "table-pool.md")
 SCOPE_TAGS = ("[draft]", "[export]")
-TARGETS = {"claude": ".skill", "chatgpt": ".zip", "gemini": ".zip"}
+TARGETS = {"claude": ".skill", "chatgpt": ".zip", "gemini": ".zip",
+           "codex": ".zip", "antigravity": ".zip"}
+# codex·antigravity는 업로드가 아니라 **파일시스템 설치**다 — 압축을 풀어 아래 경로에 둔다.
+# 두 CLI 모두 `SKILL.md`가 든 폴더 하나를 스킬로 인식하고, 패키지가 이미 `kca-report-hwpx/`를
+# 최상위로 담고 있어 그대로 풀면 규격이 맞는다. 바이너리 자산도 그대로 실린다(업로드 제약 없음).
+INSTALL_PATHS = {
+    "codex": "<repo>/.agents/skills/  또는  ~/.agents/skills/",
+    "antigravity": "<workspace>/.agents/skills/  또는  ~/.gemini/antigravity/skills/",
+}
+ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)   # 고정 타임스탬프 — 결정론 빌드
 BINARY_EXT = (".png", ".bmp", ".jpg", ".jpeg", ".gif", ".hwpx", ".hwp")
 EXCLUDE_DIRS = {"__pycache__", ".pytest_cache"}
 EXCLUDE_NAMES = {".DS_Store", "manifest.json"}
@@ -223,12 +234,16 @@ def write_package(target, out, files, rules_meta):
         "files": {k: hashlib.sha256(v).hexdigest() for k, v in members.items()},
     }
     out.parent.mkdir(parents=True, exist_ok=True)
+    members["manifest.json"] = json.dumps(manifest, ensure_ascii=False, indent=1).encode("utf-8")
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for rel, data in members.items():
-            z.writestr(f"kca-report-hwpx/{rel}", data)
-        z.writestr("kca-report-hwpx/manifest.json",
-                   json.dumps(manifest, ensure_ascii=False, indent=1))
-    return {"target": target, "output": str(out), "files": len(members) + 1,
+        # 멤버 순서·타임스탬프를 고정한다 — 내용이 같으면 바이트도 같아야 한다.
+        # dist/를 git이 추적하므로 재빌드마다 zip 바이트가 흔들리면 이력이 무의미하게 쌓인다.
+        for rel in sorted(members):
+            info = zipfile.ZipInfo(f"kca-report-hwpx/{rel}", date_time=ZIP_EPOCH)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            z.writestr(info, members[rel])
+    return {"target": target, "output": str(out), "files": len(members),
             "bytes": out.stat().st_size, "base64_encoded": encoded}
 
 
