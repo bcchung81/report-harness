@@ -23,3 +23,11 @@ dist/
 # 2MB, 리허설 음성은 12MB 라 이력에 쌓이면 클론 비용만 커진다.
 # 로컬 사본은 남으니 재배포는 `cd docs/talk && vercel --prod` 로 그대로 된다.
 docs/talk/
+
+# 작업 입력 자료 — 기관 내부 원자료(집행현황·업무추진비 등)를 저장소 루트나 work/에
+# 잠깐 놓고 쓰는 일이 잦다. gitignore가 없으면 `git add -A` 한 번에 public 저장소로
+# 넘어가고, package_check.sh는 `git ls-files`(추적본)만 훑어 이 상태를 못 잡는다.
+# report/ 제외와 같은 사유다 — 추적되지 않는 자료는 애초에 추적 후보가 아니어야 한다.
+work/
+*.xlsx
+*.xls

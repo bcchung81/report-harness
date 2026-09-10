@@ -1,5 +1,6 @@
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "skills/report-pipeline/scripts"))
+import pytest
 from lint_md_profile import lint_text
 
 def rules(violations):
@@ -33,9 +34,13 @@ def test_bullet_overflow_under_one_yo():   # R045: 3개째부터 위반
     text = "ㅇ 요지\n" + "".join(f"   - 상세{i}\n" for i in range(3))
     assert "bullet-overflow" in rules(lint_text(text))
 
-def test_two_bullets_allowed_under_one_yo():   # R045: 2개까지는 합법
-    text = "ㅇ 요지\n   - 상세1\n   - 상세2\n"
+def test_one_bullet_allowed_under_one_yo():    # R045 '26.8.15 강화: 1개까지만 합법
+    text = "ㅇ 요지\n   - 상세1\n"
     assert "bullet-overflow" not in rules(lint_text(text))
+
+def test_two_bullets_rejected_under_one_yo():  # R045 '26.8.15 강화: 2개째부터 위반
+    text = "ㅇ 요지\n   - 상세1\n   - 상세2\n"
+    assert "bullet-overflow" in rules(lint_text(text))
 
 def test_html_tag():
     assert "html-tag" in rules(lint_text("ㅇ 내용 <br> 줄바꿈\n"))
@@ -51,15 +56,15 @@ def test_depth_ok_within_4_levels():
     text = "□ 절\n ㅇ 요지\n   - 상세\n※ 단서\n＊ 각주\n"
     assert lint_text(text) == []
 
-def test_bullet_run_resets_at_section():   # □ 경계에서 카운터 리셋 (R045 상한 2개 기준)
-    text = ("ㅇ A\n   - a\n   - b\n"
-            "□ 새 절\n   - c\n   - d\n")
+def test_bullet_run_resets_at_section():   # □ 경계에서 카운터 리셋 (R045 상한 1개 기준)
+    text = ("ㅇ A\n   - a\n"
+            "□ 새 절\n   - c\n")
     assert "bullet-overflow" not in rules(lint_text(text))
 
 def test_chevron_label_not_html():         # 코퍼스 관례: < > 영문 혼용 라벨
     assert "html-tag" not in rules(lint_text("ㅇ <AI 활용 방안> 관련 논의\n"))
 
-# ── 개선본 대조로 확정된 실무 관례 (R051~R053·R056) ──────────────────────────
+# ── 개선본 대조로 확정된 실무 관례 (R051·R052·R056·R026) ─────────────────────
 
 def test_caption_numbered_detected():      # R056: 캡션에 표 일련번호 금지
     assert "caption-numbered" in rules(lint_text("[ 표1. 추진 총괄 요약 ]\n"))
@@ -67,7 +72,7 @@ def test_caption_numbered_detected():      # R056: 캡션에 표 일련번호 �
 def test_caption_descriptive_ok():         # 내용 서술형 캡션은 합법
     assert lint_text("[ 월별 바이브코딩 교육 진행 ]\n") == []
 
-def test_annex_defer_detected():           # R053: 괄호로 붙임에 설명을 미루는 표기
+def test_annex_defer_detected():           # R026: 괄호로 붙임에 설명을 미루는 표기
     text = "ㅇ (초기 설계) 3레이어 하이브리드 구조(상세 붙임1 참조)\n"
     assert "annex-crossref" in rules(lint_text(text))
 
@@ -184,3 +189,17 @@ def test_annex_banner_closes_section():
          "| 붙임 1 | | 상세 |\n| --- | --- | --- |\n\n"
          " ㅇ 검정관리팀이 별도로 관리한다")
     assert "plan-subject" not in _rules(t)
+
+
+
+def test_lookalike_catches_em_and_en_dash():
+    """em·en 대시도 완성형(cp949) 미수용이라 검출 대상이다.
+
+    회귀 대상: LOOKALIKE 목록에 U+2014·U+2013이 없어 부제·동격 구분자로 섞여 들어온
+    em 대시가 린트를 그대로 통과했다('26.9.8 기록 → '26.9.10 조치). 구분자로 쓴
+    경우 하이픈이 아니라 괄호로 바꾼다(md-profile §1-3-2)."""
+    for ch in ("\u2014", "\u2013"):
+        with pytest.raises(UnicodeEncodeError):   # 전제: 완성형 미수용이라 검출 대상이다
+            ch.encode("cp949")
+        v = lint_text(f"ㅇ (정정 사항) 항목 4는 갱신 {ch} 입력 단자 노출을 명시\n")
+        assert "lookalike-symbol" in rules(v), f"U+{ord(ch):04X} 미검출"

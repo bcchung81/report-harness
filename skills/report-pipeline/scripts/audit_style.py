@@ -26,6 +26,12 @@ ENDING_EXEMPT = re.compile(r"(?:하여야\s*함|답변함|질의함|설명함|�
 # 인용부호 안에서 끝나는 경우(원문 인용)는 대상이 아니다.
 QUOTED_TAIL = re.compile(r"[\"”』」]\s*$")
 
+# ── style-guide §4 [철칙] 보완(R080): 같은 종결 명사를 절 안에서 되풀이하지 않는다 ──
+# 동작명사 종결이 표준이므로 종결 자체는 금지할 수 없다 — 반복만 검출한다.
+ENDING_REPEAT_FAIL = 3     # 절 안 3회 이상 → violation
+ENDING_REPEAT_WARN = 2     # 2회 → warning
+ENDING_WORD = re.compile(r"([가-힣A-Za-z]+)\s*$")   # "…을 확인" → "확인"
+
 # ── style-guide §1 [철칙]: 문서 제목 = 명사구 + 문서유형 접미 ────────────────
 TITLE_SUFFIX = re.compile(
     r"(?:보고|검토\s*결과|계획\(안\)|추진계획\(안\)|결과\s*보고|방안(?:\(안\))?|"
@@ -49,6 +55,24 @@ ANNEX_BANNER = re.compile(r"^\s*\|\s*붙\s*임")
 # ── 조문 표기: § 기호 대신 한국식 전체 표기 (R075) ──────────────────────────
 ARTICLE_SYMBOL = re.compile(r"§\s*\d")
 
+# ── R003: 신뢰도 태깅은 작업 표기 — 인도본 본문에 노출하지 않는다 ──────────
+CONFIDENCE_TAG = re.compile(r"\[(?:확정|추정)[^\]]*\]")
+
+# ── R077: 본문에 조문 번호를 나열하지 않는다(붙임 대조표로 배출) ────────────
+ARTICLE_NO = re.compile(r"제\d+조(?:의\d+)?(?:제\d+항)?(?:제\d+호(?:의\d+)?)?")
+
+# ── R076: 절 서사 순위 — 앞 순위가 뒤 순위보다 뒤에 오면 역전 ──────────────
+SECTION_RANK = {
+    "추진 배경": 1, "검토 배경": 1, "개 요": 1, "개요": 1,
+    "현황 및 문제점": 2, "그간의 경과": 2, "조사결과": 2, "조사 결과": 2,
+    "기관별 보유 자료": 2,
+    "주요 내용": 3, "추진 내용": 3, "추진 과제": 3, "개선 방안": 3,
+    "검토 결과": 3, "검토 사항": 3,
+    "기대 효과": 4, "시사점": 4, "주요 시사점": 4,
+    "추진 방법": 5, "추진 체계": 5,
+    "향후 계획": 6, "향후 일정": 6, "추진 일정": 6,
+}
+
 
 def _strip_markup(text: str) -> str:
     text = re.sub(r"\*\*", "", text)
@@ -56,11 +80,29 @@ def _strip_markup(text: str) -> str:
     return text.strip()
 
 
+def _flush_endings(section_endings, v, w):
+    """R080 — 한 절(□ 블록)이 끝날 때 종결 명사 반복을 판정한다.
+
+    3회 이상은 violation, 2회는 warning. 같은 말로 문장을 닫는 습관은 판단이 아니라
+    관찰만 늘어놓게 만들어 문서를 딱딱하게 한다('26.9.6 사용자 반려 — 절 안 `확인` 3회,
+    문서 전체 `필요` 6회·상태명사 종결 9회)."""
+    for word, hits in section_endings.items():
+        n = len(hits)
+        if n >= ENDING_REPEAT_FAIL:
+            v.append({"line": hits[ENDING_REPEAT_FAIL - 1], "rule": "ending-repeat",
+                      "text": f"절 안에서 '{word}' 종결 {n}회 — 판단·행위 명사로 갈아 쓴다"})
+        elif n >= ENDING_REPEAT_WARN:
+            w.append({"line": hits[-1], "rule": "ending-repeat",
+                      "text": f"절 안에서 '{word}' 종결 {n}회"})
+
+
 def audit_text(text: str):
     """(violations, warnings) 두 목록을 돌려준다."""
     lines = text.split("\n")
     v, w = [], []
     in_annex = False
+    ranks = []          # R076: (line, 절제목, 서사순위)
+    article_hits = []   # R077: 본문 조문 인용 위치
 
     # 1. 문서 제목·발신 줄 (파일 선두 5줄 안)
     head = [l for l in lines[:6] if l.strip()]
@@ -73,6 +115,7 @@ def audit_text(text: str):
                       "text": (head[1][:80] if len(head) > 1 else "")})
 
     # 2. 절 제목·종결어미·조문 표기
+    section_endings = {}
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
         if ANNEX_BANNER.match(stripped):
@@ -82,6 +125,8 @@ def audit_text(text: str):
 
         m = SECTION.match(stripped)
         if m:
+            _flush_endings(section_endings, v, w)
+            section_endings = {}
             raw = _strip_markup(m.group(1))
             if SECTION_NUM.match(raw):
                 v.append({"line": i, "rule": "section-numbered", "text": raw[:80]})
@@ -89,10 +134,18 @@ def audit_text(text: str):
             key = re.sub(r"\(안\)\s*$", "", key).strip()
             if not in_annex and key not in SECTION_POOL:
                 w.append({"line": i, "rule": "section-title-offpool", "text": raw[:80]})
+            if not in_annex and key in SECTION_RANK:
+                ranks.append((i, key, SECTION_RANK[key]))
             continue
 
         if ARTICLE_SYMBOL.search(stripped):
             v.append({"line": i, "rule": "article-symbol", "text": stripped[:80]})
+
+        if not in_annex and CONFIDENCE_TAG.search(stripped):
+            v.append({"line": i, "rule": "confidence-tag-in-body", "text": stripped[:80]})
+
+        if not in_annex and ARTICLE_NO.search(stripped):
+            article_hits.append(i)
 
         if BODY_LEAD.match(stripped):
             # 계층 문구는 이어지는 줄까지 하나의 문장이므로 다음 선두 전까지 이어 붙인다.
@@ -107,6 +160,22 @@ def audit_text(text: str):
                 continue
             if BAD_ENDING.search(body):
                 v.append({"line": i, "rule": "ending-forbidden", "text": body[-60:]})
+            em = ENDING_WORD.search(body)          # R080: 종결 명사 집계
+            if em and not in_annex:
+                # 붙임(회의록·대조표·전수 데이터)은 본문 산문 규칙의 대상이 아니다 —
+                # confidence-tag-in-body·article-in-body와 같은 층위의 제외다. 붙임에서
+                # 같은 종결이 겹치는 것은 자료 성격이지 문장 습관이 아니다.
+                section_endings.setdefault(em.group(1), []).append(i)
+    _flush_endings(section_endings, v, w)
+    # R076: 서사 순위 역전
+    for (l1, k1, r1), (l2, k2, r2) in zip(ranks, ranks[1:]):
+        if r2 < r1:
+            v.append({"line": l2, "rule": "section-order",
+                      "text": f"{k1}(순위 {r1}) 뒤에 {k2}(순위 {r2})"})
+    # R077: 본문 조문 나열 — 3개소 이상이면 붙임으로 배출할 신호
+    if len(article_hits) >= 3:
+        v.append({"line": article_hits[0], "rule": "article-in-body",
+                  "text": f"본문 조문 인용 {len(article_hits)}개소 — 붙임 대조표로 배출"})
     return v, w
 
 

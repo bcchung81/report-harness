@@ -88,3 +88,97 @@ def test_table_rows_are_skipped():
     doc = OK_HEAD + "□ 추진 배경\n\n| 구 분 | 내 용 |\n|---|---|\n| 조치 | 재검토함 |\n"
     v, _ = audit_text(doc)
     assert "ending-forbidden" not in rules(v)
+
+
+# ── '26.8.15 사용자 지적 4건 회귀 (R003·R045·R076·R077) ────────────────────
+
+def test_confidence_tag_in_body_detected():
+    """R003 — [확정]·[추정]은 작업 표기이며 인도본 본문에 노출되면 안 된다."""
+    v, _ = audit_text(OK_HEAD + "□ 추진 배경\n\n ㅇ **(공통 과제)** 자료가 흩어져 과제 수행 불가 [확정]\n")
+    assert "confidence-tag-in-body" in rules(v)
+
+
+def test_confidence_tag_allowed_in_annex():
+    """붙임 「확인 방법과 범위」에서 근거 범위를 밝히는 것은 허용한다."""
+    doc = OK_HEAD + "□ 추진 배경\n\n| 붙임 2 | | 근거 출처 |\n|---|---|---|\n\n□ 확인 방법과 범위\n\n ㅇ **(법령 원문)** 원문 대조 [확정]\n"
+    v, _ = audit_text(doc)
+    assert "confidence-tag-in-body" not in rules(v)
+
+
+def test_section_order_inversion_detected():
+    """R076 — 「추진 방법」(5)이 「추진 과제」(3)보다 앞서면 서사 역전."""
+    doc = OK_HEAD + "□ 추진 배경\n\n□ 추진 방법\n\n□ 추진 과제(안)\n"
+    v, _ = audit_text(doc)
+    assert "section-order" in rules(v)
+
+
+def test_section_order_correct_passes():
+    doc = OK_HEAD + "□ 추진 배경\n\n□ 현황 및 문제점\n\n□ 추진 과제(안)\n\n□ 기대 효과\n\n□ 추진 방법\n\n□ 향후 계획\n"
+    v, _ = audit_text(doc)
+    assert "section-order" not in rules(v)
+
+
+def test_article_numbers_in_body_detected():
+    """R077 — 본문 조문 나열 3개소 이상이면 붙임 대조표로 배출."""
+    body = "".join(f" ㅇ **(근거 {n})** 시행령 제12{n}조제2항제2호에 따라 배정\n\n" for n in (1, 2, 3))
+    v, _ = audit_text(OK_HEAD + "□ 현황 및 문제점\n\n" + body)
+    assert "article-in-body" in rules(v)
+
+
+def test_article_numbers_in_annex_exempt():
+    """붙임의 근거 법령 대조표는 조문이 본문이므로 대상이 아니다."""
+    body = "".join(f" ㅇ **(근거 {n})** 시행령 제12{n}조제2항제2호에 따라 배정\n\n" for n in (1, 2, 3))
+    doc = OK_HEAD + "□ 추진 배경\n\n| 붙임 2 | | 근거 법령 |\n|---|---|---|\n\n□ 본문 서술의 근거 조문\n\n" + body
+    v, _ = audit_text(doc)
+    assert "article-in-body" not in rules(v)
+
+
+# ── R080: 절 안 종결 명사 반복 ────────────────────────────────────────────────
+
+def test_ending_repeat_detected():
+    """R080 — 한 절에서 같은 종결 명사가 3회면 violation."""
+    body = "".join(f" ㅇ **(항목 {n})** 상대 기관이 보유한 자료의 제공 조건을 회의에서 확인\n\n"
+                   for n in (1, 2, 3))
+    v, _ = audit_text(OK_HEAD + "□ 검토 사항\n\n" + body)
+    assert "ending-repeat" in rules(v)
+
+
+def test_ending_repeat_in_annex_exempt():
+    """붙임(회의록·대조표)의 종결 반복은 자료 성격이라 R080 대상이 아니다.
+
+    R082가 audit_style violation 0을 초안 확정 조건으로 못박은 뒤로, 붙임 전수 데이터가
+    본문 산문 규칙에 걸려 게이트를 막는 구도였다 — article-in-body·confidence-tag와
+    같은 층위의 제외로 맞춘다."""
+    body = "".join(f" ㅇ **(항목 {n})** 상대 기관이 보유한 자료의 제공 조건을 회의에서 확인\n\n"
+                   for n in (1, 2, 3))
+    doc = OK_HEAD + "□ 추진 배경\n\n| 붙임 1 | | 회의 결과 |\n|---|---|---|\n\n□ 협의 경과\n\n" + body
+    v, w = audit_text(doc)
+    assert "ending-repeat" not in rules(v) and "ending-repeat" not in rules(w)
+
+
+def test_ending_repeat_twice_is_warning():
+    """2회는 문서 유형상 합법일 수 있어 warning으로만 낸다."""
+    body = "".join(f" ㅇ **(항목 {n})** 상대 기관이 보유한 자료의 제공 조건을 회의에서 확인\n\n"
+                   for n in (1, 2))
+    v, w = audit_text(OK_HEAD + "□ 검토 사항\n\n" + body)
+    assert "ending-repeat" not in rules(v)
+    assert "ending-repeat" in rules(w)
+
+
+def test_ending_repeat_resets_per_section():
+    """절이 바뀌면 집계도 초기화된다 — 절마다 2회씩은 violation이 아니다."""
+    blk = "".join(f" ㅇ **(항목 {n})** 상대 기관이 보유한 자료의 제공 조건을 회의에서 확인\n\n"
+                  for n in (1, 2))
+    doc = OK_HEAD + "□ 추진 배경\n\n" + blk + "□ 검토 사항\n\n" + blk
+    v, _ = audit_text(doc)
+    assert "ending-repeat" not in rules(v)
+
+
+def test_varied_endings_pass():
+    """행위 명사로 갈아 쓴 문구는 통과한다."""
+    doc = (OK_HEAD + "□ 검토 사항\n\n"
+           " ㅇ **(안테나 정보)** 상대 기관의 보유 여부와 제공 가능 조건을 회의에서 확인\n\n"
+           " ㅇ **(허가 자료)** 위성 관련 허가 정보의 제공 주체와 제출 가능 여부를 협의\n\n"
+           " ㅇ **(기관별 수요)** 업무 수요 표에서 비어 있는 상대 기관 쪽 항목을 보완\n")
+    v, w = audit_text(doc)
+    assert "ending-repeat" not in rules(v) and "ending-repeat" not in rules(w)
