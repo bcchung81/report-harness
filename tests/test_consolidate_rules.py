@@ -86,3 +86,12 @@ def test_per_tag_preflight_size_counts_multi_tag_rules(tmp_path):
     p.write_text("- R001 [draft] 가나다\n- R002 [draft][export] 라마\n- R003 [export] 바\n", encoding="utf-8")
     a = cr.analyze(p)
     assert a["per_tag"] == {"draft": (2, 5), "export": (2, 3)}
+
+
+def test_local_rule_band_is_not_counted_as_growth(tmp_path):
+    """설치자 로컬 규칙(R9NN)은 통합 증가분에 넣지 않는다 — R901 하나로 '+813' 영구 경고가 났다('26.9.25)."""
+    p = tmp_path / "rules.md"
+    p.write_text("# rules\n<!-- consolidated-at: R010 -->\n- R011 [draft] 시드 규칙 (근거[실측]: x)\n"
+                 "- R901 [draft] 설치자 로컬 규칙 (근거[관례]: x)\n", encoding="utf-8")
+    a = cr.analyze(p)
+    assert a["latest"] == "R011" and a["growth"] == 1

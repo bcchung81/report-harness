@@ -30,6 +30,7 @@ MARKER = re.compile(r"<!--\s*consolidated-at:\s*(R\d+)\s*-->")
 # 존재하지 않는 규칙을 가리키는 죽은 참조로 오탐된다
 REF = re.compile(r"(?<![0-9A-Za-z])R\d{3,}")
 GROWTH_LIMIT = 10          # 마지막 통합 이후 이만큼 늘면 통합 요구
+LOCAL_BAND = 900           # R9NN — 설치자 로컬 규칙 대역. 시드 번호와 겹치지 않게 비워 두고 통합 증가분에서 뺀다
 
 
 def default_rules_path():
@@ -80,7 +81,8 @@ def analyze(path):
     # ⑤ 증가분 — 마지막 통합 마커 대비
     mk = MARKER.search(text)
     marked = int(mk.group(1)[1:]) if mk else 0
-    latest = max((int(r[1:]) for r in body), default=0)
+    # 로컬 대역(R9NN)은 세지 않는다 — 설치자가 R901 하나만 둬도 '+813'으로 영구 경고했다('26.9.25 격리 설치 재현)
+    latest = max((int(r[1:]) for r in body if int(r[1:]) < LOCAL_BAND), default=0)
     growth = latest - marked
 
     # ⑥ 태그별 프리플라이트 분량 — 각 단계는 자기 태그 줄만 grep해 읽는다(SKILL §0-5). 규칙 문구가 길어질수록 집필·변환

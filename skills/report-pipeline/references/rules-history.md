@@ -15,6 +15,29 @@
 
 - R043 [export] **hwpx는 한컴 정본 패키지 프로파일로 정합해 인도한다 — kordoc 최소 패키지는 내부망 자료교환 반입에서 hwpx로 판별되지 않는다(octet-stream → 미등록 확장자 반려)**: kordoc 산출물은 mimetype·container.xml·content.hpf·header·section·PrvText만 있는 최소 OCF라서 hwpx 확정 마커인 version.xml이 없고, 디렉터리 엔트리 3개(META-INF/·Contents/·Preview/)·전량 STORED라는 정품에 없는 지문을 가진다 — mimetype+container.xml 구조는 EPUB류 일반 OCF와 지문이 같아 심층 구조 검사 엔진이 판별에 실패한다(타 hwpx는 동일 시스템 정상 유통 — 시스템 미등록이 아니라 산출물 문제, 사용자 확정). postprocess `canonicalize_package`가 플래그 무관 상시 적용: version.xml·settings.xml(content.hpf manifest 등재)·META-INF/manifest.xml·container.rdf 보강(한컴 정품 도식Pool.hwpx 실측 정본 템플릿), 디렉터리 엔트리 제거, container.xml rootfiles 정본화(PrvText·container.rdf), 엔트리 순서·압축 프로파일(mimetype·version.xml·미디어 STORED, XML DEFLATED) 정품 일치, 멱등. `validate_hwpx.py structural`이 OCF 시그니처(첫 엔트리 mimetype STORED·offset 0·extra 0·38바이트째 평문 application/hwp+zip)와 필수 멤버(version.xml·container.xml·content.hpf·header·section)·디렉터리 엔트리 부재를 검증해 회귀 차단. **'26.7.29 보강(실반려 파일 실측)**: 한글에서 재저장한 본은 정본 패키지가 되는 대신 기본 빈 JScript 스텁 Scripts/headerScripts·sourceScripts(확장자 없는 멤버 + hpf에 application/x-javascript로 등재되는 활성콘텐츠)가 삽입된다 — 압축 내부까지 검사하는 반입 엔진이 이것을 '등록되지 않은 확장자'로 반려하며, 실반려 오류 문구의 'header script'가 이 멤버명이다. canonicalize_package가 Scripts/ 멤버 전량 제거 + hpf item/itemref 등재 철회를 함께 수행한다(스텁은 기능 0, 기관보고서 인도본에 매크로 불필요) (근거: '26.7.29 내부망 자료교환 반입 거부 — 한컴 정품 대조 + 실반려 파일 실측)
 
+## R048
+
+- **push → pull 전환 ('26.8.15)**. 종전 R048은 "사용자가 명시 요청·승인했을 때만 하네스가
+  vault로 복사"하는 승인 게이트형 push였다. 실측 결과 **적재율 0%** — `reports_dir` 7건 중
+  6건이 조사를 수행해 `research/fetched/` **32폴더·raw 99건**(모드 Q 산출 22건 제외 시 순 77건)·
+  `_manifest.jsonl` 31개 124행·`provided/` 10파일을 쌓았으나 claudian `acquired/`에 승격된 것은
+  **0건**이었다.
+- 실패 원인 3가지. ① **트리거 부재** — 승격이 사용자 요청 조건인데 종료 훅은 "적재 후보 N건"
+  한 줄 보고가 전부고, pipeline은 "게이트 최대 3회"가 설계 원칙이라 적재를 4번째 게이트로
+  넣을 수도 없다. 보고서가 나오면 세션이 끝나고 아무도 요청하지 않는다. ② **네임스페이스 충돌**
+  — 슬러그가 건 로컬인데 착지는 flat `acquired/fetched/{슬러그}/`다. 실측에서 `코드베이스분석`
+  (2건)·`vault-사전지식`(2건)이 겹쳐, 규약대로 복사하면 claudian §2.1 파괴 금지를 위반한다.
+  ③ **스키마 불일치** — 프론트매터 `tool`↔`fetched_by`, manifest `source_url`↔`url`,
+  `status`·`license_note` 부재, `confidence` 미수용, 날짜 정밀도 차이. 변환 없이 복사하면
+  §4.8 위반 파일 99개가 생긴다.
+- 전환 결정: 세 문제 모두 **수확하는 쪽에서만 풀 수 있다**(vault가 자기 네임스페이스·스키마·
+  장부를 안다). 하네스는 vault에 대해 완전 무쓰기가 되고, claudian `/ingest` 모드 H가
+  작업폴더를 읽어 pull한다. 멱등은 `research/_promoted.json` 마커로 잡는다 — 하네스 작업폴더에
+  vault가 쓰는 유일한 파일이며, 그 외 작업폴더 파일은 건드리지 않는다.
+- 부수 효과: `provided/` 제공자료가 처음으로 착지 규약을 갖는다(원본→`raw/`, 파싱본→
+  `acquired/parsed/`). 종전 규약은 모드 R만 다뤄 제공자료가 vault로 갈 길이 없었고, 그래서
+  사람이 손으로 `raw/`에 복사하던 것이 "raw만 적재되고 research는 누락"의 정체였다.
+
 ## R050 [R062로 흡수·이관 — '26.8.7]
 
 - R050 [draft] **[R062로 흡수·이관됨 — 본 규칙 폐지]** **계층 문구는 1줄로 끝내지 말고 2줄 밀도로 쓴다 (자수 기준은 R062가 정정 — 1줄 35자·상한 90자) — 렌더 기준 60~90자(휴먼명조 15pt, 1줄 = 35자 실측 — R062가 정정)**: R028이 "2줄 이내" 상한만 정한 탓에 40~60자짜리 한 줄 문구가 양산됐는데, 이는 보고서가 아니라 목차처럼 읽히고 근거·판단이 빠진 앙상한 서술이 된다. **상한(2줄)과 함께 하한(2줄에 가깝게)을 둔다** — 1줄로 끝나는 항목이 나오면 ① 인접 항목과 통합해 한 문장으로 합치거나(연결어 ~하며·~하고·~여서), ② 그 판단의 **근거·수치·조건·귀결**을 덧붙여 보강한다. 보강할 내용이 없으면 그 항목은 애초에 쓸 필요가 없는 항목이므로 삭제한다. **금지**: 자수를 채우려고 같은 말을 다르게 반복하거나 수식어를 늘리는 것 — 늘어난 분량은 반드시 새 정보(근거·수치·귀결)여야 한다. 표 셀·※ 단서·＊ 각주는 대상이 아니다(단서는 원래 짧다). 자가검산은 `**`·`==` 마커를 제거한 순수 글자수 기준 (근거[관례]: '26.8.3 사용자 확정, cert-poc PoC 결과보고건)
@@ -37,6 +60,45 @@
 - 실측 피해: `validate_hwpx.py structural` exit 1 — `missing required member version.xml` + 디렉터리 엔트리 3개(`META-INF/`·`Contents/`·`Preview/`). R043이 '26.7.29 내부망 자료교환 실반려 건으로 기록해 둔 조건을 그대로 재현한 산출물이었다. 서식도 R008 프로파일 파라미터를 하나도 전달하지 않아 kordoc 내장 범용 정부 서식이 적용됐고, 후처리 미실행으로 계층 스페이서·양쪽정렬·표 폭 정합·머리말 배너가 전부 빠졌다(줄간격 100% 문단 1개 vs 정식 산출물 4개).
 - 조치: 작업폴더 `20260810/1835_reachy-mini-부품스펙`을 규약대로 신설하고 md-profile 초안을 작성해 전 구간 재실행(lint 0 → prep 0 → R008 전량 전달 생성 → `--all` 후처리 → structural 0). 후처리가 `version.xml`·`settings.xml`·`manifest.xml`·`container.rdf` 4종을 보강하고 디렉터리 엔트리 3개를 제거했다. compare 29건은 전량 볼드·h1 `markdown-leftover`로 R021 절차(XML 리터럴 0건 확인) 무해 판정.
 - 부수 확인: `bullet2`에 스키마 설명대로 `ᄋ`(U+110B 초성)을 넣어 `invalid_enum_value` 실패 — 실제 enum은 `ㅇ`(U+3147)·`○` 2값이다. R008 괄호주석("U+110B 초성 아님")이 경고한 사례가 그대로 재현됐고 주석이 실제로 작동함을 확인해 규칙을 유지했다.
+
+## R073 — 개정 건 재생성 금지, 원본 제자리 개정 ('26.8.18)
+
+- 발단: 사용자 보유 hwpx(v2, 한글에서 손수 조정)를 기준선으로 v3 개정본을 만들면서, 개정 내용을
+  md 초안으로 다시 쓰고 `generate_document`로 뽑았다. 하네스 검증은 전부 통과했다 — lint 0,
+  회귀 227, `structural` exit 0, `compare`는 R021 무해 판정, 후처리 전 항목 적용. 그런데
+  사용자 반려: **"기존에 맞춰놓은 양식들이 다 깨져서 나온다."**
+- 원인: `generate_document`는 **문서를 새로 짓는** 도구다. 원본을 참조하지 않으니 사람이 맞춰 둔
+  서식을 승계할 방법이 애초에 없다. `extract_profile`+`profile_path`도 표 서식 일부만 재현한다.
+- 붕괴폭 실측 — `Contents/section0.xml` 서식 참조 종류:
+
+  | 지표 | v2 원본 | 재생성본 | 제자리 개정본 |
+  | --- | --- | --- | --- |
+  | borderFill 참조 종류 | 33 | 25 | 33 |
+  | charPr 참조 종류 | 73 | 30 | 73 |
+  | paraPr 참조 종류 | 45 | 16 | 45 |
+  | 병합 표(rowspan/colspan) | 보존 | 평탄화 | 보존 |
+  | 셀 내 줄바꿈 | 보존 | 소실 | 보존 |
+
+- **검증 체계의 사각**: 표 개수는 23으로 동일해 왕복 `compare`가 통과했다. 되읽기는 텍스트·표
+  개수·수치만 보므로 **서식 붕괴를 원리적으로 검출하지 못한다**. 그래서 규칙은 "검증을 더 하라"가
+  아니라 **"그 경로를 쓰지 마라"**로 세웠다.
+- 전환한 경로와 실적: 원본을 복사해 `section0.xml`만 고쳤다 — 텍스트 치환 51건(전체일치 40 +
+  run 내부 부분치환 11), 문단 삽입 11건(같은 계층 문단 복제로 서식 상속), 표 행 분리 1건
+  (`hp:tr` 복제 + `rowAddr` 2~5 재배정 + `rowCnt` 5→6). 미적용 0건.
+  `header.xml`·`settings.xml`·`BinData/*`·`content.hpf`·`manifest.xml` MD5 바이트 동일.
+- **패키지 프로파일 정정(R043 관계)**: 1차 재압축에서 멤버를 일괄 DEFLATED로 넣었더니 원본이
+  STORED로 저장한 `version.xml`·`BinData/image1.PNG`·`Preview/PrvImage.png`가 바뀌었다.
+  R043의 정품 프로파일(BinData=STORED)을 강제하는 것도 답이 아니다 — **한글이 실제로 저장한
+  원본이 `BinData/image2.BMP`를 DEFLATED로 넣었기 때문**이다. 즉 개정 경로에서 정답은 규칙
+  준수가 아니라 **원본 `ZipInfo` 전량 계승**(압축 방식·타임스탬프·외부속성·멤버 순서)이다.
+  원본이 자료교환 반입을 통과하는 파일이면 산출본도 같은 판별을 받는다.
+- 자료교환 반입 감사 결과(양쪽 동일): `Scripts/` 활성콘텐츠 0 · 디렉터리 엔트리 0 ·
+  확장자 없는 멤버는 `mimetype` 1건뿐 · mimetype STORED 선두 · OLE 0 · DRM 없음 · 매크로 0 ·
+  외부 URL 0(검출된 14건은 전부 hancom.co.kr 네임스페이스 선언) · `content.hpf` 작성자 메타는
+  전부 `'text'` 자리표시자라 개인정보 없음.
+- 남은 한계: `Preview/PrvText.txt`·`PrvImage.png`는 v2 시점 캐시라 탐색기 미리보기에는 개정 전
+  내용이 보인다(한글에서 한 번 저장하면 갱신). 신설 문단은 단일 run 복제라 괄호 축소(13pt)
+  서식을 상속하지 않는다.
 
 ## R087 경위 — 작업폴더 파생물이 낡는 구조 ('26.9.10)
 

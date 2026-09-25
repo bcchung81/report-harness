@@ -1,0 +1,365 @@
+{
+ "about": "배포한 적 있는 시드 규칙 줄의 지문(줄 앞뒤 공백 제거 뒤 sha1 앞 10바이트의 base32). sync_rules.py가 설치자 운영본의 줄이 손대지 않은 옛 시드 줄인지 가린다. 손으로 고치지 말고 scripts/build_seed_lineage.py로 갱신한다.",
+ "rules": {
+  "R001": [
+   "sxyqebtwka6s3e22",
+   "ufpxpjxfj3ri37t6"
+  ],
+  "R002": [
+   "bodc3l2knhqrjkmq",
+   "ogtt3gpteotk4h3e"
+  ],
+  "R003": [
+   "hhwixowru7iedgyl",
+   "l7k2z2bl4oyzbmod"
+  ],
+  "R004": [
+   "abmfc6bwzptckrm5",
+   "svpjowkbf3cpar7c"
+  ],
+  "R005": [
+   "cdt7xe7y6omowxvb",
+   "lon6jj5z6wdsgcwb"
+  ],
+  "R006": [
+   "hyk4bbf5g3xazdmm"
+  ],
+  "R007": [
+   "4zkdakvvduxumolx",
+   "hs7s2ei2wn4xuesb"
+  ],
+  "R008": [
+   "hzj2w22jmkpzyyqd",
+   "lyfwldtcbol5m476",
+   "re3xdj42lp2lix7n",
+   "swu5cg7zwjbilz4b"
+  ],
+  "R009": [
+   "kumj67f56lgnck6h",
+   "luhseae4swnt477a",
+   "xen43utiul2kfod6"
+  ],
+  "R010": [
+   "c3njdnh2fg2lpvjj",
+   "erbazmapxk4vxpdb"
+  ],
+  "R011": [
+   "htdy4jpl4mbhyhgx",
+   "phmkll5jbepzkhpg"
+  ],
+  "R012": [
+   "4cnuah6ygpjshpcx",
+   "ihz6kb2wgvc274hu"
+  ],
+  "R013": [
+   "3fbrc5wecqp7zvs7",
+   "xzyl726m6fe4tyfd",
+   "zcylepsu5x4q3pfm"
+  ],
+  "R014": [
+   "aw24q2rsjvszqf3h",
+   "cwhm7kqn4wqqf3fp"
+  ],
+  "R015": [
+   "rlhnc2lnvsonotsf",
+   "rsuzstgtu5odsiap"
+  ],
+  "R016": [
+   "25wfnwqezhxkqznh",
+   "oseg76lfmcah6ihx",
+   "phfp6h6l43kgtgjk"
+  ],
+  "R017": [
+   "cnspg3h44sv6efsl",
+   "zkbpsugkd4djmru5"
+  ],
+  "R018": [
+   "aykcpebwc57k3dai",
+   "whsmug75w3r4aq25"
+  ],
+  "R019": [
+   "3ovf64dqm4cxjoau",
+   "agw2supf2dr7274w",
+   "uwwfyt73uy2hidhf"
+  ],
+  "R020": [
+   "mdw7bh3dbfdlpzhn"
+  ],
+  "R021": [
+   "izyeflezwlp4ukqc",
+   "w62l4pqwjbgvqvic"
+  ],
+  "R022": [
+   "qrxpk5ngu5mfl5p4",
+   "skckniqhh2ovp7ut"
+  ],
+  "R023": [
+   "5phuahts53kkdxy5",
+   "j3ewufllvemq5cqs"
+  ],
+  "R024": [
+   "frathz5z3ssftqdc",
+   "wnin42mzx7teulio"
+  ],
+  "R025": [
+   "3milpvpbqxaajyhh",
+   "mfwvuwe6beunsogl",
+   "p2qmsm45pbtxrnyy"
+  ],
+  "R026": [
+   "bllvzwbghyio734j",
+   "h5ldnrrtdl6qwilj",
+   "hqakp7xcekcqmj7g"
+  ],
+  "R027": [
+   "g2naow6vnxitfhyx",
+   "okfvki7gm36sxdfl"
+  ],
+  "R028": [
+   "bfkwcnn6wqsp2deg",
+   "i5652zcixagizhyv",
+   "mh6zvd3rua5nfcvo"
+  ],
+  "R029": [
+   "6vmxt3h7ufhq2ubz",
+   "u6mjtwf7b3lplhy5"
+  ],
+  "R030": [
+   "bxko4cv43cepadaj",
+   "rz4c6zbw7wlqbijt"
+  ],
+  "R031": [
+   "c5u6ommknxj6x6kr",
+   "ekodp7arxewo3hfp"
+  ],
+  "R032": [
+   "potw6vs7t55nburp",
+   "uq3ye3qt3tyimj2q"
+  ],
+  "R033": [
+   "b5kdgncp745gbpoz",
+   "qmupkgqj25vvh77g"
+  ],
+  "R034": [
+   "c424axpskh6lycl3",
+   "q7iewz2xoq7xhvfe"
+  ],
+  "R035": [
+   "ectsifffytwh44y2",
+   "gsqdaumyadbkyibw"
+  ],
+  "R036": [
+   "bpdks7jcofdz2la7",
+   "tgrxaldf32ybpj5i",
+   "x6zemlpjpfgqoewj"
+  ],
+  "R037": [
+   "2aemt3oni6jjjqjm",
+   "4hmer5ziakgxmdhj"
+  ],
+  "R038": [
+   "clap5bw62ksz5pda",
+   "l34ctkgs223wubby"
+  ],
+  "R039": [
+   "exatbacg7d4jdvr5",
+   "fjq3i6rujtwxnnts"
+  ],
+  "R040": [
+   "4f2troidg37moii3",
+   "zjriyfra23iwbjks"
+  ],
+  "R041": [
+   "clnnpbz77lcl34xm",
+   "ouk2xk3h5u7pwscn"
+  ],
+  "R042": [
+   "boanvshnj32b3iyz",
+   "de3ytu2x6aw5ex4i"
+  ],
+  "R043": [
+   "am2clebbjwcasdb5",
+   "ayjdccl4uyiv6qpo",
+   "vplxho2xeanl4stw"
+  ],
+  "R044": [
+   "snvudfrf5mbffy2k",
+   "z7mal7fsyio2c663"
+  ],
+  "R045": [
+   "3rflxpxxdgtlq5jq",
+   "72cv2s3qz7t7qvgp",
+   "bzfpu3sitzru4uee",
+   "l5lqhovs5ktpempz"
+  ],
+  "R046": [
+   "fgki236z3l2mluxm",
+   "lmrgjmegj74y3647"
+  ],
+  "R047": [
+   "tkkhstwyzhoy4yrr",
+   "vj5kvoimwh5hjw23"
+  ],
+  "R048": [
+   "5maworlnbrlay4a7",
+   "kko3mz6r6ih6544d",
+   "n63ep6thginmnunu"
+  ],
+  "R049": [
+   "fsoumwmmaotc4tu2",
+   "lhfno6svsahewcdt",
+   "lw42b5n36heyves3"
+  ],
+  "R050": [
+   "snpm37podsnlgkuc"
+  ],
+  "R051": [
+   "4dcxq7xcs4h5uifx",
+   "vxyqw6txnyeuggt2"
+  ],
+  "R052": [
+   "a4ujmbgojz6dl5hm",
+   "lgiszwjzgilesylc"
+  ],
+  "R053": [
+   "gzdy7mese4a7ura3",
+   "vu7gcaears4xgc4k"
+  ],
+  "R054": [
+   "iaqtojtjdecspzeh",
+   "q6cdzkfk4t5a7bwa"
+  ],
+  "R055": [
+   "fww5dsj6rrubwu5e",
+   "sv3jirtmjtlumovc"
+  ],
+  "R056": [
+   "eox7plcxto6hwqhp",
+   "rixvgzdfxe5zmnfr"
+  ],
+  "R057": [
+   "5m3ztifxka5aktyh",
+   "ch5vaj6vcqnfwsiz"
+  ],
+  "R058": [
+   "6h7sbkumf2gtxh4o",
+   "utv62wvh2jpovtkm"
+  ],
+  "R059": [
+   "5etpz7gk3z7ftkin",
+   "zorqgrmyn4b2f7cd"
+  ],
+  "R060": [
+   "7fau2l47hmyqjrht"
+  ],
+  "R061": [
+   "6y7mysz5xqukam7d"
+  ],
+  "R062": [
+   "cozemchebxpnsdcb"
+  ],
+  "R063": [
+   "bties5s2nzar56tc",
+   "mh4hltmklrhertdr"
+  ],
+  "R064": [
+   "cqyixzi34qdzrn3x"
+  ],
+  "R065": [
+   "nfornje5ub5eu56u"
+  ],
+  "R066": [
+   "7453xyyktnmjcbwn"
+  ],
+  "R067": [
+   "hikdutky4ftdemcq"
+  ],
+  "R068": [
+   "g64vf24sspzmnxx6"
+  ],
+  "R069": [
+   "zuiasumyyypnmdmc"
+  ],
+  "R070": [
+   "c4fuc7tbq5xotnpo"
+  ],
+  "R071": [
+   "hit7hewloqnxcem6"
+  ],
+  "R072": [
+   "g4odu5lkdgvopa2d",
+   "p6ft6hwm23jt67vn",
+   "vyuu4mflkhp3c3ag"
+  ],
+  "R073": [
+   "jdtulazs7irfgw4u"
+  ],
+  "R074": [
+   "7bp7m6bp3pxn5ngn",
+   "j6qx7r4o2vo7sida"
+  ],
+  "R075": [
+   "yjm7ednzrpedivhz"
+  ],
+  "R076": [
+   "c36h4yqo2zsbsru4"
+  ],
+  "R077": [
+   "b2zve6haxzq7ck3o"
+  ],
+  "R078": [
+   "tmfjdyowl7o3xim2"
+  ],
+  "R079": [
+   "44t2w2laol24ghbe"
+  ],
+  "R080": [
+   "us4sbhnlwsrnc5hs"
+  ],
+  "R081": [
+   "yzxgzqkwaryzax3j"
+  ],
+  "R082": [
+   "fe6hjbqjykenhrkg"
+  ],
+  "R083": [
+   "t7dcoyzh2iq3ogdn"
+  ],
+  "R084": [
+   "kckajpjzwgsz2hlf"
+  ],
+  "R085": [
+   "2xaxpsyifacwnpoj"
+  ],
+  "R086": [
+   "2igfdrsc6qksuc7h"
+  ],
+  "R087": [
+   "5tkryqecdzmjnhaj",
+   "b6o2isqfqsh5mors"
+  ],
+  "R088": [
+   "ehdnsxmer6eyhd3l"
+  ],
+  "R089": [
+   "sh2qafrrv6uuzhul"
+  ],
+  "R090": [
+   "w4icdhhhhesc3cxu"
+  ],
+  "R091": [
+   "7gls6xjaerhkmw6j"
+  ],
+  "R092": [
+   "aqfaymsqrsdtmsqx",
+   "ox74hwo4dkxyb6fv"
+  ],
+  "R093": [
+   "ok43mkdxtg6zh2um",
+   "xgi7pzl4l2u72yrr"
+  ],
+  "R094": [
+   "ho4iqmi4o77ofdp4"
+  ]
+ }
+}

@@ -158,6 +158,16 @@ def test_seed_carries_every_operational_rule():
     assert drift == [], f"본문 드리프트 — 운영본을 시드로 재동기화 필요: {drift}"
 
 
+@pytest.mark.skipif(not (RULES.parent / "rules-history.md").exists(), reason="운영 경위 로그 없음 — 시드 단독 환경")
+def test_seed_history_matches_operational_history():
+    """경위 로그도 시드 ↔ 운영이 같은 절(`## R0NN`)을 가진다 — 시드에만 있으면 작성자 운영본의 결번이 죽은 참조가 되고,
+    운영에만 있으면 설치자에게 경위가 도달하지 않는다('26.9.25 격리 설치 재현: 새 설치 자가진단이 결번 6건을 죽은
+    참조로 경고 · 시드에 R048·R073, 운영에 R072·R087이 빠져 있었다)."""
+    sec = lambda p: set(re.findall(r"^## (R\d+)\b", p.read_text(encoding="utf-8"), re.M))
+    op, sd = sec(RULES.parent / "rules-history.md"), sec(SEED.parent / "rules-history.md")
+    assert op == sd, f"운영에만: {sorted(op - sd)} · 시드에만: {sorted(sd - op)} — sync_rules.py --apply 또는 시드에 절 추가"
+
+
 def test_no_stale_line_length_claim():
     """폐기된 '1줄 75자' 어림값이 규약 어디에도 유효 기준으로 남지 않는다 (R062)."""
     for p in (RULES, SEED, ROOT / "skills/report-pipeline/references/md-profile.md"):

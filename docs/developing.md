@@ -87,6 +87,11 @@ python3 -m pytest -q
 규칙 현황만 보려면 `python3 skills/report-pipeline/scripts/consolidate_rules.py --check`.
 설치자 환경의 시드 ↔ 운영 규칙 차이는 `python3 skills/report-pipeline/scripts/sync_rules.py`(점검만, `--apply`로 반영).
 
+**시드를 고쳤으면 커밋 전에 `python3 scripts/build_seed_lineage.py`** — 배포한 시드 줄의 지문을
+`references/rules-seed.lineage.json`에 더한다. `sync_rules.py`는 이 계보로 설치자 운영본의 줄이 '손대지 않은 옛 시드
+줄'인지 가려, 그런 줄만 새 시드 줄로 바꾸거나(폐지된 번호면 지우고) 설치자가 고친 줄은 그대로 둔다. 계보에 빠진 줄이
+있으면 `test_sync_rules.py`가 실패한다. git 이력 전체에서 다시 모으려면 `--git`.
+
 CI(`.github/workflows/test.yml`)는 새 클론에서 pytest 전량·배포 가드·웹앱 빌드를 돌린다. 설치하는 것은 테스트 러너
 pytest 하나뿐이다 — 이 설치를 빼 두었던 동안(8월~9월) CI가 매번 실패했다. 푸시 전 로컬에서 새 클론으로 한 번
 돌려 보면(`git clone . /tmp/x && cd /tmp/x && python3 -m pytest -q`) '로컬에서만 초록'을 미리 잡는다.

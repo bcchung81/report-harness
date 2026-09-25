@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # 옛 시드 판본 갱신 테스트(test_sync_rules)가 git 이력을 읽는다
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

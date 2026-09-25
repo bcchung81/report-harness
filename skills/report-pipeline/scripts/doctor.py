@@ -108,16 +108,22 @@ def checks():
     try:
         r = subprocess.run([sys.executable, str(SCRIPTS / "sync_rules.py")], capture_output=True, text=True, timeout=30)
         res = json.loads(r.stdout)
-        added, sup, col, changed = (res.get(k, []) for k in ("added", "superseded", "collision", "changed"))
+        added, upd, sup, col, changed, retired = (res.get(k, []) for k in
+                                                  ("added", "updated", "superseded", "collision", "changed", "retired"))
+        hist = res.get("history_added", [])     # 경위 로그에 없는 결번 기록 — 없으면 규칙 점검이 죽은 참조로 본다
         if res.get("missing"):
             out.append({"항목": "규칙 동기화", "상태": OK, "값": "운영 규칙 없음 — 첫 실행 때 시드를 복사한다", "조치": ""})
         else:
-            parts = [f"새 규칙 {len(added)}건" if added else "", f"대체·정정 {len(sup)}건" if sup else "",
+            parts = [f"새 규칙 {len(added)}건" if added else "", f"시드 갱신 {len(upd)}건" if upd else "",
+                     f"폐지 {len(retired)}건" if retired else "", f"대체·정정 {len(sup)}건" if sup else "",
                      f"번호 충돌 {len(col)}건({', '.join(col[:3])})" if col else "",
-                     f"본문 다른 규칙 {len(changed)}건" if changed else ""]
+                     f"본문 다른 규칙 {len(changed)}건" if changed else "",
+                     f"경위 로그 {len(hist)}절" + (" (파일 없음)" if res.get("history_missing") else "") if hist else "",
+                     f"통합 마커 → {res['marker']}" if res.get("marker") else ""]
             val = " · ".join(x for x in parts if x) or "시드와 일치"
-            out.append({"항목": "규칙 동기화", "상태": WARN if (added or sup or col) else OK, "값": val,
-                        "조치": ("로컬 규칙을 R9NN으로 옮긴 뒤 " if col else "") + ("sync_rules.py --apply" if (added or sup or col) else "")})
+            todo = added or upd or retired or sup or col or hist or res.get("marker")
+            out.append({"항목": "규칙 동기화", "상태": WARN if todo else OK, "값": val,
+                        "조치": ("로컬 규칙을 R9NN으로 옮긴 뒤 " if col else "") + ("sync_rules.py --apply" if todo else "")})
     except Exception:
         out.append({"항목": "규칙 동기화", "상태": WARN, "값": "점검 실패", "조치": ""})
 
