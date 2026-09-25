@@ -83,7 +83,15 @@ def analyze(path):
     latest = max((int(r[1:]) for r in body), default=0)
     growth = latest - marked
 
-    return {"path": str(path), "count": len(body), "parse_gap": parse_gap,
+    # ⑥ 태그별 프리플라이트 분량 — 각 단계는 자기 태그 줄만 grep해 읽는다(SKILL §0-5). 규칙 문구가 길어질수록 집필·변환
+    #    때 문맥을 먹으므로 추이를 본다('26.9.25 프로덕션 분석: [draft]·[export] 각 약 2만 자, 절반이 코드 강제 규칙)
+    per_tag = {}
+    for r, tags, b in rules:
+        for tg in re.findall(r"\[([a-z]+)\]", tags):
+            n, c = per_tag.get(tg, (0, 0))
+            per_tag[tg] = (n + 1, c + len(b))
+
+    return {"path": str(path), "count": len(body), "parse_gap": parse_gap, "per_tag": per_tag,
             "candidates": sorted(candidates), "dead_refs": dead, "ungraded": ungraded,
             "oversized": oversized,
             "marked_at": f"R{marked:03d}" if marked else "없음",
@@ -95,6 +103,8 @@ def check(path):
     a = analyze(path)
     fail = []
     print(f"규칙 {a['count']}개 · {a['chars']:,}자 · 마지막 통합 {a['marked_at']} → 현재 {a['latest']} (+{a['growth']})")
+    if a["per_tag"]:
+        print("  단계별 프리플라이트: " + " · ".join(f"[{t}] {n}개 {c:,}자" for t, (n, c) in sorted(a["per_tag"].items())))
 
     if a["parse_gap"]:
         fail.append(f"파서 정합 깨짐 — 본문 파싱 실패: {a['parse_gap']}")

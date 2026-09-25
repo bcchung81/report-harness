@@ -78,3 +78,11 @@ def test_cross_references_survive_past_r099(tmp_path):
     a = cr.analyze(p)
     assert "R100" not in a["candidates"], f"참조받는 규칙이 통합 후보로 잡힘: {a['candidates']}"
     assert a["dead_refs"] == ["R404"], a["dead_refs"]
+
+
+def test_per_tag_preflight_size_counts_multi_tag_rules(tmp_path):
+    """태그별 프리플라이트 분량 — 다중 태그 규칙([draft][export])은 두 단계 모두에 센다('26.9.25 문맥 비용 추적)."""
+    p = tmp_path / "rules.md"
+    p.write_text("- R001 [draft] 가나다\n- R002 [draft][export] 라마\n- R003 [export] 바\n", encoding="utf-8")
+    a = cr.analyze(p)
+    assert a["per_tag"] == {"draft": (2, 5), "export": (2, 3)}
