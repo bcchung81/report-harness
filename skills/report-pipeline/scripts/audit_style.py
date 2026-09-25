@@ -26,6 +26,25 @@ TABLE = re.compile(r"^\s*\|")
 # 예외는 RFP("~하여야 함")와 붙임 회의록("~답변함")뿐이므로, 그 두 형태는 제외한다.
 BAD_ENDING = re.compile(r"(?:함|임|음|됨)$")
 ENDING_EXEMPT = re.compile(r"(?:하여야\s*함|답변함|질의함|설명함|보고함)$")
+# 명사 자체가 함·임·음으로 끝나는 말은 종결어미가 아니다('26.9.1 교훈 — '위임'·'책임'을 위반으로 오검출).
+# 2음절 한자어(포함·위임·책임·모임)는 줄기가 한 글자라 '~하다' 활용일 수 없다. 단 '것임'·'뿐임'처럼 의존명사 뒤
+# 서술격은 그대로 위반이고, '없음'·'같음' 같은 형용사 명사형도 위반이다(음은 목록에 든 명사만 통과).
+NOUN_ENDING_OK = {"포함", "위임", "책임", "모임", "부임", "선임", "연임", "재임", "겸임", "전임", "후임", "신임",
+                  "일임", "방임", "불포함", "재위임", "처음", "다음", "마음", "소음", "녹음", "발음", "모음"}
+BOUND_NOUN = set("것뿐수중바터때")
+
+
+def bad_ending(body):
+    """본문 종결이 ~함·~임·~음·~됨(style-guide §4 철칙 위반)인가 — 명사 자체의 받침 끝은 빼고 본다."""
+    if not BAD_ENDING.search(body):
+        return False
+    m = ENDING_WORD.search(body)
+    word = m.group(1) if m else ""
+    if word in NOUN_ENDING_OK:
+        return False
+    if len(word) == 2 and word[1] in "함임" and word[0] not in BOUND_NOUN:
+        return False                      # 포함·위임·책임 — 2음절 한자어 명사
+    return True
 # 인용부호 안에서 끝나는 경우(원문 인용)는 대상이 아니다.
 QUOTED_TAIL = re.compile(r"[\"”』」]\s*$")
 
@@ -38,7 +57,7 @@ ENDING_WORD = re.compile(r"([가-힣A-Za-z]+)\s*$")   # "…을 확인" → "확
 # ── style-guide §1 [철칙]: 문서 제목 = 명사구 + 문서유형 접미 ────────────────
 TITLE_SUFFIX = re.compile(
     r"(?:보고|검토\s*결과|계획\(안\)|추진계획\(안\)|결과\s*보고|방안(?:\(안\))?|"
-    r"개선\(안\)|계획|현황|지침|매뉴얼)\s*(?:\(안\))?\s*$"
+    r"개선\(안\)|계획|현황|지침|매뉴얼|질의(?:서)?|회신|요청(?:서)?|협조\s*요청)\s*(?:\(안\))?\s*$"
 )
 # ── style-guide §1 [철칙]: 제목 아래 발신 줄 ────────────────────────────────
 SENDER = re.compile(r"^<\s*'\d{2}\.\s*\d{1,2}\.\s*\d{1,2}\.\(.+?\),.+>")
@@ -49,6 +68,8 @@ SECTION_POOL = {
     "주요 내용", "추진 내용", "조사결과", "조사 결과", "검토 결과", "검토 사항",
     "개선 방안", "기대 효과", "시사점", "주요 시사점", "향후 계획", "향후 일정",
     "추진 일정", "추진 방법", "추진 체계", "추진 과제", "기관별 보유 자료",
+    # 질의서·요청 문서 계열('26.9.1 교훈 — 단신 요약보고 어휘만 있어 질의서가 title-no-suffix·offpool 4건)
+    "질의 배경", "질의 사항", "질의 내용", "요청 사항", "요청 내용", "협조 요청 사항", "협조 사항", "회신 요청",
 }
 # 절 제목에 붙는 (안)·번호 등을 떼고 비교한다.
 SECTION_NUM = re.compile(r"^\s*[0-9IVXⅠ-Ⅹ]+\s*[.．]\s*")
@@ -285,7 +306,7 @@ def audit_text(text: str):
                                   "text": f"절 첫 ㅇ가 배경·경위로 시작 — 결론을 먼저: {lead[:50]}"})
             if QUOTED_TAIL.search(body) or ENDING_EXEMPT.search(body):
                 continue
-            if BAD_ENDING.search(body):
+            if bad_ending(body):
                 v.append({"line": i, "rule": "ending-forbidden", "text": body[-60:]})
             em = ENDING_WORD.search(body)          # R080: 종결 명사 집계
             if em and not in_annex:

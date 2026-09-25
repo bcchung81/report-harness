@@ -258,3 +258,22 @@ def test_external_citation_needs_source_line():
     # 출처 줄은 자료명(원어 제목·약칭)이라 약어·종결 검사에서 뺀다
     v, w = audit_text(BASE + "※ 자료: 한국지능정보사회진흥원, 「가이드」 부록 05 성과지표 POOL(2023) NO.2 재구성\n")
     assert "abbr-unexplained" not in rules(w) and v == []
+
+
+def test_noun_endings_are_not_forbidden_endings():
+    """'포함·위임·책임·모임'은 명사 자체의 끝이지 ~함·~임 종결이 아니다('26.9.1 교훈). 진짜 위반은 계속 잡는다."""
+    for ok in ("처리시간에 포함", "부서장에게 위임", "운영 부서가 산출 책임", "협의 모임", "다음"):
+        v, _ = audit_text(BASE + f"ㅇ **(측정 기준)** 성과 측정은 {ok}\n")
+        assert "ending-forbidden" not in rules(v), ok
+    for bad in ("처리가 불가함", "결과를 확인함", "할 것임", "해당 없음", "대상이 같음", "완료됨"):
+        v, _ = audit_text(BASE + f"ㅇ **(측정 기준)** 성과 측정은 {bad}\n")
+        assert "ending-forbidden" in rules(v), bad
+
+
+def test_question_documents_use_their_own_title_and_section_vocab():
+    """질의서·요청 문서는 단신 요약보고 어휘 밖이지만 합법이다('26.9.1 교훈 — title-no-suffix·offpool 4건)."""
+    doc = ("장비 구매 절차 질의서\n< '26. 9. 1.(월), 경영기획본부 AI디지털심화팀 >\n\n□ 질의 배경\n\n"
+           "ㅇ **(구매 방식)** 공시가격 단독공급 제품의 구매 절차를 확인\n\n□ 질의 사항\n\n"
+           "ㅇ **(절차 확인)** 웹스토어 결제로 국가계약법 절차를 갈음할 수 있는지 확인\n")
+    v, w = audit_text(doc)
+    assert "title-no-suffix" not in rules(v) and "section-title-offpool" not in rules(w)

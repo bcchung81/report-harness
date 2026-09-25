@@ -13,7 +13,23 @@
 | 접근 차단·봇 방지 사이트(X/Twitter, Reddit, 네이버 블로그 등) | `insane-search` 스킬 | WebFetch가 402/403을 반환하거나 알려진 차단 플랫폼(X, Reddit, YouTube, GitHub, Medium, Substack, StackOverflow, 네이버 등)일 때. 별도 설치 필요. |
 | 라이브러리·프레임워크·SDK 공식 문서 | MCP `Context7` | 버전별 최신 API 문서. 기술 스펙 확인용(보고서 주제가 기술 도입 검토일 때 유용). |
 | YouTube 영상 내용 | `youtube-transcript` MCP | 자막 추출 후 텍스트로 인용. |
-| 위 어느 것에도 해당 없는 일반 웹 조사 | `WebSearch` → `WebFetch` | 기본값. 검색으로 후보 URL 확보 후 본문 페치. |
+| 위 어느 것에도 해당 없는 일반 웹 조사 | `WebSearch` → `WebFetch` | 기본값. 검색으로 후보 URL 확보 후 본문 페치. **WebFetch가 빈 본문·차단으로 실패하면 `curl -A '<브라우저 User-Agent>'`로 한 번 더 받는다** — 실패를 0건으로 세면 수치가 과소집계된다('26.8.15 개방 데이터셋 2건 → 재집계 30건). 핵심 수치는 분석 단계에서 1회 다시 확인한다. |
+
+### 법령 본문 조회가 실패할 때 — 법제처 오픈API 직접 호출
+
+`korean-law`의 `search_law`는 되는데 `get_law_text`·`get_annexes`가 실패하는 일이 있다('26.9.1 — 3개 조사 단위
+전부, 세션 안 5회 연속 재현). 그때는 검색으로 얻은 법령일련번호(MST)로 법제처 DRF 오픈API를 직접 받는다:
+
+```
+curl -s "https://www.law.go.kr/DRF/lawService.do?OC={LAW_OC}&target=law&MST={MST}&type=XML"   # 행정규칙은 target=admrul
+```
+
+조문은 XML의 조문단위 CDATA에 있다. 받은 원문은 다른 산출물과 같이 research/ 계약(프론트매터·manifest)대로 둔다.
+
+### 조사 단위를 나눌 때
+
+원본(xlsx·pdf 표)을 직접 다시 읽어야 하는 단위는 팬아웃 계획에 처음부터 포함한다 — 뒤에 따로 붙이면 시간
+상한을 넘긴다('26.8.23 — 4단위 계획에 원본 재판독이 추가돼 15분 상한을 20분으로 초과).
 
 ## 환경 편차 흡수 규칙
 
