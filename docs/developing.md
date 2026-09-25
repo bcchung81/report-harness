@@ -63,6 +63,11 @@ matcher는 Bash와 kordoc MCP(`generate_document`·`patch_document`)를 함께 �
 정합 단계(`postprocess_hwpx.py`·`md2hwpx.py`)에서만 `structural` 전량과 필수 멤버를 걸어 차단한다.
 플러그인 설치 시 자동 등록되며, 동작 검증은 `tests/test_verify_hwpx_hook.py`.
 
+두 번째 훅 `lint_draft_hook.py`는 Write·Edit를 잡아 **`20_draft.md`만** 결정론 린트·문체 감사에 태운다. 위반이
+있으면 `decision: block`으로 되돌려 0건이 될 때까지 고치게 하고, 경고는 막지 않는다. 종전 사용자 설정 훅은 □ 줄이
+두 개 이상인 md를 다 검사해 되읽기 기록(`40_roundtrip.md`)까지 막았다 — 파생 md는 대상이 아니다. 동작 검증은
+`tests/test_lint_draft_hook.py`.
+
 ## 테스트
 
 ```bash
@@ -80,6 +85,11 @@ python3 -m pytest -q
 | `test_consolidate_rules.py` | 규칙 축적 방치. 파서 정합(다중 태그 규칙 누락 회귀)·죽은 참조·근거 등급 누락을 검사하고, 마지막 통합 이후 **10건이 늘면 실패**시킨다 |
 
 규칙 현황만 보려면 `python3 skills/report-pipeline/scripts/consolidate_rules.py --check`.
+설치자 환경의 시드 ↔ 운영 규칙 차이는 `python3 skills/report-pipeline/scripts/sync_rules.py`(점검만, `--apply`로 반영).
+
+CI(`.github/workflows/test.yml`)는 새 클론에서 pytest 전량·배포 가드·웹앱 빌드를 돌린다. 설치하는 것은 테스트 러너
+pytest 하나뿐이다 — 이 설치를 빼 두었던 동안(8월~9월) CI가 매번 실패했다. 푸시 전 로컬에서 새 클론으로 한 번
+돌려 보면(`git clone . /tmp/x && cd /tmp/x && python3 -m pytest -q`) '로컬에서만 초록'을 미리 잡는다.
 
 ---
 
