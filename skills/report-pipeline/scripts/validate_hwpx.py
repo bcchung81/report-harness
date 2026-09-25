@@ -67,11 +67,22 @@ FIG_MARKER = re.compile(r"^\s*도[해식]:\s*\S")
 FIG_IMAGE = re.compile(r"!\[[^\]]*\]\((?!kcaHdr)[^)]*\)")
 
 
+HDR_IMAGE = re.compile(r"!\[[^\]]*\]\(kcaHdr[^)]*\)")
+
+
 def _figure_count(lines):
     """본문 그림 수 — `끝.` 뒤는 세지 않는다. 되읽기는 머리말 배너 BinData를 문서 끝에 한 번 더
-    내보낸다(인도본 r02 실측 — `끝.` 뒤 image_001.png·image_002.bmp)."""
+    내보낸다(인도본 r02 실측 — `끝.` 뒤 image_001.png·image_002.bmp). `끝.`이 없는 문서(붙임 없는 결과 보고 등)는
+    문서 끝의 그림 줄을 머리말 그림 수(`kcaHdr…`)만큼 뺀다 — 종전에는 머리말 두 장을 본문 그림으로 세어
+    count-mismatch:figures(0→2)가 났다('26.9.25 하네스 실전 점검)."""
     ends = [i for i, l in enumerate(lines) if l.strip() == "끝."]
-    body = lines[:ends[-1]] if ends else lines
+    if ends:
+        body = lines[:ends[-1]]
+    else:
+        body, dump = list(lines), sum(len(HDR_IMAGE.findall(l)) for l in lines)
+        while body and dump and (not body[-1].strip() or FIG_IMAGE.fullmatch(body[-1].strip())):
+            dump -= bool(body[-1].strip())
+            body.pop()
     return sum(bool(FIG_MARKER.match(l)) for l in body) + sum(len(FIG_IMAGE.findall(l)) for l in body)
 
 

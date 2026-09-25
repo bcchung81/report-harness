@@ -363,3 +363,25 @@ def test_korean_name_with_acronym_and_method_titles_are_external():
                  "※ 「AI 성과 측정 방법」(영향평가원)에서 절감률 20%"):
         assert "source-line-missing" in _w(BASE + line + "\n"), line
     assert "source-line-missing" not in _w(BASE + "※ 사람 이관(ESC)은 반려가 아닌 이관율로 별도 집계\n")
+
+
+def test_r054_result_report_sections_are_in_the_pool():
+    """R054가 정한 결과보고 절 구성의 제목은 모두 절 어휘 풀에 있다 — 규칙대로 쓴 초안을 어휘 밖으로 잡으면 안 된다
+    ('26.9.25 하네스 실전 점검: '□ 추진 성과'가 section-title-offpool로 걸렸다)."""
+    import re
+    import audit_style as au
+    seed = (Path(__file__).resolve().parents[1] / "skills/report-pipeline/references/rules-seed.md").read_text(encoding="utf-8")
+    line = next(l for l in seed.splitlines() if l.startswith("- R054 "))
+    order = re.search(r"\*\*결과보고 절 구성 표준 — ([^*]+)\*\*", line).group(1)
+    titles = [t.strip() for t in order.split("→")]
+    assert len(titles) == 5 and all(t in au.SECTION_POOL for t in titles), titles
+
+
+def test_title_that_wraps_to_two_lines_is_warned():
+    """제목이 제목표 한 줄(24pt)을 넘으면 집필 단계에서 경고한다 — 변환 뒤에야 2쪽이 된 것을 알고 승인된 초안을
+    줄이던 것을 당긴다('26.9.25 하네스 실전 점검). 후처리·리뷰 화면과 같은 fit_title로 잰다."""
+    body = "\n< '26. 9. 25.(금), 경영기획본부 AI디지털심화팀 >\n\n□ 개 요\n\nㅇ **(요지)** 검수 시간을 포함해도 건당 45분 절감을 확인\n"
+    _, w = audit_text("작성 시간 단축 효과를 확인한 AI 문서 초안 도우미 시범운영 결과 보고" + body)
+    assert "title-two-lines" in rules(w)
+    _, w = audit_text("시간을 줄인 AI 초안 도우미 시범운영 결과 보고" + body)
+    assert "title-two-lines" not in rules(w)

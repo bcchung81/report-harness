@@ -46,6 +46,17 @@ def external_citation(line):
     return bool((titles or EXTERNAL_ENTITY.search(rest)) and EVIDENCE.search(rest))
 
 
+def _title_overflows(title):
+    """제목이 제목표 한 줄(24pt)에 들지 않는가 — 후처리·리뷰 화면과 같은 fit_title로 잰다. 변환 뒤에야 2쪽이 된 것을
+    알고 승인된 초안을 줄이던 것을 집필 단계로 당긴다('26.9.25 하네스 실전 점검: 37자 제목이 2줄로 넘쳐 1쪽 초과).
+    후처리 모듈을 못 읽는 환경이면 검사를 건너뛴다."""
+    try:
+        from postprocess_hwpx import fit_title, TITLE_TEXT_WIDTH_HU
+    except Exception:
+        return False
+    return fit_title(title.strip(), TITLE_TEXT_WIDTH_HU / 100.0)[2]
+
+
 def _source_count(line):
     """출처 줄에 적힌 자료 수 — ';'로 나눈 칸과 「자료명」 수 중 큰 값."""
     body = SOURCE_LINE.sub("", line)
@@ -82,6 +93,9 @@ SECTION_POOL = {
     "주요 내용", "추진 내용", "조사결과", "조사 결과", "검토 결과", "검토 사항",
     "개선 방안", "기대 효과", "시사점", "주요 시사점", "향후 계획", "향후 일정",
     "추진 일정", "추진 방법", "추진 체계", "추진 과제", "기관별 보유 자료",
+    # 결과보고 절 구성 표준(R054: 추진 배경 → 추진 내용 → 추진 성과 → 운영 전환 → 향후 계획) — 규칙대로 쓴 초안을
+    # 어휘 밖으로 잡았다('26.9.25 하네스 실전 점검)
+    "추진 성과", "운영 전환",
     # 질의서·요청 문서 계열('26.9.1 교훈 — 단신 요약보고 어휘만 있어 질의서가 title-no-suffix·offpool 4건)
     "질의 배경", "질의 사항", "질의 내용", "요청 사항", "요청 내용", "협조 요청 사항", "협조 사항", "회신 요청",
 }
@@ -217,8 +231,8 @@ SECTION_RANK = {
     "기관별 보유 자료": 2,
     "주요 내용": 3, "추진 내용": 3, "추진 과제": 3, "개선 방안": 3,
     "검토 결과": 3, "검토 사항": 3,
-    "기대 효과": 4, "시사점": 4, "주요 시사점": 4,
-    "추진 방법": 5, "추진 체계": 5,
+    "기대 효과": 4, "시사점": 4, "주요 시사점": 4, "추진 성과": 4,
+    "추진 방법": 5, "추진 체계": 5, "운영 전환": 5,        # R054: 추진 내용 → 추진 성과 → 운영 전환 → 향후 계획
     "향후 계획": 6, "향후 일정": 6, "추진 일정": 6,
 }
 
@@ -260,6 +274,9 @@ def audit_text(text: str):
         title = _strip_markup(head[0])
         if not TITLE_SUFFIX.search(title):
             v.append({"line": 1, "rule": "title-no-suffix", "text": title[:80]})
+        if _title_overflows(title):
+            w.append({"line": 1, "rule": "title-two-lines",
+                      "text": f"제목이 제목표 한 줄을 넘어 2줄로 조판된다 — 결론을 담은 채 줄인다(짧은 분량이면 쪽이 넘친다): {title[:40]}"})
         if len(head) < 2 or not SENDER.match(head[1].strip()):
             w.append({"line": 2, "rule": "sender-line-missing",
                       "text": (head[1][:80] if len(head) > 1 else "")})

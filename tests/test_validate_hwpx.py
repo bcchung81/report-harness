@@ -314,3 +314,13 @@ def test_blank_table_dropped_in_conversion_is_reported():
     assert profile_counts(src)["blank_tables"] == 1 and profile_counts(src)["tables"] == 0
     assert any(i["rule"] == "count-mismatch:blank_tables" for i in compare_texts(src, body))
     assert not any("tables" in i["rule"] for i in compare_texts(body, body + blank))   # 되읽기에만 느는 빈 표는 보지 않는다
+
+
+def test_header_bindata_dump_without_end_marker_is_not_a_body_figure():
+    """'끝.'이 없는 문서(붙임 없는 결과 보고)에서도 되읽기가 문서 끝에 다시 내보내는 머리말 그림(BinData)은 본문
+    그림이 아니다('26.9.25 하네스 실전 점검 — count-mismatch:figures 0→2). 본문 그림은 그대로 센다."""
+    head = "![image](kcaHdrLogo) / ![image](kcaHdrSlogan)\n\n# 제목\n\n□ 개 요\n\n ㅇ **(요지)** 본문 문장\n\n"
+    dump = "\n![image](image_001.png)\n\n\n![image](image_002.bmp)\n"
+    assert profile_counts(head + dump)["figures"] == 0
+    assert profile_counts(head + "![image](image_003.png)\n\n ㅇ **(다음)** 문장\n" + dump)["figures"] == 1
+    assert profile_counts(head + "끝.\n" + dump)["figures"] == 0                     # 종전 경로('끝.' 뒤 자르기) 유지
