@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.5.5-green.svg)
+![version](https://img.shields.io/badge/version-0.6.0-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
