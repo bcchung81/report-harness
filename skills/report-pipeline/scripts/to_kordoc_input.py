@@ -7,7 +7,7 @@
 그래서 결과를 파일로 남겨야 했다. 남은 0.2%는 도식 마커 치환뿐이고 그것만 Pool 조회가 필요하다.
 
 변환 내용(개조식 → kordoc이 기대하는 마크다운 위계, hwpx-recipe §2):
-  · 첫 줄 제목 → `# 제목` (평문 첫 줄은 제목으로 인식되지 않아 제목 박스·20pt가 안 붙는다, R010)
+  · 첫 줄 제목 → `# 제목` (평문 첫 줄은 제목으로 인식되지 않아 제목 박스·24pt가 안 붙는다, R010)
   · 발신 줄 `< '26. 9. 6.(일), … >` → `<right>…</right>` (미래핑 시 좌측 정렬로 떨어진다, R012)
   · `□ ` → `- ` / `ㅇ ` → `  - ` / `- ` → `    - ` (리터럴 기호를 그대로 두면 하위 대시가
     상위 부호로 평탄화된다)
@@ -22,11 +22,15 @@ import json
 import argparse
 import pathlib
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lint_md_profile import FENCE   # noqa: E402  (인용 블록 경계 단독 출처)
+
 SENDING = re.compile(r"^<\s*'?\d.*>$")          # 발신 줄 `< '26. 9. 6.(일), 본부 팀 >`
 FIGURE = re.compile(r"^도해:\s*(?P<slug>\S+)\s*$")
 TABLE = re.compile(r"^\s*\|")
 DEPTH = (("□ ", "- "), ("ㅇ ", "  - "), ("○ ", "  - "))
 DASH = re.compile(r"^-\s+")
+QUOTE_MARK = "\u2060"                             # 원문 인용 줄 표식(보이지 않는 WORD JOINER — kordoc이 보존, '26.9.24 실측)
 
 
 def convert(text, figures=None):
@@ -34,9 +38,18 @@ def convert(text, figures=None):
     figures = figures or {}
     out, used, missing = [], [], []
     title_done = False
+    in_quote = False
     for raw in text.splitlines():
         line = raw.rstrip()
         body = line.strip()
+
+        if FENCE.match(line):            # 원문 인용 블록 — 울타리는 그대로, 안쪽 줄은 표식(U+2060)을 붙여 넘긴다
+            in_quote = not in_quote
+            out.append("```text" if in_quote else "```")
+            continue
+        if in_quote:                     # 후처리가 표식으로 인용 줄을 알아보고 상자·고정폭으로 바꾼 뒤 표식을 지운다
+            out.append(QUOTE_MARK + raw.rstrip("\n"))
+            continue
 
         if not title_done and body:
             out.append("# " + body)

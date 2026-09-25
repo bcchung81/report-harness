@@ -16,7 +16,10 @@
      새 변환 규칙이 추가되었는데 회계가 갱신되지 않은 회귀를 잡기 위한
      트립와이어다.
 """
-import sys, re, hashlib, argparse
+import sys, re, hashlib, argparse, pathlib
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lint_md_profile import FENCE   # noqa: E402  (인용 블록 경계 단독 출처)
 
 SINGLELINE_COMMENT = re.compile(r"<!--(?:(?!-->).)*-->")  # 같은 라인 내 주석만
 COMMENT_OPEN = re.compile(r"<!--")
@@ -38,7 +41,13 @@ def _strip_singleline_comments(text):
     거부 대상이므로 여기서는 건드리지 않고 검사만 한다."""
     deleted = 0
     out_lines = []
+    in_quote = False
     for line in text.splitlines(True):  # keepends
+        if FENCE.match(line.rstrip("\n")):             # 원문 인용 블록 안은 글자 그대로 둔다
+            in_quote = not in_quote
+        if in_quote or FENCE.match(line.rstrip("\n")):
+            out_lines.append(line)
+            continue
         stripped_line = SINGLELINE_COMMENT.sub("", line)
         deleted += len(line) - len(stripped_line)
         out_lines.append(stripped_line)
@@ -48,8 +57,12 @@ def _strip_singleline_comments(text):
 def _check_no_multiline_comment_spans(text):
     """단일행으로 제거되지 않고 남은 <!-- 또는 --> 가 있으면
     다중행 주석 스팬이 존재한다는 뜻 — 거부."""
+    in_quote = False
     for i, line in enumerate(text.splitlines(), 1):
-        if COMMENT_OPEN.search(line) or COMMENT_CLOSE.search(line):
+        if FENCE.match(line):
+            in_quote = not in_quote
+            continue
+        if not in_quote and (COMMENT_OPEN.search(line) or COMMENT_CLOSE.search(line)):
             raise PrepError("multiline-comment", i)
 
 
@@ -60,7 +73,15 @@ def _process_hr_and_footnotes(text):
     n = len(lines)
     out = []
     deleted = 0
+    in_quote = False
     for i, line in enumerate(lines):
+        if FENCE.match(line):
+            in_quote = not in_quote
+            out.append(line)
+            continue
+        if in_quote:                                   # 원문 인용 블록 — 구분선·각주 정규화도 하지 않는다
+            out.append(line)
+            continue
         if HR_LINE.match(line):
             prev_blank = (i == 0) or (lines[i - 1].strip() == "")
             next_blank = (i == n - 1) or (lines[i + 1].strip() == "")

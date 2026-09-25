@@ -156,14 +156,15 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 ## 8. 설정 (선택)
 
 **설정 파일이 없어도 전 기능이 동작한다.** 첫 인도 시 안내를 1줄만 출력한다.
-경로를 고정하고 싶으면 `~/.claude/report-harness.json`에 아래 4키만 채운다.
+경로를 고정하고 싶으면 `~/.claude/report-harness.json`에 아래 키를 채운다(전부 선택).
 
 ```json
 {
   "reports_dir":     "/path/to/reports",
   "state_dir":       "/path/to/state",
   "knowledge_vault": "/path/to/obsidian-vault",
-  "template_hwpx":   "/path/to/기관보고양식.hwpx"
+  "template_hwpx":   "/path/to/기관보고양식.hwpx",
+  "font_dirs":       ["/path/to/fonts"]
 }
 ```
 
@@ -173,6 +174,7 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 | `state_dir` | `{cwd}/.report-harness` (자동 생성) | `rules.md`·`lessons.jsonl` 위치. 첫 실행 시 `rules-seed.md`(R001~R071)를 복사 |
 | `knowledge_vault` | 없음 → vault 기능(사전지식 조회·적재) 생략 | 개인 지식 vault 루트 |
 | `template_hwpx` | 없음 → 번들 기본 서식 사용 | 기관 레터헤드·스타일 템플릿 병합용 |
+| `font_dirs` | 없음 → OS 기본 폰트 폴더만 탐색 | 이미지 도식(`render_diagram.py`)이 맑은 고딕을 찾을 추가 폴더. 못 찾으면 대체 서체로 그리고 `font_fallback`으로 알린다 |
 
 > 기본값이 홈이 아니라 **실행위치(cwd) 기준**인 이유: 웹앱처럼 홈 디렉토리가 휘발성인 환경에서도
 > 산출물과 복리 state가 프로젝트 폴더와 함께 남도록 하기 위해서다. 로컬 사용자는 설정 파일로

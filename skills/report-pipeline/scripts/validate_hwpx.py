@@ -1,6 +1,9 @@
 """hwpx 구조 검증 + md↔되읽기 왕복 대조 (spec §6-4, AI 티 3중장치-③). stdlib-only."""
 import sys, json, re, zipfile, pathlib, xml.etree.ElementTree as ET
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lint_md_profile import quote_blocks, mask_fences   # noqa: E402  (인용 블록 경계 단독 출처)
+
 NUM = re.compile(r"\d+(?:[.,]\d+)*")
 # 개조식 항목 선두 합법 기호 (lint_md_profile.LEAD와 동일 어휘) — 잔재 검사 전에 벗겨낸다.
 LEAD = re.compile(r"^\s*(□|ㅇ|○|-|※|＊|\d+\.|\[\d+\])\s")
@@ -58,7 +61,50 @@ def structural_check(path):
         errs.append(str(e))
     return errs
 
+# 그림 — 초안의 `도해:` 마커는 변환에서 그림으로 바뀐다(R088). 글자 대조에서는 빼고 개수로 대조한다.
+# 되읽기 첫 줄의 머리말 배너 그림(kcaHdr*)은 양식 자산이라 세지 않는다.
+FIG_MARKER = re.compile(r"^\s*도[해식]:\s*\S")
+FIG_IMAGE = re.compile(r"!\[[^\]]*\]\((?!kcaHdr)[^)]*\)")
+
+
+def _figure_count(lines):
+    """본문 그림 수 — `끝.` 뒤는 세지 않는다. 되읽기는 머리말 배너 BinData를 문서 끝에 한 번 더
+    내보낸다(인도본 r02 실측 — `끝.` 뒤 image_001.png·image_002.bmp)."""
+    ends = [i for i, l in enumerate(lines) if l.strip() == "끝."]
+    body = lines[:ends[-1]] if ends else lines
+    return sum(bool(FIG_MARKER.match(l)) for l in body) + sum(len(FIG_IMAGE.findall(l)) for l in body)
+
+
+# 병합 표 — 되읽기(kordoc)는 병합이 있는 표를 GFM 대신 HTML <table>(rowspan·colspan)로 돌려준다.
+# 초안 쪽 병합 표기(머리글 `A > B`, 칸 `〃`)와 맞춰 세지 않으면 표·칸 글자가 통째로 누락으로 잡힌다.
+HTML_TABLE = re.compile(r"<table>(.*?)</table>", re.S)
+HTML_ROW = re.compile(r"<tr>(.*?)</tr>", re.S)
+HTML_CELL = re.compile(r"<t[hd]([^>]*)>(.*?)</t[hd]>", re.S)
+COLSPAN = re.compile(r'colspan="(\d+)"')
+MERGE_SPLIT = " > "
+DITTO = "〃"
+
+
+def _html_tables(text):
+    """HTML 표마다 (최대 열 수, 칸 글자 목록)."""
+    out = []
+    for m in HTML_TABLE.finditer(text):
+        widths, cells = [], []
+        for row in HTML_ROW.findall(m.group(1)):
+            w = 0
+            for attrs, body in HTML_CELL.findall(row):
+                cs = COLSPAN.search(attrs)
+                w += int(cs.group(1)) if cs else 1
+                cells.append(re.sub(r"<[^>]+>", "", body).strip())
+            widths.append(w)
+        out.append((max(widths, default=0), cells))
+    return out
+
+
 def profile_counts(text):
+    html = _html_tables(text)
+    numbers_src = re.sub(r"<[^>]+>", " ", text)          # 표 안 숫자도 센다 — 태그만 지운다
+    text = HTML_TABLE.sub("", text)
     lines = text.splitlines()
     tbl_rows = [l for l in lines if l.strip().startswith("|")]
     tables = 0
@@ -73,9 +119,10 @@ def profile_counts(text):
         "points": sum(l.strip()[:1] in ("ㅇ", "○") for l in lines),
         "subs": sum(l.strip().startswith("-") and not set(l.strip()) <= set("|- :") for l in lines if not l.strip().startswith("|")),
         "footnotes": sum(l.strip().startswith("＊") for l in lines),
-        "tables": tables,
-        "max_cols": max([len(r.strip().strip("|").split("|")) for r in tbl_rows], default=0),
-        "numbers": set(NUM.findall(text)),
+        "tables": tables + len(html),
+        "figures": _figure_count(lines),
+        "max_cols": max([len(r.strip().strip("|").split("|")) for r in tbl_rows] + [w for w, _ in html], default=0),
+        "numbers": set(NUM.findall(numbers_src)),
     }
 
 def normalize_num(s):
@@ -128,18 +175,20 @@ def content_pieces(text):
     개조식 변환은 마크다운 `- `를 `ㅇ `·`□ `로 바꾸므로 선두 기호는 대조 대상이 아니다.
     표는 셀 단위로 펴서 행 구성이 달라져도 내용 손실만 잡는다.
     """
-    pieces = []
+    pieces = [re.sub(r"\s+", " ", c) for _, cells in _html_tables(text) for c in cells if c]
+    text = HTML_TABLE.sub("", text)
     for line in text.splitlines():
         s = line.strip()
-        if not s or set(s) <= set("|- :") or RT_PREAMBLE.match(s):
+        if not s or set(s) <= set("|- :") or RT_PREAMBLE.match(s) or FIG_MARKER.match(s):
             continue
         s = UNESCAPE.sub(r"\1", RIGHT_TAG.sub("", s))
         s = s.replace("**", "").replace("`", "").replace("==", "")
         if s.startswith("|"):
             for cell in (c.strip() for c in s.strip("|").split("|")):
                 cell = re.sub(r"\s+", " ", cell)
-                if cell and not set(cell) <= set("- :"):
-                    pieces.append(cell)
+                if not cell or set(cell) <= set("- :") or cell == DITTO:
+                    continue                          # `〃`는 위 칸과 병합돼 사라지는 표기
+                pieces.extend(x.strip() for x in cell.split(MERGE_SPLIT))   # `A > B` → 2단 머리행 두 칸
             continue
         s = re.sub(r"\s+", " ", SENT_LEAD.sub("", s)).strip()
         if s:
@@ -149,10 +198,39 @@ def content_pieces(text):
     return [NUM.sub(lambda m: normalize_num(m.group()), x) for x in pieces]
 
 
+def _quote_norm(line):
+    t = UNESCAPE.sub(r"\1", line).replace("\u2060", "").strip()
+    t = t.translate(str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'}))
+    return re.sub(r"\s+", " ", t)
+
+
+def split_quotes(src, rt):
+    """원문 인용 블록 — 초안에서는 울타리째 가리고, 되읽기본에서는 그 줄들을 뺀다(개수·문장 대조가 인용 줄의
+    `- `·`[ ]`를 대시·캡션으로 세지 않게). 인용 줄 자체는 되읽기본에 그대로 있는지 따로 본다."""
+    lines = src.split("\n")
+    quote = [_quote_norm(lines[k]) for start, end, _, _ in quote_blocks(src) if end
+             for k in range(start, end - 1) if lines[k].strip()]
+    qset = set(quote)
+    rt_kept = "\n".join(l for l in rt.split("\n") if _quote_norm(l) not in qset or not l.strip())
+    rt_all = {_quote_norm(l) for l in rt.split("\n")}
+    return mask_fences(src), rt_kept, [q for q in quote if q not in rt_all]
+
+
 def compare_texts(src, rt):
+    src, rt, quote_lost = split_quotes(src, rt)
     a, b = profile_counts(src), profile_counts(rt)
     issues = []
-    for k in ("sections", "points", "subs", "footnotes", "tables", "max_cols"):
+    keys = ["sections", "points", "subs", "footnotes", "tables", "figures", "max_cols"]
+    if b["figures"] < a["figures"]:
+        # 도식이 표로 바뀌었다(R089 diagram_table) — 그림 수·표 수를 따로 세면 둘 다 어긋나므로 합으로 대조하고,
+        # 도식 표는 좌표 격자라 열이 많으니 최대 열 수는 줄어든 경우만 본다
+        keys = [k for k in keys if k not in ("tables", "figures", "max_cols")]
+        if a["tables"] + a["figures"] != b["tables"] + b["figures"]:
+            issues.append({"rule": "count-mismatch:tables+figures", "src": a["tables"] + a["figures"],
+                           "roundtrip": b["tables"] + b["figures"]})
+        if b["max_cols"] < a["max_cols"]:
+            issues.append({"rule": "count-mismatch:max_cols", "src": a["max_cols"], "roundtrip": b["max_cols"]})
+    for k in keys:
         if a[k] != b[k]:
             issues.append({"rule": f"count-mismatch:{k}", "src": a[k], "roundtrip": b[k]})
     a_num = {normalize_num(n) for n in a["numbers"]}
@@ -166,7 +244,7 @@ def compare_texts(src, rt):
     # 문장 자체가 바뀐 경우 — 개수·수치가 맞으면 통과하던 구멍을 막는다('26.9.10 신설).
     # 개수 대조는 "몇 개인가"만 보므로 문장이 통째로 갈려도 총량이 같으면 지나갔다.
     have = set(content_pieces(rt))
-    dropped = [x for x in content_pieces(src) if x not in have]
+    dropped = [x for x in content_pieces(src) if x not in have] + quote_lost
     if dropped:
         issues.append({"rule": "content-dropped", "count": len(dropped),
                        "values": [x[:120] for x in dropped[:10]]})
@@ -202,6 +280,35 @@ def numbers_check(draft_text, research_dir):
     if not unsourced:
         return []
     return [{"rule": "numbers-unsourced", "values": sorted(unsourced)}]
+
+FIGURE_LAYOUT_KEYS = {"span", "width_mm", "task_ratio", "highlight", "type", "render", "tone", "status", "src",
+                      "source", "kind", "numbered", "emphasis"}
+
+
+def figure_numbers_text(fig_dir):
+    """도식 명세(figures/*.json)의 글자·차트 값 — 경량 팩트체크가 도식 안 수치도 근거와 대조하게 한다(R092).
+    배치용 값(span·width_mm 등)은 수치 인용이 아니므로 뺀다."""
+    out = []
+
+    def walk(obj, key=None):
+        if key in FIGURE_LAYOUT_KEYS:
+            return
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                walk(v, k)
+        elif isinstance(obj, list):
+            for v in obj:
+                walk(v, key)
+        elif isinstance(obj, str) or (key == "values" and isinstance(obj, (int, float))):
+            out.append(str(obj))
+    d = pathlib.Path(fig_dir)
+    for f in sorted(d.glob("*.json")) if d.is_dir() else []:
+        try:
+            walk(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    return "\n".join(out)
+
 
 def freshness_check(draft_text, prepared_text):
     """저장된 40_prepared가 **현재** 20_draft에서 나온 것인가 (R004 계열 — '26.9.10 신설).
@@ -261,6 +368,8 @@ if __name__ == "__main__":
             if len(sys.argv) < 4:
                 raise IndexError
             draft = open(sys.argv[2], encoding="utf-8").read()
+            # 도식 명세의 수치도 초안 수치로 본다 — 도식에만 있는 숫자가 근거 없이 인도되지 않게(R092)
+            draft += "\n" + figure_numbers_text(pathlib.Path(sys.argv[2]).parent / "figures")
             issues = numbers_check(draft, sys.argv[3])
             print(json.dumps({"issues": issues}, ensure_ascii=False, indent=1))
             sys.exit(1 if issues else 0)

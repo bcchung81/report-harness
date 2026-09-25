@@ -38,7 +38,7 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
    grep -F "[{단계태그}]" {state_dir}/rules.md
    ```
 
-   결과 0건이면(현재 research·analyze가 그렇다) 규칙 프리플라이트 없이 진행한다.
+   결과 0건이면 규칙 프리플라이트 없이 진행한다(research·analyze는 R092 인용 재료 규칙 1건뿐이다).
    다른 단계 태그·태그 없는 항목은 이번 실행에 적용하지 않는다.
 
 이 절차를 매 단계 시작마다 반복하지 않는다 — 한 요청 안에서 여러 단계를 이어 붙일 때는 최초
@@ -91,12 +91,14 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
    **다수**면 문서 단위로 한 메시지 다중 Agent 병렬 팬아웃(각 Agent는 자기 문서의 파싱·1차
    요약만 맡고, 서로 다른 출력 파일에만 쓴다 — 병렬 쓰기 충돌 금지). **research 단계(모드 I)가
    이미 적재·파싱한 자료는 재적재하지 않는다 — `research/`의 `제공-` 파일 존재로 판단한다.**
-2. `research/` 산출물 + 파싱본을 종합해 `05_analysis.md`에 3가지를 정리한다:
+2. `research/` 산출물 + 파싱본을 종합해 `05_analysis.md`에 4가지를 정리한다:
    - **논지 후보**: 이 건의 핵심 주장이 될 수 있는 후보 1~3개(각 후보를 뒷받침하는 근거 위치
      함께 명시).
    - **총괄표 후보**: 어떤 표가 어느 논지를 지탱할 수 있는지, 셀→출처 매핑 초안.
    - **근거 공백 목록**: 논지를 뒷받침할 근거가 부족한 지점 — 이후 게이트①에서 사용자에게
      보고하거나 추가 조사 여부를 묻는 재료.
+   - **인용 재료 목록(R092)**: 본문에 인용할 외부 수치·원문·구조 — 출처(research 파일·쪽)·기준시점·이용 조건
+     (공공누리 유형 등)·쓰임(본문 문구·차트·도식·표·붙임)·본문 절. 표 틀은 `diagram-pool.md` '외부 자료 인용'.
 3. 게이트 없음.
 4. **시간 상한 5분**(기계 시간). 근접하면 문서 팬아웃 수를 줄이고 파싱 실패 문서는 원본 그대로
    목록에 남긴 채 진행한다.
@@ -107,7 +109,7 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
 **입력**: `05_analysis.md` + `research/`. **산출**: `10_outline.md` → `20_draft.md`.
 초안 판본은 파일명에 붙이지 않는다 — 의미 있는 지점(게이트② 승인 직후·교정 착수 전·
 교차검증 전)마다 `archive_revision.py snapshot {work_dir} --label <사유>`로 이력 폴더에
-남긴다(R086). 현행본은 언제나 `20_draft.md` 하나다.
+남긴다(R087). 현행본은 언제나 `20_draft.md` 하나다.
 **게이트 3개(⓪①②)가 이 단계에 전부 몰려 있다** — 아래 순서를 반드시 지킨다.
 
 ### 게이트⓪ — Q&A (AskUserQuestion, 4문항 이내)
@@ -158,11 +160,16 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 
 `10_outline.md`에 반드시 포함: 목차 + 논지(절별) + 근거 목록(확정/추정 태깅) + **표 설계**
 (어느 절 · 어떤 논지를 지탱 · 열 구성, `table-pool.md` 참고 가능) + **이미지 배치**
-(`factcheck.md` §B 차용 기준으로 규격 판정한 후보와 배치 절, 없으면 생략) + **도식 설계**(`diagram-pool.md` 판정표로 패턴 선택,
-슬롯 내용 초안).
+(`factcheck.md` §B 차용 기준으로 규격 판정한 후보와 배치 절, 없으면 생략) + **도식 설계**(`diagram-pool.md` 판정표로 표 도식·이미지 도식(단계도·비교도·추진체계도·추진일정) 중 선택,
+슬롯 내용 초안). research에 외부 도식이 있으면 `list_research_figures.py`로 후보를 뽑아 **차용·재작도·표
+재구성** 중 하나로 정하고 출처 ※ 줄까지 설계에 적는다(`diagram-pool.md` '외부 도식 활용' — 재작도가 기본).
+05의 **인용 재료 목록**은 항목마다 본문 문구 + 시각화(인용 차트·재작도·원문 인용 블록·표) + 출처 ※ 줄로 배치를 적는다
+(R092 — 도식만 두지 않고 문구를 함께, 그 문구에도 쉬운 말·두괄식 R091 적용). 공공누리 제3·4유형은 재작도하지 않는다.
 
-렌더 전송(사이드패널)으로 제시하고 AskUserQuestion(승인/수정 지정/방향 전환)으로 승인받는다.
-승인 전에는 본문 집필로 넘어가지 않는다.
+**라이브 리뷰어로 보여 준다**('26.9.25 — 모든 md 리뷰): `review_server.py serve {work_dir}`(아래 게이트② 절과 같은 서버)를
+띄우고 문서 고르기에서 `10 아웃라인`을 연다. 코멘트는 `wait` 출력의 `doc: 10_outline.md`로 오고, 처리는 게이트②와
+같다(해당 항목만 고치고 `resolve`). 방향 선택(승인/수정 지정/방향 전환)은 AskUserQuestion으로 받는다 — 승인되면 같은
+서버를 끄지 않고 초안 집필로 넘어간다. 승인 전에는 본문 집필로 넘어가지 않는다.
 
 ### 프리플라이트
 
@@ -175,6 +182,12 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 `format-profile.{기관}.md`가 있으면 그것 우선)를 로드해 집필 지시에 반영한다.
 
 ### 초안 집필
+
+**이미지 도식은 명세로 쓴다** — 게이트①에서 고른 이미지 도식마다 `{work_dir}/figures/{슬러그}.json`
+(`diagram-pool.md` §이미지 도식의 type·슬롯)을 쓰고, 본문에는 캡션 `[ 제목 ]`과 `도해: {슬러그}`만
+둔다. research 그림도 `{"type": "image", "src": "research/…"}` 명세 하나로 같은 경로를 탄다. 배치·
+색·크기는 스크립트가 정하므로 LLM은 슬롯 글자만 쓴다. 도식에 담긴 내용은 본문 개조식에도 적는다
+(이미지는 기계가 읽지 못한다).
 
 **메인 단일 컨텍스트**에서 집필한다(문체·논지 일관성 — 절별 병렬 집필 금지, 이는 하네스
 전체의 금기 2건 중 하나). `md-profile.md` 서브셋 안에서만 쓴다 — GFM 전체가 아니라 변환
@@ -200,6 +213,18 @@ exit 1이면 `violations`를 수정 후 재실행한다(린트와 같은 shift-l
 전에 통과시킨다). `warnings`는 문서 유형에 따라 합법일 수 있으므로 판단해서 처리하고, 무시할
 때는 그 사유를 게이트② 보고에 1줄로 남긴다.
 
+**쉬운 말·두괄식 경고(R091, style-guide §11)는 본문에서 고치는 것이 기본이다** — `plain-word`(용어표의 기술어·
+한자어 투, 용어별 1건)·`abbr-unexplained`(풀이 없는 로마자 약어)·`clause-chain`(한 문장 이음 3개 이상)·
+`noun-chain`(명사 5개 이상 나열)·`history-narration`(경위 표지어)·`lead-not-conclusion`(절 첫 ㅇ가 배경으로 시작).
+기술 사양이 꼭 필요하면 붙임으로 옮긴다(R079 — 붙임은 검사하지 않는다). 고친 뒤 **되말하기 점검**을 1회 한다:
+
+```
+python3 "$SKILL_DIR/scripts/audit_style.py" {work_dir}/20_draft.md --skeleton
+```
+
+□ 제목과 각 절 첫 ㅇ만 모은 뼈대를 읽고 "무엇을·왜·언제"를 절마다 한 줄로 되말한다 — 되말이 초안이 전하려는
+결론과 다르거나 되말이 안 되는 절만 첫 ㅇ를 고친다(국립국어원 「쉬운 공문서 쓰기 길잡이」 56쪽 환언 검사).
+
 ### 스타일 감사 ∥ humanizer
 
 lint 통과 후 수행한다. **서브에이전트 스폰은 게이트② 승인 이후(④ export 직전)로 미룬다** —
@@ -218,10 +243,106 @@ lint 통과 후 수행한다. **서브에이전트 스폰은 게이트② 승인
 
 ### 게이트②
 
-`{work_dir}/20_draft.md`를 사이드패널 렌더로 전송한다. 모든 절·항목에 **절 주소 ID**
-(`□N`, `□N-ㅇM`)를 붙여 피드백을 한 줄 지시("□3 ㅇ2 수치 중심으로")로 받을 수 있게 한다.
+**초안은 리뷰 HTML로 보여 준다** — 개조식 마크다운 원문으로는 잘 썼는지 판단하기 어렵다
+('26.9.24 사용자 지적). 변환 후 미리보기(kordoc `render_document`)는 AI 생성본을 근사 조판으로
+그려 표와 본문이 겹치는 쪽이 나오고, 게이트②는 hwpx 재빌드 루프를 돌지 않는다.
 
-AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** — 별도 질문 아님):
+```
+python3 "$SKILL_DIR/scripts/render_review_html.py" {work_dir}/20_draft.md
+```
+
+→ `{"html": "…/history/drafts/25_review.html", "result": "…/history/drafts/26_review.{시각}.json", …}`.
+글자 크기·들여쓰기·단락 간격은 후처리 상수를 그대로 써 양식에 가깝게 그리고, 모든 항목 여백에
+**절 주소 ID**(`□N`, `□N-ㅇM`, `□N-ㅇM-K`(대시), `□N-표K`, `□N-※K`, `붙임N-…`)를 단다. 스크립트·
+외부 URL이 없는 정적 페이지다. 파생물이라 루트가 아니라 `history/drafts/`에 쓰고(R087), 같은
+경로를 덮어써 리뷰 도구가 회차 간 변경을 비교하게 한다.
+
+**라이브 리뷰 서버로 보여 준다**('26.9.24 사용자 선택) — 창 하나를 끝까지 열어 두고, 코멘트를 여러 번
+보내도 잠기지 않으며, 초안을 고치면 브라우저가 스크롤을 유지한 채 다시 그리고 바뀐 항목을 표시한다.
+127.0.0.1 전용·표준 라이브러리·외부 전송 없음.
+
+**허브 — 보고서 바꾸기와 모든 md**('26.9.25 사용자 선택): 3333 하나에 여러 건이 뜨되 **목록 화면은 따로 두지
+않는다** — `http://127.0.0.1:3333/`은 리뷰 중인 건의 초안으로 바로 간다. 문서·보고서 이동은 모두 **왼쪽 탐색 서랍**
+(아이콘 줄 첫 칸)에서 한다: 찾기 칸(문서·보고서 동시 거르기, Enter로 첫 결과 열기) · 보고서 바꾸기(버튼 아래 떠 있는
+목록 — 날짜·단계·미처리 코멘트) · 이 보고서의 문서 트리(보고서 단계는 단계 표시 / 부속 문서 / 자료 — 자료는 접힘) ·
+`[` `]`로 이전·다음 문서. 이름은 파일명이 아니라 사람이 읽는 제목(research는 프론트매터 `title`, 보고서는 시각
+접두어를 뗀 폴더명)이고, 권한 표지는 무리 전체가 같으면 머리에 한 번만 단다. 서랍은 문서를 옮겨도 열린 채 남고, 넓은 화면에서는 쪽을 밀어 본문을 덮지 않는다.
+그 건의 **모든 md**(초안·아웃라인·분석·맥락·부속 문서·research)를 본다. 초안은 hwpx **양식 보기**(쪽·장평),
+나머지는 **문서 보기**(`md_view.py` — 헤딩·목록·표·코드, 주소 `§1.2-¶3`·`§1.2-•4`·`§1.2-표1`).
+`serve`를 다른 건으로 또 부르면 떠 있는 허브에 **합류**한다(서버를 새로 띄우지 않는다, 출력 `joined: true`).
+코멘트는 serve로 등록한 건만 받고 서랍에서 바꿔 연 다른 건은 보기 전용이다. 문서별 권한과 처리:
+
+| 문서 | 코멘트 | 직접 수정 | 코멘트 처리(`wait` 출력의 `doc`) | lessons `gate` |
+|---|---|---|---|---|
+| `20_draft.md` | O | O | 아래 게이트② 처리 그대로 | draft |
+| `10_outline.md` | O | O | 해당 절·표 설계만 고친다 — 게이트① | outline |
+| `05_analysis.md` | O | O | 논지 후보·총괄표·인용 재료 목록(R092)을 고친다 | analyze |
+| `00_context.md` | O | X | 고치지 않고 **정정 줄을 새로 덧붙인다**(결정 기록은 덮어쓰지 않는다) | — |
+| `research/*.md` | O(메모) | X | 원문 발췌는 고치지 않는다 — 판단 메모(신뢰 낮음·제외 등)는 05 인용 재료 목록·manifest 새 줄에 반영 | research |
+| 그 밖의 루트 md(부속 산출물) | O | O | 해당 줄만 고친다 | — |
+
+```
+python3 "$SKILL_DIR/scripts/review_server.py" serve {work_dir}          # Bash 백그라운드 — http://127.0.0.1:3333/ 이 열린다
+python3 "$SKILL_DIR/scripts/review_server.py" wait {work_dir}           # Bash 백그라운드 — 코멘트가 오면 종료
+```
+
+- `wait`가 끝나면 완료 알림이 온다. 출력 `items`의 `feedback`(`doc`·`addr`·`quote`·`comment` — `doc`이 없으면
+  `20_draft.md`)마다 그 문서(또는 `figures/` 명세)의 해당 항목만 고치고 lint·감사를 다시 돌린 뒤
+  `review_server.py resolve {work_dir} f1 f2…`로 '반영됨'을 표시하고 **다음 `wait`를 다시 띄운다** —
+  **화면은 이 `resolve`(또는 `review_server.py refresh {work_dir}`) 신호 때만 바뀐다** — 서버가 바뀐 항목만
+  골라 열어 둔 연결로 보내고, 브라우저는 주기 요청 없이 그 항목만 바꿔 끼운다(스크롤·작성 중인 코멘트
+  유지). 여러 곳을 고치는 도중의 반쯤 고친 화면은 나가지 않으니, **고칠 것을 다 고치고 lint·감사까지 끝낸 뒤**
+  신호를 보낸다. 렌더러 코드는 다음 신호 때 다시 읽고, 서버를 같은 포트로 다시 띄우면 열린 탭이 스스로 다시 붙는다.
+- **코멘트는 CLI에 주는 작업이다 — 처리 대상은 데이터(`20_draft.md`·`figures/` 명세)뿐이고, 이 루프 안에서
+  스크립트·참조 문서(코드)를 고치지 않는다**('26.9.24 사용자 지적 — 코멘트마다 코드가 바뀌어 루프가 길어짐).
+  | 코멘트 | 처리 |
+  |---|---|
+  | 문구·수치·구성(무엇을 쓰나) | 해당 항목 데이터만 수정 |
+  | 양식(줄 수·간격·크기)인데 기존 규칙으로 맞춰지는 것 | 데이터만 수정(문구 축약·항목 분리 등) — 결과는 규칙이 맞춘다 |
+  | 양식인데 하네스가 규칙대로 그리지 못하는 것(결함) | 이번 문서는 데이터로 먼저 해결하고, 결함은 `lessons.jsonl`에 `"harness_defect": true`로 적어 게이트② 뒤 한 번에 정비(사용자 확인) |
+  코멘트의 `scope`가 `rule`(패널의 '앞으로도 적용')이면 이번 문서에 반영하고 **같은 내용을 lessons에 규칙
+  후보로 기록**한다 — 게이트② 종료 때 R0NN 승격을 선택지로 묻는다(복리 훅의 즉석 승격). `doc`(기본)은 이번
+  문서에만 반영한다.
+- **직접 수정**(`type: edit`) — 사용자가 리뷰 화면에서 문장(□ ㅇ - ※·제목·발신·캡션)이나 병합 없는 표 칸을 두 번
+  눌러 글자를 고친 것이다. 서버가 이미 `20_draft.md`의 그 줄에 썼고(기호·굵은 머리말 표기는 서버가 붙임, 첫
+  수정 전 사본 `history/drafts/20_draft.{시각}.리뷰직접수정전.md`), 표기 검사·문체 감사도 돌려 화면에 알렸다.
+  **되돌리거나 덮어쓰지 않는다** — 초안을 다시 읽어 이후 편집의 기준으로 삼고, lint·감사를 다시 돌려 위반만
+  고친 뒤 `resolve {work_dir} e1…`로 '확인됨'을 표시한다. 같은 줄을 CLI가 먼저 고쳤으면 서버가 저장을 거절(409)한다.
+- `decision: approved`(위 막대의 '승인 · 변환' → 팩트체크 선택 → 승인)가 오면 아래 선택지 1로 간다 — 팩트체크는 경량(기본값),
+  승인 노트에 "전수"·"생략"이 있으면 그 값. 그다음 `review_server.py stop {work_dir}`.
+- **리뷰 화면 = 변환 결과의 약속**: 줄 맞춤(`fit_line`)·간격(`transition_for`)·표 열 폭(`column_shares`)을 후처리와
+  같은 함수로 그리고, 사이드바 '예상 쪽수'와 빨간 쪽 경계선은 한글 본문 높이(247mm) 기준이다 — 후처리
+  `layout.pages_by_part`와 같은 구분(본문·붙임별). 변환 뒤 한글에서 연 쪽수가 리뷰와 다르면 그 차이를
+  lessons에 적는다(보정 재료 — 한글 조판은 이 PC에서 직접 잴 수 없다).
+- 서버는 **게이트①~②가 열려 있는 동안만** 띄운다 — 승인이 오면 `stop {work_dir}`(그 건의 리뷰만 닫고, 리뷰 중인 건이
+  더 없으면 서버가 끝난다). 주소는 고정 3333이고, 허브가 아닌 다른 프로그램이 쓰고 있으면 빈 포트로 뜬다(출력
+  `port_fallback` — 그때는 출력 `url`을 사용자에게 알린다).
+- 기록은 `history/drafts/26_review.{시각}.jsonl`에 쌓인다(R087). 정적 사본 `25_review.html`(스크립트 없음)도
+  요청마다 갱신된다.
+
+**여러 보고서를 함께 정리할 때**('26.9.25 사용자 선택 — 안전장치 4종과 함께):
+
+- **여는 법**: 서랍에서 보기 전용 건을 열면 '이 보고서 리뷰 열기'가 있다(서버가 `serve`와 같은 연결 정보를 그 건에 써서
+  CLI의 `wait`·`resolve`·`refresh`가 그대로 통한다). **인도된 건은 '개정으로 리뷰 열기'만** — 두 번 눌러야 열리고, 열 때
+  초안 스냅샷(`history/drafts/20_draft.{시각}.rNN인도후-리뷰개정착수.md`)을 남긴다. 초안을 고치면 인도본과 어긋나므로
+  다음 변환이 새 판(rNN+1)이다(`archive_revision.py status`가 `draft_ahead`로 알린다).
+- **처리**: 한 세션이 `review_server.py wait --all`로 리뷰 중인 건 전부를 받는다(도중에 열린 건도 5초 안에 합류). 항목마다
+  `case`·`work_dir`이 붙으니 **건마다 그 `work_dir`의 `00_context.md`와 규칙 태그를 다시 읽고** 고친 뒤
+  `resolve {그 work_dir} f…`로 표시한다 — 코멘트 번호(f1…)는 건마다 따로라 섞으면 다른 건을 '반영됨'으로 만든다.
+  건을 세션마다 나눠 맡겨도 된다(아래 임대가 충돌을 막는다).
+- **처리 세션 임대**: `wait`는 건마다 임대(`history/drafts/.review_owner.json`)를 잡는다. 다른 세션이 잡은 건은 넘기고
+  (출력 `held`), 모두 남의 것이면 **exit 3** — 같은 코멘트를 두 세션이 고치지 않는다(금기 1). `stop`이 임대를 풀고, 세션
+  프로세스가 끝나거나 마지막 신호 뒤 30분이 지나면 빈 것으로 본다. 코멘트를 넘기는 읽기·표시는 프로세스 사이 잠금으로 묶였다.
+- **화면의 CLI 상태**(위 막대): 대기 중(wait가 기다림)·처리 중(받은 코멘트를 고치는 중)·**없음**(처리할 세션 없음 —
+  코멘트는 쌓아 두고 다음 wait 때 넘어간다). 서랍의 보고서 목록에도 리뷰 중인데 CLI가 없는 건은 'CLI 없음'이 붙는다.
+- **하네스 잠금**: 코멘트 때문에 규칙을 승격(`rules.md`·시드)하거나 하네스 코드·참조 문서를 고칠 때, 그리고 변환(④)
+  동안은 `review_server.py lock acquire --why "{건} {작업}"`로 잠그고 끝나면 `lock release`. exit 3이면 다른 건의 작업이
+  끝날 때까지 미룬다 — 한 건의 코드 수정이 다른 건의 변환 도중에 끼면 반쯤 옛 코드로 인도된다.
+- **plannotator는 선택 경로**다(설치돼 있고 사용자가 원할 때) — `PLANNOTATOR_SHARE=disabled plannotator annotate
+  {html} --gate --json --result-file {result}`. 주석 화면은 다듬어져 있지만 **피드백을 보내면 세션이 끝나**
+  (공식 문서 Session lifetime) 회차마다 새 창을 띄워야 한다. 결과 JSON은 `approved`·`annotated`·`dismissed`.
+
+AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dismissed`로 끝났을 때 — **팩트체크 선택지를 이 질문에 합친다**):
 
 1. **전체 승인 + 팩트체크**: 전수 / 경량(기본값) / 생략 중 택1.
    - 전수: 독립 서브에이전트가 `factcheck.md` §A 절차로 전수 검증 → `35_factcheck.md`.
@@ -233,8 +354,8 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 3. **방향 전환**: 게이트①로 회귀.
 
 **수정 처리**: 피드백이 있으면 `lessons.jsonl`에 즉시 기록 → **변경된 절만** 증분 재감사·
-재lint → 변경 diff만 재제시(전체 재제시 금지). **같은 게이트를 재제시**한다 — hwpx 재빌드
-루프를 만들지 않는다. **수정 왕복이 3회를 넘으면** 아웃라인 자체의 문제로 보고 게이트①로
+재lint → 변경 diff만 재제시(전체 재제시 금지). **같은 게이트를 재제시**한다 — 리뷰 HTML을 같은
+경로로 다시 그린다(라이브 서버는 자동 갱신). hwpx 재빌드 루프를 만들지 않는다. **수정 왕복이 3회를 넘으면** 아웃라인 자체의 문제로 보고 게이트①로
 회귀를 제안한다(선택지형 제안, 강제 아님).
 
 **시간 상한 10분**(감사·lint·humanizer 기계 시간, 게이트 대기 제외). 근접하면 스타일 감사를
@@ -252,6 +373,8 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 `43_convert_input`·`40_roundtrip`·`40_qa`)은 전부 그 폴더 안에 쓴다 — 작업폴더 루트에 두지
 않는다.** 루트에 두면 초안만 고쳤을 때 넷이 함께 낡고, 실제로 '26.9.10 전수 측정에서 10건 중
 4건이 그 상태였다(최대 201조각·12일 차이). 인도본만 `final/{hwpx_prefix}{제목}.hwpx`로 나간다.
+**변환 동안은 하네스 잠금을 잡는다** — `review_server.py lock acquire --why "변환 {건}"`, 인도 뒤 `lock release`
+(여러 건을 함께 열었을 때 다른 건의 규칙·코드 수정이 변환 도중에 끼지 않게 — 게이트② '여러 보고서' 절).
 
 1. **팩트체크(게이트②에서 선택된 값대로) ∥ 회귀검사(`rules.md` `[export]` 태그 +
    `md-profile.md`)를 한 메시지 다중 Agent로 동시 스폰**한다. 전수는 독립 서브에이전트가
@@ -264,10 +387,16 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 2. 둘 다 통과하면 `skills/report-pipeline/references/hwpx-recipe.md` recipe 절차(생성→이미지
    규격판정·주입→**후처리**→검증) 그대로 실행: prep 정규화(`prep_report_md.py`, exit 2면 사유·줄
    번호 보고 후 20_draft.md 수정부터 재시도, 출력은 `{판본폴더}/40_prepared.md`) →
-   **`to_kordoc_input.py`로 kordoc 입력 생성**(`--figure 슬러그=파일명|캡션`으로 도식 마커
-   치환, 출력은 `{판본폴더}/43_convert_input.md`. 손으로 표기를 바꾸지 않는다 — 결정론
-   변환이고 미치환 마커가 남으면 exit 1로 걸린다, R087) → kordoc `generate_document` 변환 → 이미지 마커는 생성 후 별도 단계(recipe §3)로 `check_image_size.py` 규격판정 →
-   통과분만 `patch_document`로 주입 → **양식 정합 후처리(`postprocess_hwpx.py`, 아래 2-1)** →
+   `figures/`가 있으면 **`render_diagram.py --work-dir {work_dir} --out-dir {판본폴더}/figures`**로
+   도식은 300dpi PNG로 그리고 research 그림은 원본 그대로 모은다(recipe §3 — **픽셀은 줄이지
+   않는다**, R088. 출력 `figure_args`·그림별 `sharp`·`font_fallback`을 `{판본폴더}/41_figures.json`에
+   남긴다) → **`to_kordoc_input.py`로 kordoc 입력 생성**(`--figure`에 `figure_args`를 그대로 넘겨
+   `도해:` 마커 치환, 출력은 `{판본폴더}/43_convert_input.md`. 손으로 표기를 바꾸지 않는다 —
+   결정론 변환이고 미치환 마커가 남으면 exit 1로 걸린다, R087) → kordoc `generate_document`
+   변환(`image_dir="{판본폴더}/figures"`) →
+   **도식 표 치환(`diagram_table.py {hwpx} --work-dir {work_dir} --figures-json {판본폴더}/41_figures.json`,
+   recipe §3-1 — 흐름·비교·체계·일정 도식 그림을 같은 명세의 한글 표로 바꾼다, R089)** →
+   **양식 정합 후처리(`postprocess_hwpx.py`, 아래 2-1 — 그림 표시 크기·가운데 정렬도 여기서)** →
    `validate_hwpx.py structural` → 왕복 되읽기 → `validate_hwpx.py compare {work_dir}/20_draft.md
    {판본폴더}/40_roundtrip.md`(대조 기준은 **초안** — prepared는 초안의 결정론 파생이라 결과가
    같고, 기준을 초안에 두면 인도본이 초안과 맞는지가 곧바로 드러난다) — 불일치는 최대
@@ -288,7 +417,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
        {work_dir}/final/{제목}.hwpx --all
    ```
 
-   - **실행 위치**: 이미지 주입 **후**, `validate_hwpx.py structural` **전**. 스크립트가 zip을
+   - **실행 위치**: `generate_document`(그림 임베드 포함) **후**, `validate_hwpx.py structural` **전**. 스크립트가 zip을
      직접 재작성하므로 재작성 결과를 구조 검증 대상으로 삼아야 한다.
    - `--all` = `--star-footnote`(R011) + `--spacing`(간격·정렬·폰트·캡션·배너 묶음) +
      `--header-banner`(R030·R041) + 발신 줄 12pt(R018, 코드 기본값 `SENDER_SIZE_PT` —
@@ -345,7 +474,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   수정 지시는 절 주소 ID로 한 줄 입력 가능하게 한다.
 - **진행 보고는 1줄**: 단계 시작·완료 시 한 줄만("조사 3단위 팬아웃 완료, 분석 시작"). 중간
   산출물을 장황히 나열하지 않는다.
-- **제출물은 렌더로**: md는 사이드패널 렌더 전송, 터미널에는 요약·질문만 남긴다. hwpx는 파일
+- **제출물은 렌더로**: 모든 md는 라이브 리뷰어(허브 — 초안은 양식 보기, 그 밖은 문서 보기)로 보여 주고, 터미널에는 요약·질문만 남긴다. hwpx는 파일
   첨부로 인도한다.
 - **"이어서 해줘"는 항상 동작**: 어느 단계에서 끊겨도 작업폴더 상태(`work_dir` 안 파일들)로
   재개한다 — 세션 기억이 아니라 폴더가 맥락을 기억한다.
@@ -361,7 +490,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   읽는다.
 - `references/hwpx-recipe.md` — 변환 절차·부록 스크립트 시그니처 표. export 단계 진입 시
   읽는다.
-- `references/diagram-pool.md` — 표 기반 도식 판정 카탈로그. 아웃라인의 도식 설계 시점에
+- `references/diagram-pool.md` — 표 도식·이미지 도식 판정 카탈로그. 아웃라인의 도식 설계 시점에
   읽는다.
 - `references/table-pool.md` — 경영실적 표 부품 카탈로그. 표 설계 시점에 참고(선택).
 - `references/factcheck.md` — §A 전수 팩트체크 절차(게이트②·export의 "전수" 선택 시)·
@@ -376,7 +505,9 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
 - `scripts/audit_style.py <md>` — style-guide 결정론 감사(R074). 린트가 스코프 아웃한 종결어미
   (`ending-forbidden`)·문서 제목 접미(`title-no-suffix`)·절 번호(`section-numbered`)·조문 §
   표기(`article-symbol`)를 `violations`로, 절 제목 어휘 풀 이탈(`section-title-offpool`)·발신 줄
-  누락(`sender-line-missing`)을 `warnings`로 낸다. exit 0(통과·경고만)/1(위반)/2(인자·파일 오류).
+  누락(`sender-line-missing`)과 쉬운 말·두괄식 6종(R091 — `plain-word`·`abbr-unexplained`·`clause-chain`·
+  `noun-chain`·`history-narration`·`lead-not-conclusion`, 용어표는 style-guide §11)을 `warnings`로 낸다.
+  `--skeleton`은 감사 없이 □ 제목·절 첫 ㅇ 뼈대만 낸다(되말하기 점검). exit 0(통과·경고만)/1(위반)/2(인자·파일 오류).
 - `scripts/prep_report_md.py <src> -o <out>` — 변환 전 정규화. exit 0(성공)/2(모호한 입력
   거부).
 - `scripts/postprocess_hwpx.py <file.hwpx> --all` — **양식 정합 후처리(export
@@ -387,7 +518,7 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   패키지 정합(R043 — 내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
   exit 0(적용)/1(대상 0건 — 원인 확인)/2(인자·파일·구조 오류).
 - `scripts/archive_revision.py snapshot|begin|status|migrate|flatten <work_dir>` — 이력·정리
-  (R086·R087). `snapshot --label <사유>`는 현행 초안을 `history/drafts/`로 복사(현행본 불변),
+  (R087). `snapshot --label <사유>`는 현행 초안을 `history/drafts/`로 복사(현행본 불변),
   `begin`은 변환 판본 폴더를 선할당하고 접두어를 알려 준다, `status`는 초안↔마지막 인도본
   대응을 본다, `migrate`·`flatten`은 구 구조 1회 정리(기본 계획 출력, `--apply`로 수행).
 - `scripts/to_kordoc_input.py <prepared.md> -o <convert_input.md> [--figure 슬러그=파일|캡션]`
@@ -396,4 +527,26 @@ AskUserQuestion 선택지(**팩트체크 선택지를 이 질문에 합친다** 
   JSON을 모아 변환 QA 기록을 찍는다. 손으로 쓰지 않는다(빠뜨려도 드러나지 않기 때문).
 - `scripts/validate_hwpx.py structural|compare|numbers|freshness` — 구조 검증/왕복 대조(문장 단위 포함)/경량 팩트체크/산출물 신선도(초안↔prepared 대응, R085).
   시그니처는 `hwpx-recipe.md` 부록 표 참조(중복 서술 안 함).
-- `scripts/check_image_size.py <img>` — 이미지 규격 판정. exit 0(이내)/1(초과)/2(오류).
+- `scripts/check_image_size.py <img> [--max-w-mm MM] [--max-h-mm MM]` — 그림 표시 크기·실효
+  해상도 판정(R088). exit 0(150dpi 이상)/1(미만 — 인쇄 시 뭉개짐)/2(오류). 픽셀을 줄이지 않는다.
+- `scripts/render_diagram.py <spec.json> -o <out.png> [--html <out.html>]` 또는 `--work-dir W --out-dir D` —
+  도식 명세 → 300dpi PNG(+HTML). Chrome·Edge·Chromium 헤드리스로 뜬다. 일괄 모드는 research 그림을
+  원본 그대로 복사하고 `figure_args`를 낸다. exit 0/1(150dpi 미만 그림 있음)/2(브라우저·명세 오류).
+- `scripts/diagram_table.py <file.hwpx> --work-dir W --figures-json F` — 흐름·비교·체계·일정 도식 그림을 한글
+  표로 바꾼다(R089, recipe §3-1). 카드 = 테두리 셀, 화살표 머리 = 셀 안 삼각형 도형(기관 도식 Pool 방식), 체계
+  연결선 = 선만 있는 셀. 이미지 주입 뒤·후처리 앞에 돌린다 — 후처리가 캡션을 표에 넣고 도식 표는 일반 표 규칙에서
+  뺀다. 리뷰 화면도 같은 격자로 그린다. 명세 `"render": "image"`면 그림으로 남긴다. exit 0/2.
+- `scripts/list_research_figures.py <work_dir>` — research 그림 후보 목록(출처·표시 크기·유효 dpi·권고, 표준출력
+  JSON). 외부 도식을 차용·재작도·표 재구성 중 무엇으로 쓸지 정할 때(게이트① 도식 설계) — 기준은
+  `diagram-pool.md` '외부 도식 활용'.
+- `scripts/review_server.py serve|wait|resolve|refresh|stop <work_dir>` · `lock acquire|release|status` — 라이브 리뷰 서버
+  (127.0.0.1, 허브 — 왼쪽 서랍에서 보고서 바꾸기·리뷰 열기 + 건마다 모든 md). `serve`를 다른 건으로 또 부르면 떠 있는
+  허브에 합류, `stop`은 그 건의 리뷰만 닫고 처리 세션 임대를 푼다(마지막 건이면 서버 종료).
+  `serve`는 신호 때 바뀐 항목만 열린 탭에 보냄(SSE, 새로고침·주기 요청 없음), `wait`는 새 코멘트·승인이 올
+  때까지 대기 후 JSON 출력(exit 0, `--timeout` 초과 시 1, 다른 세션이 잡은 건뿐이면 3 — `--all`은 리뷰 중인 건 전부),
+  `resolve`는 코멘트를 '반영됨'으로 표시하고 화면 갱신 신호, `refresh`는 화면 갱신 신호만(서버 없으면 exit 1),
+  `lock`은 규칙 승격·하네스 코드 수정·변환의 한 건씩 잠금(`--why`, 다른 세션이 잡았으면 exit 3).
+- `scripts/md_view.py` — 리뷰어 문서 보기(초안 밖 md). 헤딩·문단·목록·표·코드·인용·research 출처 머리를 그리고 블록마다
+  주소·줄 번호를 단다(모듈 — 서버가 부른다).
+- `scripts/render_review_html.py <20_draft.md>` — 게이트② 리뷰 HTML(`history/drafts/25_review.html`)과
+  리뷰 결과 JSON 경로를 만든다. 절 주소 ID·양식 근사 CSS, 정적 페이지.

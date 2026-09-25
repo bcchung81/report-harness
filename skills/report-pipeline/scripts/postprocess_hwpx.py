@@ -33,7 +33,7 @@
 계층 간격은 paraPr 위/아래 간격이 아니라 글자크기를 줄인 빈 스페이서 문단으로 구현된다
 (문단모양 자체 간격 필드는 전부 0). 확정값은 format-profile.kca.md §7에 승계돼 있다.
 """
-import sys, json, re, copy, math, zipfile, pathlib, tempfile, os
+import sys, json, re, copy, math, zipfile, pathlib, tempfile, os, struct
 import xml.etree.ElementTree as ET
 
 NS = {
@@ -46,7 +46,10 @@ for _prefix, _uri in NS.items():
     ET.register_namespace(_prefix, _uri)
 
 SECTION_RE = re.compile(r"^Contents/section\d+\.xml$")
-SENDING_RE = re.compile(r"^<\s*'?\d")  # "< '26. 7. 22.(수), ... >" 형 발신 줄
+# "< '26. 7. 22.(수), ... >" 형 발신 줄 — kordoc이 곧은따옴표를 ’로 바꿔 넣으므로 둥근따옴표도 받는다
+# (종전에는 곧은따옴표만 받아 발신 줄이 캡션으로 분류돼 가운데 정렬·□ 앞 8pt가 됐다 — 인도본마다
+# 수동 보정 스크립트를 따로 돌렸다, '26.9.24)
+SENDING_RE = re.compile(r"^<\s*['’‘]?\d")
 CAPTION_RE = re.compile(r"^[\[<]")     # "[ 표 제목 ]" / "< 표 제목 >" 형 캡션
 DAE, STAR, CHAM, DASH, ARROW = "□", "＊", "※", "-", "☞"
 YO_CHARS = ("ㅇ", "○")
@@ -84,6 +87,8 @@ TRANSITIONS = {
     ("table", "arrow"): ("table_to_arrow", 300),
 }
 BLOCK_BOUNDARY_HEIGHT = 800  # 두 번째 이후 □ 상단 8pt (R060 — 종전 1500)
+FIGURE_AFTER_GAP = 600       # 그림 → ㅇ·대시·표 6pt (R088 — X→ㅇ 전환 정합값, 산식 박스와도 띄운다)
+ANNEX_BANNER_GAP = 800       # 붙임 배너(제목표) → 첫 요소 8pt 고정 (R009 — '26.9.24 사용자 지시)
 
 
 class PostprocessError(Exception):
@@ -115,13 +120,45 @@ def para_has_table(p):
     return False
 
 
+def _para_is_banner(p):
+    """문단 직속 표가 붙임·참고 배너(R027 3열 표)인가."""
+    for run in p.findall(qn("hp", "run")):
+        tbl = run.find(qn("hp", "tbl"))
+        if tbl is not None and _is_banner_table(tbl):
+            return True
+    return False
+
+
+def para_has_pic(p):
+    for run in p.findall(qn("hp", "run")):
+        if run.find(qn("hp", "pic")) is not None:
+            return True
+    return False
+
+
+# 도식 표 표지(R089) — diagram_table.py가 그림 대신 넣은 표의 첫 셀 이름. kordoc이 제목 셀에 '__kordoc_h1'을
+# 다는 것과 같은 방식이다. 도식 표는 좌표로 짠 격자라 일반 표 규칙(열 폭 재분배·행 높이·셀 가운데 정렬·12pt·
+# 병합 음영·셀 단위 쪽 나눔·폭 축소)을 걸면 카드·화살표·연결선이 흐트러진다 — 캡션 내장·쪽 추정만 함께 받는다.
+FIGURE_TABLE_NAME = "__harness_figure"
+
+
+def is_figure_table(tbl):
+    tc = tbl.find(f".//{qn('hp', 'tc')}")
+    return tc is not None and tc.get("name") == FIGURE_TABLE_NAME
+
+
 def classify(p):
     """문단 선두 기호로 계층 유형을 판정한다."""
     if para_has_table(p):
         return "table"
     text = para_text(p).strip()
+    if text.startswith(QUOTE_MARK) or p.get("paraPrIDRef") in _QUOTE_PARAPRS:
+        return "quote"                  # 원문 인용 줄(표식 또는 이미 상자 서식) — `- `·`[ ]`도 글자 그대로
     if not text:
-        return "empty"
+        # 글자 없는 그림 문단은 빈 줄이 아니다 — 'empty'로 두면 캡션 내장이 캡션과 표 사이의
+        # 빈 줄로 보고 그림을 지우고, 간격 단계가 그림 run의 글자 크기를 스페이서로 바꾼다
+        # ('26.9.24 실측: 캡션 → 그림 → 산식 박스 순서에서 그림 문단 삭제, R088)
+        return "figure" if para_has_pic(p) else "empty"
     if text.startswith(DAE):
         return "dae"
     if text[0] in YO_CHARS:
@@ -144,6 +181,19 @@ def classify(p):
 def transition_for(prev_kind, next_kind):
     if prev_kind is None or next_kind is None:
         return None
+    # 붙임 배너(제목표) 다음 첫 요소는 무엇이든 8pt (R009)
+    if prev_kind == "banner":
+        return ("banner_to_" + next_kind, ANNEX_BANNER_GAP)
+    next_kind = "table" if next_kind == "banner" else next_kind
+    # 그림 뒤 ㅇ·대시 복귀와 아래 산식 박스·표는 6pt — 표→ㅇ 실측 전환이 없어 R013 체계의 X→ㅇ
+    # 정합값을 쓴다(산식 박스가 도식에 붙어 보였다 — '26.9.24 게이트② 지적)
+    if prev_kind == "figure" and next_kind in ("yo", "dash", "table"):
+        return ("figure_to_" + next_kind, FIGURE_AFTER_GAP)
+    # 그림·원문 인용 블록은 본문 흐름에서 표와 같은 자리를 차지한다 — 그 밖의 간격은 표 전환값을 쓴다
+    if prev_kind == "quote" and next_kind == "quote":
+        return None                                  # 인용 블록 안 — 줄 사이를 벌리지 않는다
+    prev_kind = "table" if prev_kind in ("figure", "quote") else prev_kind
+    next_kind = "table" if next_kind in ("figure", "quote") else next_kind
     key = (prev_kind, next_kind)
     if key in TRANSITIONS:
         return TRANSITIONS[key]
@@ -278,6 +328,8 @@ def apply_spacing_section(header_root, sec_root):
     p_tag = qn("hp", "p")
     children = list(sec_root)
     kinds = [classify(c) if c.tag == p_tag else None for c in children]
+    # 붙임 배너 표는 간격 판정에서만 따로 센다 — 다음 요소와 8pt(R009). 다른 단계의 'table' 판정은 그대로
+    kinds = ["banner" if k == "table" and _para_is_banner(c) else k for k, c in zip(kinds, children)]
     n = len(children)
     out = []
     events = []
@@ -418,7 +470,7 @@ def _iter_content_tables(section_roots):
                 continue
             for run in child.findall(qn("hp", "run")):
                 tbl = run.find(qn("hp", "tbl"))
-                if tbl is not None:
+                if tbl is not None and not is_figure_table(tbl):   # 도식 표(R089)는 일반 표 규칙 밖
                     yield tbl, not seen_dae
 
 
@@ -555,6 +607,27 @@ def apply_title_box_borderless(header_root, section_roots):
             replaced += 1
     return {"found": True, "fills_replaced": replaced,
             "variants": {k: v for k, v in cache.items() if k != v}}
+
+
+def ensure_keepnext_parapr(header_root, base_id, cache):
+    """base_id paraPr에 '다음 문단과 함께'(breakSetting keepWithNext=1)를 건 복제본 id를 반환한다."""
+    key = (base_id, "keepWithNext")
+    if key in cache:
+        return cache[key]
+    paraprops = header_root.find(f".//{qn('hh', 'paraProperties')}")
+    base = next((pp for pp in paraprops.findall(qn("hh", "paraPr")) if pp.get("id") == base_id), None)
+    bs = base.find(qn("hh", "breakSetting")) if base is not None else None
+    if bs is None or bs.get("keepWithNext") == "1":
+        cache[key] = base_id
+        return base_id
+    new_pp = copy.deepcopy(base)
+    new_id = str(max(int(pp.get("id")) for pp in paraprops.findall(qn("hh", "paraPr"))) + 1)
+    new_pp.set("id", new_id)
+    new_pp.find(qn("hh", "breakSetting")).set("keepWithNext", "1")
+    paraprops.append(new_pp)
+    paraprops.set("itemCnt", str(len(paraprops.findall(qn("hh", "paraPr")))))
+    cache[key] = new_id
+    return new_id
 
 
 def ensure_linespacing_parapr(header_root, base_id, percent, cache):
@@ -835,6 +908,18 @@ def apply_caption_table_font(header_root, section_roots, pt=12):
                 if new_id != base_id:
                     run.set("charPrIDRef", new_id)
                     cell_runs += 1
+    # 도식 표(R089)는 셀 글자 크기를 도식이 정하므로 두고, 내장된 캡션만 표 캡션과 같게 맞춘다
+    for sec_root in section_roots:
+        for tbl in sec_root.iter(qn("hp", "tbl")):
+            cap = tbl.find(qn("hp", "caption"))
+            if cap is None or not is_figure_table(tbl):
+                continue
+            for run in cap.iter(qn("hp", "run")):
+                base_id = run.get("charPrIDRef")
+                new_id = ensure_charpr_sized(header_root, base_id, height, cache) if base_id else base_id
+                if new_id != base_id:
+                    run.set("charPrIDRef", new_id)
+                    caption_runs += 1
     return {"height": height, "caption_runs_changed": caption_runs,
             "cell_runs_changed": cell_runs}
 
@@ -1424,6 +1509,10 @@ def apply_body_justify(header_root, section_roots):
 LINE_FIT_KINDS = ("dae", "yo", "dash", "cham", "star")
 MIN_SPACING = -10   # 자간 하한 (R062 — -10 미만 금지)
 MIN_RATIO = 90      # 장평 하한 (R062)
+# 맞춤 여유 — 추정 폭(한글 1·영숫자 0.5)은 가운뎃점·공백·양쪽 정렬을 다 담지 못해 경계(2.00줄)까지 채우면
+# 실제 글꼴에서 3줄이 된다('26.9.24 게이트② 지적 □2-ㅇ1-1 — 추정 1.96~2.00줄 대시 3건이 화면에서 3줄).
+# 맞출 때만 폭을 이만큼 좁혀 계산한다(쪽수 추정은 그대로).
+FIT_SLACK = 0.97
 
 
 def _para_text(p):
@@ -1434,13 +1523,19 @@ def _para_text(p):
     return "".join(out)
 
 
+# 라틴-1 영역이지만 한글 글꼴(KS X 1001 기호)에서 전각으로 그려지는 글자 — 보고서에 잦은 가운뎃점이
+# 대표다. 반각으로 세면 '검수·수정·추정'처럼 점이 많은 문단이 2줄로 계산되고 실제로는 3줄이 된다
+# ('26.9.24 실측: 명조 글꼴에서 · 0.97em, 한글 0.97em, 숫자 0.61em, 공백 0.37em).
+FULLWIDTH_LATIN1 = frozenset("·×÷°±§")
+
+
 def _weighted_len(text):
-    """한글·전각 1.0, 영숫자·기호 0.5로 가중한 글자 폭 환산 길이."""
+    """한글·전각 1.0, 영숫자·기호 0.5로 가중한 글자 폭 환산 길이(가운뎃점 등 KS X 1001 기호는 전각)."""
     w = 0.0
     for ch in text:
         if ch.isspace():
             w += 0.5
-        elif ord(ch) > 0x2000:
+        elif ord(ch) > 0x2000 or ch in FULLWIDTH_LATIN1:
             w += 1.0
         else:
             w += 0.5
@@ -1459,16 +1554,40 @@ def _text_width_pt(sec_root):
 
 
 def _para_indent_pt(header_root, para_pr_id):
+    """본문 글자 폭에서 빠지는 왼쪽 몫(pt) — 왼쪽 여백 + 내어쓰기 폭(intent 음수).
+
+    계층 문단은 내어쓰기로 부호를 첫 줄 앞 칸에 두고, 본문은 모든 줄에서 그 뒤에 선다. 종전에는
+    왼쪽 여백만 읽어 □·ㅇ·- 문단이 전부 0으로 잡혔고, 2줄로 계산해 둔 문단이 한글에서 3줄이
+    됐다('26.9.24 시험 변환 실측, R062)."""
     for pr in header_root.iter(qn("hh", "paraPr")):
         if pr.get("id") != para_pr_id:
             continue
         mg = pr.find(qn("hh", "margin"))
         if mg is None:
             return 0.0
-        left = mg.find(qn("hc", "left"))
+        left, intent = mg.find(qn("hc", "left")), mg.find(qn("hc", "intent"))
         lv = int(left.get("value", "0")) if left is not None else 0
-        return lv / 100.0
+        iv = int(intent.get("value", "0")) if intent is not None else 0
+        return (lv + max(0, -iv)) / 100.0
     return 0.0
+
+
+MARK_LEAD = re.compile(r"^\s*[□ㅇ○＊※☞-]\s*")
+
+
+def _body_len(text, indent_pt):
+    """줄 수 계산에 쓰는 본문 길이 — 내어쓰기 문단은 앞 공백·부호가 내어쓰기 칸에 들어가므로 뺀다."""
+    return _weighted_len(MARK_LEAD.sub("", text, count=1) if indent_pt else text)
+
+
+def _text_runs(p):
+    """글자가 있는 run 목록 — 공백·부호만 든 run(내어쓰기 칸의 부호)은 뺀다."""
+    out = []
+    for run in p.findall(qn("hp", "run")):
+        text = "".join("".join(t.itertext()) for t in run.findall(qn("hp", "t")))
+        if MARK_LEAD.sub("", text).strip():
+            out.append((run, text))
+    return out
 
 
 def _charpr_metrics(header_root, cid):
@@ -1513,6 +1632,52 @@ def ensure_charpr_fitted(header_root, base_id, ratio, spacing, cache):
     return new_id
 
 
+def lines_at(wl, avail, h, ratio, spacing, words=None):
+    """가중 길이 wl인 문단이 폭 avail(pt)·글자 h(pt)·장평 ratio·자간 spacing에서 차지하는 줄 수(추정).
+
+    words(어절별 가중 길이)를 주면 어절 단위로 채운다 — 줄 끝 어절이 다음 줄로 넘어가 남는 빈자리까지
+    센다. 글자 단위 채움(wl만)으로 2줄이던 문단이 어절 단위 화면·렌더에서 3줄이 됐다('26.9.24)."""
+    adv = h * (ratio / 100.0 + spacing / 100.0)
+    if adv <= 0:
+        return 99
+    cap = max(1.0, avail / adv)
+    if not words:
+        return math.ceil(wl / cap)
+    lines, cur = 1, 0.0
+    for w in words:
+        need = w if cur == 0 else cur + 0.5 + w
+        if need <= cap:
+            cur = need
+            continue
+        if cur:                                  # 어절째 다음 줄로
+            lines += 1
+        lines += int(w // cap) if w > cap else 0  # 한 줄보다 긴 어절은 글자로 쪼개진다
+        cur = w % cap if w > cap else w
+    return lines
+
+
+def word_lens(text):
+    """어절별 가중 길이 — lines_at(words=)용."""
+    return [_weighted_len(w) for w in text.split()]
+
+
+def fit_line(wl, avail, h, ratio0, sp0, max_lines=2, words=None):
+    """max_lines 안에 들게 하는 (장평, 자간) — 자간을 먼저 하한까지, 그다음 장평을 조인다(R062).
+
+    이미 들어가면 (ratio0, sp0), 하한까지 조여도 넘치면 None. 리뷰 HTML(render_review_html)도
+    같은 계산을 써 한글 산출물과 같은 줄 수로 보여 준다. 폭은 FIT_SLACK만큼 좁혀 여유를 둔다."""
+    avail = avail * FIT_SLACK
+    if lines_at(wl, avail, h, ratio0, sp0, words) <= max_lines:
+        return (ratio0, sp0)
+    for spacing in range(sp0, MIN_SPACING - 1, -1):
+        if lines_at(wl, avail, h, ratio0, spacing, words) <= max_lines:
+            return (ratio0, spacing)
+    for ratio in range(ratio0, MIN_RATIO - 1, -1):
+        if lines_at(wl, avail, h, ratio, MIN_SPACING, words) <= max_lines:
+            return (ratio, MIN_SPACING)
+    return None
+
+
 def apply_line_fit(header_root, section_roots, max_lines=2):
     """계층 서술 문단이 max_lines(기본 2줄)를 넘으면 자간·장평을 조여 맞춘다 (R062).
 
@@ -1530,42 +1695,33 @@ def apply_line_fit(header_root, section_roots, max_lines=2):
             if not text.strip():
                 continue
             scanned += 1
-            runs = child.findall(qn("hp", "run"))
+            runs = _text_runs(child)
             if not runs:
                 continue
-            base_cid = runs[0].get("charPrIDRef")
-            if base_cid is None:
+            # 기준은 글자가 가장 많은 run(본문) — 첫 run은 부호 칸이라 kordoc 값과 다르다. 종전에는 첫
+            # run 값으로 계산하고 첫 run과 같은 charPr만 조여, ㅇ 문단의 볼드 리드·본문이 그대로 남았다
+            # ('26.9.24 시험 변환 실측 — 2줄로 보고한 ㅇ 16건 중 다수가 한글에서 3줄)
+            body_cid = max(runs, key=lambda r: len(r[1]))[0].get("charPrIDRef")
+            if body_cid is None:
                 continue
-            h, ratio0, sp0 = _charpr_metrics(header_root, base_cid)
-            avail = width - _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
-            wl = _weighted_len(text)
-
-            def lines_at(ratio, spacing):
-                adv = h * (ratio / 100.0 + spacing / 100.0)
-                if adv <= 0:
-                    return 99
-                return math.ceil(wl / max(1.0, avail / adv))
-
-            if lines_at(ratio0, sp0) <= max_lines:
+            h, ratio0, sp0 = _charpr_metrics(header_root, body_cid)
+            indent = _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
+            avail = width - indent
+            wl = _body_len(text, indent)
+            words = word_lens(MARK_LEAD.sub("", text, count=1) if indent else text)
+            chosen = fit_line(wl, avail, h, ratio0, sp0, max_lines, words)
+            if chosen == (ratio0, sp0):
                 continue
-            chosen = None
-            for spacing in range(sp0, MIN_SPACING - 1, -1):
-                if lines_at(ratio0, spacing) <= max_lines:
-                    chosen = (ratio0, spacing)
-                    break
-            if chosen is None:
-                for ratio in range(ratio0, MIN_RATIO - 1, -1):
-                    if lines_at(ratio, MIN_SPACING) <= max_lines:
-                        chosen = (ratio, MIN_SPACING)
-                        break
             if chosen is None:
                 overflow.append({"text": text[:40], "chars": len(text),
-                                 "lines": lines_at(MIN_RATIO, MIN_SPACING)})
+                                 "lines": lines_at(wl, avail, h, MIN_RATIO, MIN_SPACING, words)})
                 continue
-            new_cid = ensure_charpr_fitted(header_root, base_cid, chosen[0], chosen[1], cache)
-            for run in runs:
-                if run.get("charPrIDRef") == base_cid:
-                    run.set("charPrIDRef", new_cid)
+            for run, _ in runs:                   # 모든 글자 run을 조이되, 이미 더 조인 run은 그대로 둔다
+                cid = run.get("charPrIDRef")
+                _, r0, s0 = _charpr_metrics(header_root, cid)
+                target = (min(r0, chosen[0]), min(s0, chosen[1]))
+                if target != (r0, s0):
+                    run.set("charPrIDRef", ensure_charpr_fitted(header_root, cid, target[0], target[1], cache))
             fitted.append({"text": text[:30], "ratio": chosen[0], "spacing": chosen[1]})
     return {"scanned": scanned, "fitted": len(fitted), "overflow": len(overflow),
             "overflow_detail": overflow[:10], "min_spacing": MIN_SPACING, "min_ratio": MIN_RATIO}
@@ -1579,17 +1735,23 @@ def estimate_layout(header_root, section_roots):
     가늠해 **분량이 목표를 넘으면 인도 전에 드러나게** 한다."""
     p_tag = qn("hp", "p")
     line_h, lines, tbl_rows, over2, tbl_h = 0, 0, 0, 0, 0.0
+    parts = []                                   # 붙임 배너마다 새 쪽 — (줄 수, 표·그림 높이) 구간
     for sec_root in section_roots:
         width = _text_width_pt(sec_root)
         for child in sec_root:
             if child.tag != p_tag:
                 continue
+            if any(_is_banner_table(t) for t in child.iter(qn("hp", "tbl"))):
+                parts.append((lines, tbl_h))             # 붙임은 새 쪽에서 시작한다
             for tbl in child.iter(qn("hp", "tbl")):
                 rows = int(tbl.get("rowCnt", "1"))
                 cols = max(1, int(tbl.get("colCnt", "1")))
                 tbl_rows += rows
-                # 행 높이는 셀 텍스트가 열 폭 안에서 몇 줄로 접히는지로 결정된다 —
-                # 긴 셀을 가진 표가 쪽수를 지배하므로 평면 상수로 세면 크게 빗나간다
+                tsz = tbl.find(qn("hp", "sz"))
+                if tsz is not None and int(tsz.get("height", "0")) > 0:
+                    tbl_h += int(tsz.get("height")) / 100.0      # row_fit이 최종 열 폭으로 다시 적은 높이
+                    continue
+                # 높이가 없는 표 — 셀 텍스트가 균등 열 폭 안에서 몇 줄로 접히는지로 가늠한다
                 col_chars = max(4.0, (_text_width_pt(sec_root) / cols) / 6.5)  # 표 12pt 기준
                 for tr in tbl.iter(qn("hp", "tr")):
                     tallest = 1
@@ -1598,24 +1760,37 @@ def estimate_layout(header_root, section_roots):
                         tallest = max(tallest, math.ceil(ln / col_chars))
                     tbl_h += tallest * 12.0 * 1.6 + 4.0
             kind = classify(child)
+            if kind == "figure":                  # 그림 높이(sz, HWPUNIT/100 = pt)를 표 몫에 더한다
+                tbl_h += sum(int(sz.get("height", "0")) / 100.0 for run in child.findall(qn("hp", "run"))
+                             for pic in run.findall(qn("hp", "pic")) for sz in pic.findall(qn("hp", "sz")))
+                continue
             text = _para_text(child)
+            if kind == "quote":                   # 원문 인용 줄 — 제 글자 크기·줄간격 130%로 표 몫에 더한다(본문 줄 높이로 세면 과대)
+                run = child.find(qn("hp", "run"))
+                qh = _charpr_metrics(header_root, run.get("charPrIDRef") if run is not None else "")[0]
+                n = max(1, math.ceil(_weighted_len(text) * qh / max(1.0, width - 11.3)))
+                tbl_h += n * qh * QUOTE_LINE_SPACING / 100.0
+                continue
             if not text.strip():
                 continue
-            runs = child.findall(qn("hp", "run"))
+            runs = _text_runs(child)
             if not runs:
                 continue
-            h, ratio, sp = _charpr_metrics(header_root, runs[0].get("charPrIDRef") or "")
+            h, ratio, sp = _charpr_metrics(header_root, max(runs, key=lambda r: len(r[1]))[0].get("charPrIDRef") or "")
             line_h = max(line_h, h)
-            avail = width - _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
+            indent = _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
+            avail = width - indent
             adv = h * (ratio / 100.0 + sp / 100.0)
-            n = math.ceil(_weighted_len(text) / max(1.0, avail / max(adv, 0.1)))
+            n = math.ceil(_body_len(text, indent) / max(1.0, avail / max(adv, 0.1)))
             lines += n
             if kind in LINE_FIT_KINDS and n > 2:
                 over2 += 1
     body_pt = lines * line_h * 1.6            # 줄간격 160%
-    pages = max(1, math.ceil((body_pt + tbl_h) / 700.0))   # A4 본문 높이 ≈ 700pt
-    return {"paragraph_lines": lines, "table_rows": tbl_rows,
-            "over_two_lines": over2, "est_pt": round(body_pt + tbl_h), "est_pages": pages}
+    marks = [(0, 0.0)] + parts + [(lines, tbl_h)]
+    by_part = [max(1, math.ceil(((l1 - l0) * line_h * 1.6 + (t1 - t0)) / 700.0))   # A4 본문 247mm ≈ 700pt
+               for (l0, t0), (l1, t1) in zip(marks, marks[1:])]
+    return {"paragraph_lines": lines, "table_rows": tbl_rows, "over_two_lines": over2,
+            "est_pt": round(body_pt + tbl_h), "est_pages": sum(by_part), "pages_by_part": by_part}
 
 
 # 본문 자리를 차지하는 표의 배치 속성 (한컴 저장본·기관 양식 원본 전수 실측 — R063 확장).
@@ -1635,6 +1810,8 @@ def apply_table_pagination(section_roots, rows_per_page=22):
     fixed, oversized = 0, []
     for sec_root in section_roots:
         for tbl in sec_root.iter(qn("hp", "tbl")):
+            if is_figure_table(tbl):        # 도식은 쪽 경계에서 쪼개지면 안 된다 — diagram_table이 둔 NONE 유지(R089)
+                continue
             rows = int(tbl.get("rowCnt", "1"))
             cols = int(tbl.get("colCnt", "1"))
             for attr, value in TABLE_PLACEMENT.items():
@@ -1962,14 +2139,15 @@ def apply_page_margins(section_roots):
     return {"attrs_changed": changed}
 
 
-HIERARCHY_SPACES = {"dae": 0, "yo": 1, "dash": 3, "star": 5, "cham": 5, "arrow": 5}
+HIERARCHY_SPACES = {"dae": 0, "yo": 1, "dash": 3, "star": 3, "cham": 3, "arrow": 3}
 # 줄바꿈 시 둘째 줄 들여쓰기(=본문 시작 위치, HWPUNIT). 첫 줄은 intent=-left로 0에서 시작
-# ※ 값은 폰트 크기가 아니라 "그 폰트 글자폭의 배수"(□1.5글자·ㅇ2글자·대시2.5글자·＊4글자) — 사용자 보고 시 글자 단위 병기
+# ※ 값은 폰트 크기가 아니라 "그 폰트 글자폭의 배수"(□1.5글자·ㅇ2글자·대시2.5글자·＊3글자) — 사용자 보고 시 글자 단위 병기
 # (리터럴 공백이 마커 위치를 잡고, 랩된 줄은 left 위치에 정렬 — 사용자 확정 '26.7.22)
 # 산출: 공백폭=글자크기/2 — dae 0+□15+공백7.5 / yo 공백7.5+ㅇ15+7.5 / dash 22.5+대시7.5+7.5
-#       star·cham(13pt) 공백 5×6.5+기호13+6.5 / arrow(15pt 본문) 공백 5×7.5+기호15+7.5 (R025)
-HIERARCHY_HANG = {"dae": 2250, "yo": 3000, "dash": 3750, "star": 5200, "cham": 5200,
-                  "arrow": 6000}
+#       star·cham(13pt) 공백 3×6.5+기호13+6.5 / arrow(15pt 본문) 공백 3×7.5+기호15+7.5 (R025)
+#       ＊·※·☞ 선두 3칸('26.9.24 사용자 정정 — 종전 5칸, 표 아래 ※가 표와 어울리게, R019)
+HIERARCHY_HANG = {"dae": 2250, "yo": 3000, "dash": 3750, "star": 3900, "cham": 3900,
+                  "arrow": 4500}
 
 
 def ensure_hang_parapr(header_root, base_id, hang, cache):
@@ -2015,7 +2193,7 @@ def ensure_hang_parapr(header_root, base_id, hang, cache):
 
 def apply_space_hierarchy(header_root, section_roots):
     """계층 표현을 paraPr 들여쓰기 대신 리터럴 띄어쓰기로 전환한다(사용자 확정 '26.7.22):
-    □ 0칸 / ㅇ 1칸 / 대시 3칸 / ＊·※ 5칸. 해당 문단 paraPr의 left·intent는 0화(복제 배정)."""
+    □ 0칸 / ㅇ 1칸 / 대시 3칸 / ＊·※ 3칸. 해당 문단 paraPr의 left·intent는 0화(복제 배정)."""
     p_tag = qn("hp", "p")
     cache = {}
     changed = {"prefixed": 0, "flattened": 0}
@@ -2089,10 +2267,12 @@ def ensure_charpr_sized(header_root, base_id, height, cache):
 COL_FIT_HANGUL_HU = 1200   # 한글·전각 = 12pt 전각
 COL_FIT_ASCII_HU = 800     # 영숫자·기호
 COL_FIT_SPACE_HU = 600     # 공백
-COL_FIT_CELL_PAD = 566     # 셀 좌우 안여백(283×2) — 글자가 여백에 물리지 않게 확보
+COL_FIT_CELL_PAD = 1020    # 셀 좌우 안여백 — kordoc 산출 표 inMargin 510×2 실측(종전 283×2는 좁은 열에서 글자가 여백에 물렸다)
 COL_FIT_FLOOR_MAX = 0.25   # 열 하나의 하한 상한(표 폭 대비) — 긴 서술 열이 하한을 독식하지 않게
 COL_FIT_FLOOR_CAP = 0.80   # 하한 합이 표 폭을 잠식하지 않도록 두는 천장(합 기준)
-COL_FIT_TOLERANCE = 0.05   # 이 이내 차이는 손대지 않는다(멱등·무의미한 재작성 방지)
+COL_FIT_TINY = 0.08        # 이 이하 하한(번호·No 같은 짧은 열)은 천장 비례 축소에서 뺀다
+COL_FIT_TOLERANCE = 0.001  # 사실상 항상 맞춘다 — 같은 글자면 같은 폭이 나와 멱등은 식이 보장한다. 종전 0.05는 kordoc 폭을
+                           # 남겨 리뷰 화면(column_shares)과 최대 5%p 어긋났다('26.9.24 시험 변환 대조)
 
 
 def _cell_width_hu(text):
@@ -2108,25 +2288,34 @@ def _cell_width_hu(text):
     return w
 
 
-def _column_floors(rows, cols, total):
-    """열별 최소 폭 비중 — 그 열에서 가장 긴 **셀 텍스트**가 한 줄에 들어갈 만큼.
+def column_shares(rows_text, total):
+    """열 폭 비중 — 열별 가장 긴 셀의 내용량에 비례하되, 열마다 가장 긴 셀이 한 줄에 들어갈 몫은 보장.
 
-    머리글만 보면 `과제 10` 같은 본문 셀이 줄바꿈된다. 반대로 긴 서술 열까지 그대로
-    반영하면 하한이 표를 다 먹으므로 열당 COL_FIT_FLOOR_MAX로 자른다 — 그 열은 어차피
-    가중치 비례에서 큰 몫을 받는다.
+    rows_text는 행별 셀 글자 목록, total은 표 폭(HWPUNIT). 후처리 column_fit과 리뷰 HTML(render_review_html)이
+    함께 쓴다 — 같은 식으로 나눠야 셀 줄바꿈·행 높이·쪽수가 두 화면에서 같다('26.9.24 시험 변환 대조).
+    하한은 긴 서술 열이 독식하지 않게 열당 COL_FIT_FLOOR_MAX로 자른다(그 열은 비례에서 큰 몫을 받는다).
     """
-    floors = []
-    for idx in range(cols):
-        widest = 0
-        for tr in rows:
-            tcs = tr.findall(qn("hp", "tc"))
-            if idx >= len(tcs):
-                continue
-            text = "".join(t.text or "" for t in tcs[idx].iter(qn("hp", "t")))
-            widest = max(widest, _cell_width_hu(text.strip()))
-        need = widest + COL_FIT_CELL_PAD
-        floors.append(min(need / total, COL_FIT_FLOOR_MAX) if total else 0.0)
-    return floors
+    cols = max((len(r) for r in rows_text), default=0)
+    if cols < 1 or not total:
+        return None
+    weights, floors = [0.0] * cols, []
+    for r in rows_text:
+        for i, t in enumerate(r):
+            weights[i] = max(weights[i], _weighted_len(t))
+    for i in range(cols):
+        widest = max((_cell_width_hu(r[i].strip()) for r in rows_text if i < len(r)), default=0)
+        floors.append(min((widest + COL_FIT_CELL_PAD) / total, COL_FIT_FLOOR_MAX))
+    if sum(floors) > COL_FIT_FLOOR_CAP:
+        # 하한 합이 넘치면 비례로 줄이되 아주 좁은 열(`No`·번호, 하한 COL_FIT_TINY 이하)은 그대로 둔다 — 함께
+        # 줄이면 제 글자 폭보다 좁아져 `N`/`o`로 쪼개진다('26.9.24 붙임 대장 실측: No 열 3%)
+        tiny = [i for i, f in enumerate(floors) if f <= COL_FIT_TINY]
+        rest = sum(f for i, f in enumerate(floors) if i not in tiny)
+        room = COL_FIT_FLOOR_CAP - sum(floors[i] for i in tiny)
+        if rest > 0 and room > 0:
+            floors = [f if i in tiny else f * room / rest for i, f in enumerate(floors)]
+    if sum(weights) <= 0:
+        return None
+    return _fit_shares(weights, floors)
 
 
 def _fit_shares(weights, floors):
@@ -2181,28 +2370,29 @@ def apply_table_column_fit(section_roots):
         )
         if spanned:
             continue
-        weights = [0] * cols
         widths = [None] * cols
         cells_by_col = [[] for _ in range(cols)]
+        texts = []
         ok = True
         for tr in rows:
             tcs = tr.findall(qn("hp", "tc"))
             if len(tcs) != cols:
                 ok = False
                 break
+            texts.append(["".join(t.text or "" for t in tc.iter(qn("hp", "t"))) for tc in tcs])
             for idx, tc in enumerate(tcs):
-                text = "".join(t.text or "" for t in tc.iter(qn("hp", "t")))
-                weights[idx] = max(weights[idx], _weighted_len(text))
                 sz = tc.find(qn("hp", "cellSz"))
                 if sz is None:
                     ok = False
                     break
                 cells_by_col[idx].append(sz)
                 widths[idx] = int(sz.get("width"))
-        if not ok or any(w is None for w in widths) or sum(weights) <= 0:
+        if not ok or any(w is None for w in widths):
             continue
         total = sum(widths)
-        shares = _fit_shares(weights, _column_floors(rows, cols, total))
+        shares = column_shares(texts, total)
+        if shares is None:
+            continue
         current = [w / total for w in widths]
         if max(abs(a - b) for a, b in zip(shares, current)) <= COL_FIT_TOLERANCE:
             continue
@@ -2214,6 +2404,368 @@ def apply_table_column_fit(section_roots):
         fitted += 1
         detail.append({"cols": cols, "before": widths, "after": new_widths})
     return {"tables_fitted": fitted, "detail": detail}
+
+
+# 행 높이 — kordoc은 생성 때의 열 폭으로 행마다 필요한 줄 수를 계산해 칸 높이(cellSz height)를 적는다.
+# 후처리가 열 폭을 바꾼 뒤(column_fit·fit_page_width)에도 그 높이가 남아, 넓어진 열의 행은 빈 줄만큼
+# 높게 그려진다('26.9.24 시험 변환 실측: 표 3개에서 약 240pt — A4 본문 0.34쪽). 최종 폭으로 다시 계산한다.
+# 한글은 칸 높이가 모자라면 내용만큼 늘려 그리므로(인도본 r02·시험본의 모자란 행이 잘리지 않음) 과대만 없애면 된다.
+ROW_LINE_HU = 1600          # 표 12pt·줄간격 130% 한 줄(kordoc 산출 실측 — 1줄 행 1882, 줄마다 +1600)
+ROW_PAD_HU = 282            # 1줄 행 = 줄 높이 + 상하 안여백(141×2)
+
+
+def _cell_need_lines(header_root, tc, margin_lr):
+    width = int(tc.find(qn("hp", "cellSz")).get("width")) - margin_lr
+    lines = 0
+    for par in tc.iter(qn("hp", "p")):
+        text = "".join(t.text or "" for t in par.iter(qn("hp", "t"))).strip()
+        run = par.find(qn("hp", "run"))
+        size = _charpr_metrics(header_root, run.get("charPrIDRef"))[0] if run is not None else 12.0
+        need = _cell_width_hu(text) * size / 12.0
+        lines += max(1, math.ceil(need / max(width, 1)))
+    return max(lines, 1)
+
+
+def apply_row_fit(header_root, section_roots):
+    """본문 표의 행 높이를 최종 열 폭 기준 필요 줄 수로 다시 적는다(표 전체 높이도 합으로 갱신).
+
+    세로 병합 칸(rowSpan>1)은 행 높이를 정하지 않고 걸친 행 높이의 합을 받는다. 제목 박스·붙임 배너·
+    산식 박스(1×1)는 양식 값이라 건드리지 않는다."""
+    rows_changed = tables = 0
+    for tbl, is_title in _iter_content_tables(section_roots):
+        if is_title or _is_banner_table(tbl) or (tbl.get("rowCnt") == "1" and tbl.get("colCnt") == "1"):
+            continue
+        im = tbl.find(qn("hp", "inMargin"))
+        tbl_lr = int(im.get("left", "510")) + int(im.get("right", "510")) if im is not None else 1020
+        trs = tbl.findall(qn("hp", "tr"))
+        heights, spans = [], []
+        for ri, tr in enumerate(trs):
+            need = 0
+            for tc in tr.findall(qn("hp", "tc")):
+                span = tc.find(qn("hp", "cellSpan"))
+                rs = int(span.get("rowSpan", "1")) if span is not None else 1
+                if rs > 1:
+                    spans.append((ri, rs, tc))
+                    continue
+                cm = tc.find(qn("hp", "cellMargin"))
+                lr = (int(cm.get("left", "0")) + int(cm.get("right", "0"))) if tc.get("hasMargin") == "1" and cm is not None else tbl_lr
+                need = max(need, _cell_need_lines(header_root, tc, lr))
+            old = max((int(tc.find(qn("hp", "cellSz")).get("height")) for tc in tr.findall(qn("hp", "tc"))), default=0)
+            heights.append(ROW_PAD_HU + ROW_LINE_HU * need if need else old)
+        changed = 0
+        for ri, tr in enumerate(trs):
+            for tc in tr.findall(qn("hp", "tc")):
+                sz = tc.find(qn("hp", "cellSz"))
+                if any(tc is s_tc for _, _, s_tc in spans):
+                    continue
+                if sz.get("height") != str(heights[ri]):
+                    sz.set("height", str(heights[ri]))
+                    changed = 1
+            rows_changed += changed
+            changed = 0
+        for ri, rs, tc in spans:
+            tc.find(qn("hp", "cellSz")).set("height", str(sum(heights[ri:ri + rs])))
+        tsz = tbl.find(qn("hp", "sz"))
+        if tsz is not None and tsz.get("height") != str(sum(heights)):
+            tsz.set("height", str(sum(heights)))
+            tables += 1
+    return {"tables": tables, "rows_changed": rows_changed}
+
+
+# ---------------------------------------------------------------------------
+# 원문 인용 블록 — ```text 안의 프롬프트·지시문 원문을 회색 상자·고정폭으로('26.9.24 사용자 지시)
+# ---------------------------------------------------------------------------
+# kordoc은 인용 블록 줄을 평범한 문단(함초롬돋움 13pt)으로 낸다 — 그대로 두면 `- ` 줄이 대시로, `[ ]` 줄이
+# 캡션으로 분류돼 서식이 입혀진다. to_kordoc_input이 붙인 표식(U+2060)으로 알아보고, 마지막에 표식을 지우며
+# 문단 테두리·배경(연결)으로 한 상자처럼 묶는다 — 표로 감싸지 않아 줄마다 쪽을 넘길 수 있다.
+QUOTE_MARK = "\u2060"
+QUOTE_FACE = "굴림체"          # 고정폭 — 한글·윈도 기본 탑재
+QUOTE_SIZE_PT = 10
+QUOTE_LINE_SPACING = 130
+QUOTE_FILL = "#F2F2F2"
+QUOTE_BORDER = "#BFBFBF"
+_QUOTE_PARAPRS = set()        # 이미 상자 서식을 입은 인용 줄의 paraPr — 재실행 때 표식 없이도 알아본다(멱등)
+
+
+def refresh_quote_paraprs(header_root):
+    """인용 상자 paraPr(회색 바탕 테두리를 연결로 쓰는 것)을 찾아 둔다 — process_file 시작 때."""
+    fills = {bf.get("id") for bf in header_root.iter(qn("hh", "borderFill"))
+             if (wb := bf.find(f".//{qn('hc', 'winBrush')}")) is not None and wb.get("faceColor", "").upper() == QUOTE_FILL
+             and (lb := bf.find(qn("hh", "leftBorder"))) is not None and lb.get("color", "").upper() == QUOTE_BORDER}
+    _QUOTE_PARAPRS.clear()
+    for pp in header_root.iter(qn("hh", "paraPr")):
+        b = pp.find(qn("hh", "border"))
+        if b is not None and b.get("connect") == "1" and b.get("borderFillIDRef") in fills:
+            _QUOTE_PARAPRS.add(pp.get("id"))
+
+
+def _ensure_font_face(header_root, face):
+    """모든 lang 글꼴 목록에 face를 같은 번호로 더한다(이미 있으면 그 번호)."""
+    fonts = _hangul_fontfaces(header_root)
+    fid = next((k for k, v in fonts.items() if v == face), None)
+    if fid is not None:
+        return fid
+    new_id = None
+    for ff in header_root.iter(qn("hh", "fontface")):
+        n = len(ff.findall(qn("hh", "font")))
+        new_id = new_id if new_id is not None else str(n)
+        ET.SubElement(ff, qn("hh", "font"), {"id": str(n), "face": face, "type": "TTF", "isEmbedded": "0"})
+        ff.set("fontCnt", str(n + 1))
+    return new_id
+
+
+def _quote_border_fill(header_root, cache):
+    key = ("quote-bf",)
+    if key in cache:
+        return cache[key]
+    bfs = header_root.find(f".//{qn('hh', 'borderFills')}")
+    new_id = str(max(int(bf.get("id")) for bf in bfs.findall(qn("hh", "borderFill"))) + 1)
+    side = f'type="SOLID" width="0.12 mm" color="{QUOTE_BORDER}"'
+    bfs.append(ET.fromstring(
+        f'<hh:borderFill xmlns:hh="{NS["hh"]}" xmlns:hc="{NS["hc"]}" id="{new_id}" threeD="0" shadow="0" centerLine="NONE" breakCellSeparateLine="0">'
+        f'<hh:slash type="NONE" Crooked="0" isCounter="0"/><hh:backSlash type="NONE" Crooked="0" isCounter="0"/>'
+        f'<hh:leftBorder {side}/><hh:rightBorder {side}/><hh:topBorder {side}/><hh:bottomBorder {side}/>'
+        f'<hh:diagonal type="SOLID" width="0.1 mm" color="#000000"/>'
+        f'<hc:fillBrush><hc:winBrush faceColor="{QUOTE_FILL}" hatchColor="#000000" alpha="0"/></hc:fillBrush></hh:borderFill>'))
+    bfs.set("itemCnt", str(len(bfs.findall(qn("hh", "borderFill")))))
+    cache[key] = new_id
+    return new_id
+
+
+def _quote_parapr(header_root, base_id, fill_id, cache):
+    key = ("quote-pp", base_id)
+    if key in cache:
+        return cache[key]
+    paraprops = header_root.find(f".//{qn('hh', 'paraProperties')}")
+    base = next((pp for pp in paraprops.findall(qn("hh", "paraPr")) if pp.get("id") == base_id), None)
+    if base is None:
+        cache[key] = base_id
+        return base_id
+    new_pp = copy.deepcopy(base)
+    new_pp.set("id", str(max(int(pp.get("id")) for pp in paraprops.findall(qn("hh", "paraPr"))) + 1))
+    for al in new_pp.iter(qn("hh", "align")):
+        al.set("horizontal", "LEFT")
+    for mg in new_pp.iter(qn("hh", "margin")):
+        for tag in ("intent", "left", "right", "prev", "next"):
+            el = mg.find(qn("hc", tag))
+            if el is not None:
+                el.set("value", "0")
+    for ls in new_pp.iter(qn("hh", "lineSpacing")):
+        ls.set("type", "PERCENT")
+        ls.set("value", str(QUOTE_LINE_SPACING))
+    for bs in new_pp.iter(qn("hh", "breakSetting")):
+        bs.set("breakNonLatinWord", "BREAK_WORD")
+        bs.set("breakLatinWord", "BREAK_WORD")
+    border = new_pp.find(qn("hh", "border"))
+    if border is None:
+        border = ET.SubElement(new_pp, qn("hh", "border"))
+    border.attrib.update({"borderFillIDRef": fill_id, "offsetLeft": "567", "offsetRight": "567",
+                          "offsetTop": "283", "offsetBottom": "283", "connect": "1", "ignoreMargin": "0"})
+    paraprops.append(new_pp)
+    paraprops.set("itemCnt", str(len(paraprops.findall(qn("hh", "paraPr")))))
+    cache[key] = new_pp.get("id")
+    _QUOTE_PARAPRS.add(cache[key])
+    return cache[key]
+
+
+def apply_quote_block(header_root, section_roots):
+    """원문 인용 줄 — 표식을 지우고 고정폭 10pt·줄간격 130%·왼쪽 정렬, 회색 바탕 테두리 상자(문단 연결)로.
+
+    다른 모든 단계가 표식으로 인용 줄을 건너뛴 뒤 마지막에 돈다 — 먼저 지우면 빈 인용 줄이 '빈 문단'으로
+    보여 간격 단계가 스페이서로 바꿔 버린다."""
+    cache, lines, changed = {}, 0, 0
+    fid = None
+    for sec_root in section_roots:
+        for p in sec_root.iter(qn("hp", "p")):
+            if classify(p) != "quote":
+                continue
+            if fid is None:
+                fid = _ensure_font_face(header_root, QUOTE_FACE)
+            lines += 1
+            if QUOTE_MARK in para_text(p):
+                changed += 1
+            for t in p.iter(qn("hp", "t")):
+                if t.text and QUOTE_MARK in t.text:
+                    t.text = t.text.replace(QUOTE_MARK, "")
+            if p.get("paraPrIDRef") not in _QUOTE_PARAPRS:
+                p.set("paraPrIDRef", _quote_parapr(header_root, p.get("paraPrIDRef", "0"),
+                                                   _quote_border_fill(header_root, cache), cache))
+            for run in p.findall(qn("hp", "run")):
+                cid = run.get("charPrIDRef")
+                if cid is not None:
+                    run.set("charPrIDRef", ensure_charpr_font_size(header_root, cid, QUOTE_FACE, QUOTE_SIZE_PT * 100, cache))
+    return {"lines": lines, "changed": changed, "face": QUOTE_FACE if lines else None}
+
+
+# ---------------------------------------------------------------------------
+# 표 병합 — 2단 머리행(`A > B`)·세로 병합(`〃`)·라벨 열 음영 (경영관리 프레임워크 틀, '26.9.24)
+# ---------------------------------------------------------------------------
+
+# GFM은 병합·2단 머리행을 못 그려 기관 양식의 성과지표 실적표(성과지표 · '23년 목표/실적 · 추진실적)·
+# 연도별 목표표를 재현하지 못했다. 마크다운에는 표기만 남기고 여기서 hwpx 표 구조를 고친다 — 결과는
+# 한글에서 편집 가능한 진짜 병합 표다(이미지 아님).
+HEADER_SPLIT = " > "       # 머리글 `'23년 > 목표` — 위 칸 '23년(가로 병합) · 아래 칸 목표
+DITTO = "〃"               # 본문 칸 `〃` — 바로 위 칸과 세로 병합(위와 같음)
+LABEL_FILL = "#D8D8D8"     # 라벨 칸 음영 — 경영관리 프레임워크 hwpx 5종 실측 최빈값(구분·추진방향·환경분석·시사점)
+
+
+def _cell_text(tc):
+    return "".join(t.text or "" for t in tc.iter(qn("hp", "t")))
+
+
+def _set_cell_text(tc, text):
+    ts = list(tc.iter(qn("hp", "t")))
+    if not ts:
+        return
+    ts[0].text = text
+    for t in ts[1:]:
+        t.text = ""
+    for par in tc.iter(qn("hp", "p")):          # 글자가 바뀌면 줄 배치 캐시는 무효 — 한글이 다시 계산한다
+        lsa = par.find(qn("hp", "linesegarray"))
+        if lsa is not None:
+            par.remove(lsa)
+
+
+def _span(tc):
+    sp = tc.find(qn("hp", "cellSpan"))
+    return int(sp.get("colSpan", "1")), int(sp.get("rowSpan", "1"))
+
+
+def ensure_fill_variant(header_root, base_id, color, cache):
+    """base_id borderFill의 테두리는 그대로 두고 채움만 color로 바꾼 복제본 id."""
+    key = ("fill", base_id, color)
+    if key in cache:
+        return cache[key]
+    bfs = header_root.find(f".//{qn('hh', 'borderFills')}")
+    base = next((bf for bf in bfs.findall(qn("hh", "borderFill")) if bf.get("id") == base_id), None)
+    if base is None:
+        cache[key] = base_id
+        return base_id
+    new_bf = copy.deepcopy(base)
+    new_bf.set("id", str(max(int(bf.get("id")) for bf in bfs.findall(qn("hh", "borderFill"))) + 1))
+    old = new_bf.find(qn("hc", "fillBrush"))
+    if old is not None:
+        new_bf.remove(old)
+    new_bf.append(ET.fromstring(f'<hc:fillBrush xmlns:hc="{NS["hc"]}"><hc:winBrush faceColor="{color}" '
+                                f'hatchColor="#000000" alpha="0"/></hc:fillBrush>'))
+    bfs.append(new_bf)
+    bfs.set("itemCnt", str(len(bfs.findall(qn("hh", "borderFill")))))
+    cache[key] = new_bf.get("id")
+    return cache[key]
+
+
+def _two_level_header(tbl):
+    """첫 행 머리글에 `A > B`가 있으면 위에 한 행을 더해 A를 가로 병합하고, `>`가 없는 머리글은
+    두 행을 세로로 차지하게 한다. 반환: 바꿨으면 True."""
+    rows = tbl.findall(qn("hp", "tr"))
+    if len(rows) < 2:
+        return False
+    head = rows[0].findall(qn("hp", "tc"))
+    parts = [_cell_text(tc).split(HEADER_SPLIT, 1) for tc in head]
+    if not any(len(x) == 2 for x in parts) or any(_span(tc) != (1, 1) for tc in head):
+        return False
+    top_tr = ET.Element(qn("hp", "tr"))
+    subs, i = [], 0
+    h = int(head[0].find(qn("hp", "cellSz")).get("height", "0"))
+    while i < len(head):
+        if len(parts[i]) == 1:                  # 단일 머리글 — 두 행을 세로로 차지
+            tc = head[i]
+            tc.find(qn("hp", "cellSpan")).set("rowSpan", "2")
+            sz = tc.find(qn("hp", "cellSz"))
+            sz.set("height", str(int(sz.get("height", "0")) * 2))
+            top_tr.append(tc)
+            i += 1
+            continue
+        top, j = parts[i][0].strip(), i
+        while j < len(head) and len(parts[j]) == 2 and parts[j][0].strip() == top:
+            j += 1
+        group = head[i:j]
+        g = copy.deepcopy(group[0])
+        _set_cell_text(g, top)
+        g.find(qn("hp", "cellSpan")).set("colSpan", str(len(group)))
+        g.find(qn("hp", "cellSz")).set("width", str(sum(int(x.find(qn("hp", "cellSz")).get("width")) for x in group)))
+        top_tr.append(g)
+        for tc, pr in zip(group, parts[i:j]):
+            _set_cell_text(tc, pr[1].strip())
+            subs.append(tc)
+        i = j
+    old = rows[0]
+    for tc in list(old.findall(qn("hp", "tc"))):
+        old.remove(tc)
+    for tc in subs:
+        old.append(tc)
+    tbl.insert(list(tbl).index(old), top_tr)
+    for r, tr in enumerate(tbl.findall(qn("hp", "tr"))):
+        for tc in tr.findall(qn("hp", "tc")):
+            tc.find(qn("hp", "cellAddr")).set("rowAddr", str(r))
+    tbl.set("rowCnt", str(len(tbl.findall(qn("hp", "tr")))))
+    sz = tbl.find(qn("hp", "sz"))
+    if sz is not None:
+        sz.set("height", str(int(sz.get("height", "0")) + h))
+    return True
+
+
+def _ditto_merge(tbl):
+    """본문 칸이 `〃`면 바로 위 칸(같은 열·같은 폭)을 한 행 늘려 덮는다. 반환: 병합한 칸 수."""
+    rows = tbl.findall(qn("hp", "tr"))
+    last = len(rows) - 1
+    grid, merged = {}, 0
+    for tr in rows:
+        for tc in list(tr.findall(qn("hp", "tc"))):
+            addr = tc.find(qn("hp", "cellAddr"))
+            c, r = int(addr.get("colAddr")), int(addr.get("rowAddr"))
+            cs, rs = _span(tc)
+            above = grid.get((r - 1, c))
+            if (_cell_text(tc).strip() == DITTO and tc.get("header") != "1" and above is not None
+                    and int(above.find(qn("hp", "cellAddr")).get("colAddr")) == c and _span(above)[0] == cs):
+                asp = above.find(qn("hp", "cellSpan"))
+                asp.set("rowSpan", str(_span(above)[1] + rs))
+                asz = above.find(qn("hp", "cellSz"))
+                asz.set("height", str(int(asz.get("height")) + int(tc.find(qn("hp", "cellSz")).get("height"))))
+                if r + rs - 1 >= last:          # 표 맨 아래 칸을 덮으면 아래 선 서식을 물려받는다
+                    above.set("borderFillIDRef", tc.get("borderFillIDRef"))
+                tr.remove(tc)
+                merged += 1
+                owner = above
+            else:
+                owner = tc
+            for k in range(cs):
+                for m in range(rs):
+                    grid[(r + m, c + k)] = owner
+    return merged
+
+
+def _label_column(header_root, tbl, cache):
+    """첫 열 본문 칸이 모두 굵은 글씨면 라벨 열로 보고 연회색 음영·가운데 정렬을 준다."""
+    bold = {cp.get("id") for cp in header_root.iter(qn("hh", "charPr")) if cp.find(qn("hh", "bold")) is not None}
+    firsts = [tc for tr in tbl.findall(qn("hp", "tr")) for tc in tr.findall(qn("hp", "tc"))
+              if tc.get("header") != "1" and tc.find(qn("hp", "cellAddr")).get("colAddr") == "0"]
+    if not firsts or int(tbl.get("colCnt") or 0) < 2:
+        return False
+
+    def all_bold(tc):
+        runs = [run for run in tc.iter(qn("hp", "run")) if "".join(t.text or "" for t in run.iter(qn("hp", "t"))).strip()]
+        return bool(runs) and all(run.get("charPrIDRef") in bold for run in runs)
+    if not all(all_bold(tc) for tc in firsts):
+        return False
+    for tc in firsts:
+        tc.set("borderFillIDRef", ensure_fill_variant(header_root, tc.get("borderFillIDRef"), LABEL_FILL, cache))
+        for par in tc.iter(qn("hp", "p")):
+            par.set("paraPrIDRef", ensure_aligned_clone(header_root, par.get("paraPrIDRef", "0"), "CENTER", cache))
+    return True
+
+
+def apply_table_merge(header_root, section_roots):
+    """본문 표에 2단 머리행·세로 병합·라벨 열 음영을 적용한다 — 열 폭 맞춤(병합 표는 건너뜀) 다음에 돈다."""
+    cache = {}
+    two = ditto = label = 0
+    for tbl, is_title in _iter_content_tables(section_roots):
+        if is_title or _is_banner_table(tbl) or (tbl.get("rowCnt") == "1" and tbl.get("colCnt") == "1"):
+            continue
+        two += _two_level_header(tbl)
+        ditto += _ditto_merge(tbl)
+        label += _label_column(header_root, tbl, cache)
+    return {"two_level_headers": two, "ditto_merged": ditto, "label_columns": label}
 
 
 FIT_PAGE_SLACK = 283  # HWPUNIT(1.0mm) — R042: 총 폭은 본문 폭 '미만'이어야 한다(같으면 줄바꿈)
@@ -2257,7 +2809,7 @@ def apply_fit_page_width(section_roots):
         for tbl in sec_root.iter(qn("hp", "tbl")):
             sz = tbl.find(qn("hp", "sz"))
             om = tbl.find(qn("hp", "outMargin"))
-            if sz is None:
+            if sz is None or is_figure_table(tbl):   # 도식 표는 diagram_table이 본문 폭 상한으로 만든다(R089)
                 continue
             tw = int(sz.get("width", "0"))
             om_l = int(om.get("left", "0")) if om is not None else 0
@@ -2302,28 +2854,195 @@ def apply_fit_page_width(section_roots):
                         v = el.get(attr)
                         if v is not None:
                             el.set(attr, str(max(int(round(int(v) * ratio)), 1)))
-                # 파생 캐시 재계산 (R042 위생): scaMatrix e1/e5 = curSz/orgSz,
-                # rotationInfo center = curSz/2 — sz·curSz만 줄이면 도너 원값이 스테일로 남는다.
-                # transMatrix·scaMatrix의 e3/e6은 offset 파생이라 (offset 불변이므로) 건드리지 않는다.
-                org = pic.find(qn("hp", "orgSz"))
-                cur = pic.find(qn("hp", "curSz"))
-                if org is not None and cur is not None:
-                    ow, oh = int(org.get("width", "0")), int(org.get("height", "0"))
-                    cw, ch = int(cur.get("width", "0")), int(cur.get("height", "0"))
-                    ri = pic.find(qn("hp", "renderingInfo"))
-                    sca = ri.find(qn("hc", "scaMatrix")) if ri is not None else None
-                    if sca is not None and ow > 0 and oh > 0:
-                        sca.set("e1", f"{cw / ow:.6f}")
-                        sca.set("e5", f"{ch / oh:.6f}")
-                    rot = pic.find(qn("hp", "rotationInfo"))
-                    if rot is not None:
-                        rot.set("centerX", str(cw // 2))
-                        rot.set("centerY", str(ch // 2))
+                _refresh_pic_cache(pic)
                 pics += 1
             adjusted.append({"before_mm": round(total / 7200 * 25.4, 1),
                              "after_mm": round((target + om_l + om_r) / 7200 * 25.4, 1),
                              "ratio": round(ratio, 4), "pics_scaled": pics})
     return {"tables_fitted": len(adjusted), "detail": adjusted}
+
+
+def _refresh_pic_cache(pic):
+    """그림 크기를 바꾼 뒤 파생 캐시를 다시 계산한다 (R042 위생).
+
+    scaMatrix e1/e5 = curSz/orgSz, rotationInfo center = curSz/2 — sz·curSz만 바꾸면 원값이
+    스테일로 남는다. transMatrix·scaMatrix의 e3/e6은 offset 파생이라(offset 불변) 건드리지 않는다.
+    """
+    org = pic.find(qn("hp", "orgSz"))
+    cur = pic.find(qn("hp", "curSz"))
+    if org is None or cur is None:
+        return
+    ow, oh = int(org.get("width", "0")), int(org.get("height", "0"))
+    cw, ch = int(cur.get("width", "0")), int(cur.get("height", "0"))
+    ri = pic.find(qn("hp", "renderingInfo"))
+    sca = ri.find(qn("hc", "scaMatrix")) if ri is not None else None
+    if sca is not None and ow > 0 and oh > 0:
+        sca.set("e1", f"{cw / ow:.6f}")
+        sca.set("e5", f"{ch / oh:.6f}")
+    rot = pic.find(qn("hp", "rotationInfo"))
+    if rot is not None:
+        rot.set("centerX", str(cw // 2))
+        rot.set("centerY", str(ch // 2))
+
+
+# ---------------------------------------------------------------------------
+# 본문 그림 — 픽셀은 원본대로, 표시 크기·배치만 정한다 (R088)
+# ---------------------------------------------------------------------------
+
+# kordoc은 그림 크기를 1px = 75 HU(96dpi)로 잡고 170mm를 넘는 폭만 줄인다. 그래서 1/3쪽 규격에
+# 맞추려고 픽셀을 줄여 넣으면 인쇄 해상도가 96dpi로 떨어져 글자가 뭉개진다('26.8.24 1814건 인도본 —
+# 1257px 원본을 556px로 줄여 147×90mm, 실효 96dpi, 그림 문단은 양쪽 정렬·줄간격 160%).
+FIGURE_DEFAULT_DPI = 96    # 해상도 정보가 없는 그림의 가정값 — kordoc 환산(1px = 75 HU)과 같다
+FIGURE_MAX_H_MM = 90       # 1/3쪽 높이 상한 (R006)
+FIGURE_MIN_DPI = 150       # 표시 크기 기준 실효 해상도 하한 — 미만이면 인쇄 시 뭉개진다
+FIGURE_CAPTION_FACE = "맑은 고딕"   # 그림 캡션 = 표 캡션 서식(R023·R034 — 표 서체 12pt 볼드, 가운데)
+HU_PER_MM = 7200 / 25.4
+
+
+def image_pixels(blob):
+    """(폭 px, 높이 px, dpi 또는 None) — PNG·JPEG·GIF·BMP 머리만 읽는다(kordoc 삽입 허용 형식).
+
+    dpi는 PNG pHYs·JPEG JFIF·BMP 해상도 칸에서 읽고, 없으면 None(호출자가 96dpi로 가정)."""
+    if blob[:8] == b"\x89PNG\r\n\x1a\n":
+        if len(blob) < 24:
+            raise ValueError("truncated png")
+        w, h = struct.unpack(">II", blob[16:24])
+        dpi, i = None, 8
+        while i + 8 <= len(blob):
+            n, tag = struct.unpack(">I4s", blob[i:i + 8])
+            if tag == b"pHYs" and n >= 9 and i + 17 <= len(blob):
+                ppx, _ppy, unit = struct.unpack(">IIB", blob[i + 8:i + 17])
+                if unit == 1 and ppx:
+                    dpi = ppx * 0.0254
+                break
+            if tag in (b"IDAT", b"IEND"):
+                break
+            i += 12 + n
+        return w, h, dpi
+    if blob[:2] == b"\xff\xd8":
+        i, dpi = 2, None
+        while i + 4 <= len(blob):
+            if blob[i] != 0xFF:
+                i += 1
+                continue
+            marker = blob[i + 1]
+            if marker == 0xFF:                     # 채움 바이트
+                i += 1
+                continue
+            if marker == 0x01 or 0xD0 <= marker <= 0xD8:
+                i += 2
+                continue
+            n = struct.unpack(">H", blob[i + 2:i + 4])[0]
+            seg = blob[i + 4:i + 2 + n]
+            if marker == 0xE0 and seg[:5] == b"JFIF\x00" and len(seg) >= 12:
+                unit, xd = seg[7], struct.unpack(">H", seg[8:10])[0]
+                if xd and unit in (1, 2):
+                    dpi = xd if unit == 1 else xd * 2.54
+            elif 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC) and len(seg) >= 5:
+                h, w = struct.unpack(">HH", seg[1:5])
+                return w, h, dpi
+            elif marker == 0xDA:
+                break
+            i += 2 + n
+        raise ValueError("no SOF")
+    if blob[:4] == b"GIF8" and len(blob) >= 10:
+        w, h = struct.unpack("<HH", blob[6:10])
+        return w, h, None
+    if blob[:2] == b"BM" and len(blob) >= 42:
+        w, h = struct.unpack("<ii", blob[18:26])
+        ppm = struct.unpack("<i", blob[38:42])[0]
+        return w, abs(h), (ppm * 0.0254 if ppm > 0 else None)
+    raise ValueError("unsupported format")
+
+
+def figure_display(w_px, h_px, dpi, max_w_mm, max_h_mm=FIGURE_MAX_H_MM):
+    """그림 표시 크기 — 원본 해상도로 잰 물리 크기를 상자(max_w×max_h)에 비율 유지로 넣는다.
+
+    줄이기만 하고 키우지 않는다(작은 그림을 늘리면 뭉개짐이 커진다). 픽셀은 건드리지 않는다.
+    실효 해상도 = 픽셀 폭 ÷ 표시 폭(인치) — FIGURE_MIN_DPI 미만이면 sharp=False."""
+    dpi = dpi or FIGURE_DEFAULT_DPI
+    w_mm, h_mm = w_px / dpi * 25.4, h_px / dpi * 25.4
+    scale = min(1.0, max_w_mm / w_mm, max_h_mm / h_mm)
+    w_mm, h_mm = w_mm * scale, h_mm * scale
+    eff = w_px / (w_mm / 25.4)
+    return {"w_mm": round(w_mm, 1), "h_mm": round(h_mm, 1),
+            "w_hu": int(round(w_mm * HU_PER_MM)), "h_hu": int(round(h_mm * HU_PER_MM)),
+            "effective_dpi": int(round(eff)), "sharp": eff >= FIGURE_MIN_DPI}
+
+
+def _bin_hrefs(data):
+    """content.hpf manifest의 {item id: 패키지 경로} — hc:img binaryItemIDRef를 BinData 파일로 푼다."""
+    hpf = data.get("Contents/content.hpf", b"").decode("utf-8", "ignore")
+    out = {}
+    for tag in re.findall(r"<opf:item\b[^>]*>", hpf):
+        attrs = dict(re.findall(r'([\w:-]+)="([^"]*)"', tag))
+        if "id" in attrs and "href" in attrs:
+            out[attrs["id"]] = attrs["href"]
+    return out
+
+
+def apply_figure_fit(header_root, section_roots, data):
+    """본문 그림 문단: 표시 크기를 원본 해상도 기준으로 다시 쓰고 가운데 정렬·줄간격 100%로 둔다.
+
+    대상은 섹션 최상위 문단 가운데 글자 없이 그림만 든 것(kordoc `![캡션](파일)` 산출형) — 표 셀·
+    머리말 안 그림은 R042 `apply_fit_page_width` 소관이다. 한 문단에 그림이 여럿이면 폭을 나눈다.
+    줄간격 100%는 R041 실측 근거 — 글자처럼 취급한 개체의 줄 높이는 줄간격 %만큼 부풀어
+    그림 아래에 높이의 60%(160% 기준)가 빈 줄로 남는다.
+    """
+    hrefs = _bin_hrefs(data)
+    cache, char_cache, bold_cache = {}, {}, {}
+    detail, missing, captions = [], [], 0
+    for sec_root in section_roots:
+        limit_mm = (_text_width_pt(sec_root) * 100 - FIT_PAGE_SLACK) / HU_PER_MM
+        paras = sec_root.findall(qn("hp", "p"))
+        for idx, p in enumerate(paras):
+            if classify(p) != "figure":
+                continue
+            # 바로 위 캡션(`[ 제목 ]`, 빈 줄 건너뜀)은 표 캡션과 같은 서식으로 — 표에 내장되지
+            # 않은 캡션은 본문 명조로 남아 표 캡션과 어긋났다('26.9.24 렌더 확인)
+            for q in reversed(paras[:idx]):
+                kind = classify(q)
+                if kind == "empty":
+                    continue
+                if kind == "caption":
+                    # 가운데 정렬 + 다음 문단과 함께 — 캡션만 쪽 끝에 남고 그림이 다음 쪽으로 넘어갔다
+                    # ('26.9.24 렌더 확인, 표 캡션은 표 안에 내장돼 이 문제가 없다)
+                    centered = ensure_aligned_clone(header_root, q.get("paraPrIDRef", "0"), "CENTER", cache)
+                    q.set("paraPrIDRef", ensure_keepnext_parapr(header_root, centered, cache))
+                    for run in q.findall(qn("hp", "run")):
+                        cid = run.get("charPrIDRef")
+                        if cid is not None:
+                            cid = ensure_charpr_font_size(header_root, cid, FIGURE_CAPTION_FACE, 1200, char_cache)
+                            run.set("charPrIDRef", ensure_charpr_bold(header_root, cid, bold_cache))
+                    captions += 1
+                break
+            pics = [pic for run in p.findall(qn("hp", "run")) for pic in run.findall(qn("hp", "pic"))]
+            for pic in pics:
+                img = pic.find(qn("hc", "img"))
+                ref = img.get("binaryItemIDRef") if img is not None else None
+                blob = data.get(hrefs.get(ref, ""))
+                if blob is None:
+                    missing.append(ref)
+                    continue
+                try:
+                    w_px, h_px, dpi = image_pixels(blob)
+                except (ValueError, struct.error):
+                    missing.append(ref)
+                    continue
+                d = figure_display(w_px, h_px, dpi, limit_mm / len(pics))
+                for tag in ("curSz", "sz"):
+                    el = pic.find(qn("hp", tag))
+                    if el is not None:
+                        el.set("width", str(d["w_hu"]))
+                        el.set("height", str(d["h_hu"]))
+                _refresh_pic_cache(pic)
+                detail.append({"id": ref, "px": [w_px, h_px],
+                               "src_dpi": round(dpi) if dpi else None, "mm": [d["w_mm"], d["h_mm"]],
+                               "effective_dpi": d["effective_dpi"], "sharp": d["sharp"]})
+            centered = ensure_aligned_clone(header_root, p.get("paraPrIDRef", "0"), "CENTER", cache)
+            p.set("paraPrIDRef", ensure_linespacing_parapr(header_root, centered, 100, cache))
+    return {"figures": len(detail), "low_res": sum(1 for x in detail if not x["sharp"]),
+            "captions_styled": captions, "unreadable": missing, "detail": detail}
 
 
 # 발신 줄 크기 실측값(R018, format-profile.kca.md §서체) — --all이 이 값을 기본 적용한다.
@@ -2335,7 +3054,8 @@ def apply_fit_page_width(section_roots):
 # 양식 정합을 맡기지 않고 여기서 결정론으로 되돌린다. 표 셀은 대상이 아니다(R023 12pt는
 # apply_caption_table_font 소관).
 FORM_SIZES_PT = {"dae": 15, "yo": 15, "dash": 15, "arrow": 15, "star": 13, "cham": 13}
-TITLE_BOX_SIZE_PT = 20
+TITLE_BOX_SIZE_PT = 24   # '26.9.24 사용자 확정 — 양식 명시값 20pt에서 올림(모든 보고서). 한 줄 맞춤은 fit_title
+TITLE_TEXT_WIDTH_HU = 47061   # 제목 행 글자 폭 — kordoc 제목 박스 47341 − 셀 여백 140×2(시험 변환 실측)
 # 본문 계층 안에서 의도적으로 작게 남겨 둔 높이 — 괄호 13pt(R033·R039)가 유일하다.
 # 이 패스를 재실행해도 앞선 apply_paren_small의 결과를 되돌리지 않도록 건너뛴다(멱등).
 FORM_SIZES_KEEP = (1300,)
@@ -2400,6 +3120,40 @@ def apply_form_sizes(header_root, section_roots):
                 title_changed += 1
     return {"paragraphs": counts, "runs_changed": changed,
             "title_runs_changed": title_changed, "title_pt": TITLE_BOX_SIZE_PT}
+
+
+def apply_title_fit(header_root, section_roots):
+    """제목 한 줄 맞춤 — 제목 박스 폭이 다 정해진 **뒤**(본문 폭 맞춤 fit_page_width 다음) 돈다. 그 앞에서는
+    kordoc 원래 폭 48757로 재서 덜 조였고 재실행마다 값이 달랐다('26.9.24 시험 변환). kordoc이 생성 크기(25pt)로 조여 둔 장평·자간(87·-5)은 버리고
+    새 크기에서 100·0부터 다시 맞춘다. 하한까지 조여도 넘치면 두 줄로 둔다(overflow)."""
+    title_tbl = _title_box(header_root, section_roots)
+    rows = title_tbl.findall(qn("hp", "tr")) if title_tbl is not None else []
+    idx = _title_row_index(rows)
+    if idx is None:
+        return {"found": False, "ratio": None, "spacing": None, "overflow": False, "runs_changed": 0}
+    runs = [r for r in rows[idx].iter(qn("hp", "run"))
+            if r.find(qn("hp", "t")) is not None and (r.find(qn("hp", "t")).text or "").strip()]
+    text = "".join(r.find(qn("hp", "t")).text or "" for r in runs)
+    cell = rows[idx].find(qn("hp", "tc"))
+    sz = cell.find(qn("hp", "cellSz")) if cell is not None else None
+    width = int(sz.get("width")) - 280 if sz is not None and sz.get("width") else TITLE_TEXT_WIDTH_HU
+    ratio, spacing, overflow = fit_title(text, width / 100.0)
+    cache, changed = {}, 0
+    for run in runs:
+        cid = run.get("charPrIDRef")
+        if _charpr_metrics(header_root, cid)[1:] != (ratio, spacing):
+            run.set("charPrIDRef", ensure_charpr_fitted(header_root, cid, ratio, spacing, cache))
+            changed += 1
+    return {"found": True, "ratio": ratio, "spacing": spacing, "overflow": overflow, "runs_changed": changed}
+
+
+def fit_title(text, avail_pt, size_pt=None):
+    """제목 한 줄 맞춤 — (장평, 자간, 넘침). 리뷰 HTML도 같은 값으로 그린다."""
+    size = size_pt or TITLE_BOX_SIZE_PT
+    chosen = fit_line(_weighted_len(text), avail_pt, size, 100, 0, max_lines=1, words=word_lens(text))
+    if chosen is None:
+        return MIN_RATIO, MIN_SPACING, True
+    return chosen[0], chosen[1], False
 
 
 SENDER_SIZE_PT = 12
@@ -2470,7 +3224,7 @@ def ensure_indent_parapr(header_root, base_id, left, intent, cache):
 
 
 CONTENT_KINDS = {"sending", "dae", "yo", "dash", "star", "cham", "arrow", "caption", "table",
-                 "other"}
+                 "figure", "other"}
 
 
 def apply_zero_margins(header_root, section_roots):
@@ -2757,6 +3511,9 @@ STAGES = (
     ("page_margins", "zero",
      lambda c: apply_page_margins(c["secs"]),
      lambda r: bool(r["attrs_changed"]), lambda r: bool(r["attrs_changed"])),
+    ("figure_fit", "zero",
+     lambda c: apply_figure_fit(c["header"], c["secs"], c["data"]),
+     lambda r: r["figures"] > 0, lambda r: r["figures"] > 0),
     ("center_cells", "zero",
      lambda c: apply_center_cell_text(c["header"], c["secs"]),
      lambda r: r["tables"] > 0, lambda r: r["paragraphs"] > 0),
@@ -2799,11 +3556,24 @@ STAGES = (
     ("column_fit", "zero",
      lambda c: apply_table_column_fit(c["secs"]),
      lambda r: bool(r["tables_fitted"]), lambda r: bool(r["tables_fitted"])),
-    ("layout", "always",
-     lambda c: estimate_layout(c["header"], c["secs"]), _never, _never),
+    ("table_merge", "zero",
+     lambda c: apply_table_merge(c["header"], c["secs"]),
+     lambda r: bool(r["two_level_headers"] or r["ditto_merged"] or r["label_columns"]),
+     lambda r: bool(r["two_level_headers"] or r["ditto_merged"] or r["label_columns"])),
     ("fit_page_width", "always",
      lambda c: apply_fit_page_width(c["secs"]),
      lambda r: bool(r.get("tables_fitted")), lambda r: bool(r.get("tables_fitted"))),
+    ("title_fit", "zero",                      # 제목 박스 폭이 다 정해진 뒤(fit_page_width가 마지막으로 줄인다) — 24pt 한 줄 맞춤
+     lambda c: apply_title_fit(c["header"], c["secs"]),
+     lambda r: r["found"], lambda r: r["runs_changed"] > 0),
+    ("row_fit", "always",                       # 열 폭이 다 정해진 뒤 — 행 높이를 최종 폭으로
+     lambda c: apply_row_fit(c["header"], c["secs"]),
+     _never, lambda r: r["rows_changed"] > 0),
+    ("quote_block", "always",                   # 원문 인용 줄 — 다른 단계가 다 건너뛴 뒤 표식 제거·상자 서식
+     lambda c: apply_quote_block(c["header"], c["secs"]),
+     _never, lambda r: r["changed"] > 0),
+    ("layout", "always",
+     lambda c: estimate_layout(c["header"], c["secs"]), _never, _never),
 )
 
 
@@ -2820,6 +3590,7 @@ def process_file(path, star=False, spacing=False, sender_size=None,
         data = {info.filename: z.read(info.filename) for info in infos}
 
     header_root = ET.fromstring(data["Contents/header.xml"])
+    refresh_quote_paraprs(header_root)
     section_names = sorted(n for n in data if SECTION_RE.match(n))
     section_roots = {n: ET.fromstring(data[n]) for n in section_names}
 

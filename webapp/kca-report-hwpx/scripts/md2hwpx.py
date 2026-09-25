@@ -118,11 +118,22 @@ def _flush_table(rows):
     return {"t": "table", "rows": rows}
 
 
+FENCE_RE = re.compile(r"^\s*```\s*([\w-]*)\s*$")
+QUOTE_MARK = "\u2060"   # 원문 인용 줄 표식 — postprocess_hwpx가 알아보고 상자·고정폭으로 바꾼 뒤 지운다(하네스와 같은 계약)
+
+
 def parse(md):
     blocks, buf, title_taken = [], [], False
+    in_quote = False
     for raw in md.splitlines():
         line = raw.rstrip()
         s = line.strip()
+        if FENCE_RE.match(line):          # 원문 인용 블록(```text) — 안쪽 줄은 기호로 읽지 않고 표식을 붙여 그대로
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            blocks.append({"t": "plain", "segs": [(QUOTE_MARK + line, False)]})
+            continue
         if s.startswith("|"):
             buf.append(s)
             continue

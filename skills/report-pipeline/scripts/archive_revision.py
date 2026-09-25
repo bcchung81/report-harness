@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""작업폴더 이력 관리 — 초안 스냅샷·변환 판본 아카이브 (R086). stdlib-only.
+"""작업폴더 이력 관리 — 초안 스냅샷·변환 판본 아카이브 (R087). stdlib-only.
 
 배경('26.9.10 실측): 초안 판본 15개가 `_v6`·`.20260907-교차검증전`·`.이전판-2종` 세 갈래
 표기로 현행 파일 옆에 쌓여 있었고, `final/`에 hwpx가 여럿인 건이 6건이라 어느 것이 현행본인지
@@ -128,7 +128,7 @@ def snapshot(work_dir, label, filename="20_draft.md", now=None):
 
 
 def begin(work_dir, now=None):
-    """변환 시작 시 판본 폴더를 선할당한다 (R087 — R086 `revise`의 대체).
+    """변환 시작 시 판본 폴더를 선할당한다 (R087 — 종전 `revise`의 대체).
 
     종전에는 변환 세트가 작업폴더 루트에 태어난 뒤 **다음** 변환 때 이력으로 내려갔다.
     그 사이 초안만 고치면 루트의 파생물 4종(40_prepared·43_convert_input·40_roundtrip·
@@ -223,7 +223,7 @@ def derived_plan(work_dir, now=None):
     """루트에 남은 파생물 4종을 판본 폴더로 내리는 계획 (R087 구조 전환).
 
     기존 건은 파생물이 루트에 태어났다. 판본 번호는 `final/` 인도본에서 읽고, 접두어가
-    아직 없으면 r01로 본다 — 판본의 진실은 파일 이름이라는 규약(R086) 그대로다.
+    아직 없으면 r01로 본다 — 판본의 진실은 파일 이름이라는 규약(R087) 그대로다.
     """
     work_dir = pathlib.Path(work_dir)
     present = [n for n in DERIVED if (work_dir / n).is_file()]

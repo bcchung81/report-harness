@@ -9,7 +9,7 @@ def rules(violations):
 def test_clean_gaejosik_passes():
     # 괄호 리드는 3음절 이상 구체 명사구(R051) — 표 헤더의 2음절 벌려쓰기(`구 분`)는 계속 합법.
     text = ("□ 추진 배경\n"
-            " ㅇ (추진 목적) AI 활용 **격차 해소**를 위한 환경 조성\n"
+            " ㅇ **(추진 목적)** AI 활용 **격차 해소**를 위한 환경 조성\n"
             "   - ChatGPT Team 6개 계정 구독(약 3.2백만원/연) 지원\n"
             "※ 세부내용은 붙임 참조\n"
             "| 구 분 | 내용 |\n| --- | --- |\n| A | B |\n")
@@ -82,6 +82,15 @@ def test_annex_closing_note_ok():          # 맺음의 ※ 참조는 코퍼스 �
 def test_lead_two_syllable_detected():     # R051: 2음절 괄호 리드 (벌려쓴 형태·붙인 형태 모두)
     assert "lead-too-short" in rules(lint_text("ㅇ **(품 질)** 오류율 0%\n"))
     assert "lead-too-short" in rules(lint_text("ㅇ **(배포)** 배포 완료\n"))
+
+
+def test_lead_not_bold():
+    """ㅇ 괄호 리드는 볼드(R016) — `**` 누락은 hwpx·리뷰 모두 보통 굵기로 나간다('26.9.24 f7)."""
+    assert "lead-not-bold" in rules(lint_text("ㅇ (측정 기준) 과제를 4개 유형으로 판정\n"))
+    assert "lead-not-bold" in rules(lint_text("○ (인정·검증) 시스템 기록만 인정\n"))
+    assert "lead-not-bold" not in rules(lint_text("ㅇ **(측정 기준)** 과제를 4개 유형으로 판정\n"))
+    # 문중 괄호(수치·시점)는 리드가 아니다 — R033 13pt 대상이지 볼드 대상이 아니다
+    assert "lead-not-bold" not in rules(lint_text("ㅇ 병행 실측(T2)만 인정('26.9월)\n"))
 
 def test_lead_specific_noun_ok():          # 3음절 이상 구체 명사구는 합법
     assert lint_text("ㅇ **(서비스 품질)** 오류율 0%\n") == []
@@ -203,3 +212,14 @@ def test_lookalike_catches_em_and_en_dash():
             ch.encode("cp949")
         v = lint_text(f"ㅇ (정정 사항) 항목 4는 갱신 {ch} 입력 단자 노출을 명시\n")
         assert "lookalike-symbol" in rules(v), f"U+{ord(ch):04X} 미검출"
+
+
+def test_annex_lead_note_flagged_only_right_after_banner():
+    """붙임 배너 바로 뒤 ※는 위반, 배너 → 표 → ※(표 아래 단서)는 합법 (R009 '26.9.24)."""
+    bad = "| 붙임 2 | | 수집 프롬프트 |\n| --- | --- | --- |\n\n※ 담당자가 붙여 넣는 지시문의 구성\n"
+    assert "annex-lead-note" in rules(lint_text(bad))
+    ok = ("| 붙임 1 | | 산출 대장 |\n| --- | --- | --- |\n\n| No | 과제명 |\n| --- | --- |\n| 1 | 가 |\n\n"
+          "※ 목표치 괄호는 제안서 수치\n")
+    assert "annex-lead-note" not in rules(lint_text(ok))
+    ok2 = "| 붙임 3 | | 적용 검증 |\n| --- | --- | --- |\n\nㅇ **(검증 개요)** 두 시스템에 적용해 공란 원인을 확인\n"
+    assert "annex-lead-note" not in rules(lint_text(ok2))

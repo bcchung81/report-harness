@@ -377,3 +377,15 @@ def test_harness_scripts_not_forked():
         a = (ROOT / "skills/report-pipeline/scripts" / name).read_bytes()
         b = (SCRIPTS / name).read_bytes()
         assert hashlib.sha256(a).digest() == hashlib.sha256(b).digest(), name
+
+
+def test_quote_block_lines_keep_text_and_marker():
+    """웹앱 변환기도 원문 인용 블록(```text) 줄을 기호로 읽지 않고 표식째 넘긴다 — 후처리가 상자로 만든다."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("webapp_md2hwpx", SCRIPTS / "md2hwpx.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    blocks = m.parse("시험\n\n□ 개 요\n\n```text\n- 처리단위: [건]\n\n[처리 조건]\n```\n")
+    quote = [b for b in blocks if b["t"] == "plain"]
+    assert [b["segs"][0][0] for b in quote] == ["⁠- 처리단위: [건]", "⁠", "⁠[처리 조건]"]
+    assert not any(b["t"] in ("dash", "caption") for b in blocks)

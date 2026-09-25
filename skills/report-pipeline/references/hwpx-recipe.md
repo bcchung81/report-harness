@@ -79,7 +79,7 @@ mcp__kordoc__extract_profile(
 노란 음영+볼드 run으로 치환한다.
  generate_document에는 리터럴 개조식 기호가 아니라 **리스트 깊이
 문법**으로 변환해 전달한다 — `□ X`→`- X`, ` ㅇ X`→`  - X`(2칸), `   - X`→`    - X`(4칸),
-**제목(첫 줄)은 `# 제목` h1로 전달**(평문 첫 줄은 제목으로 인식되지 않아 제목 박스·20pt가
+**제목(첫 줄)은 `# 제목` h1로 전달**(평문 첫 줄은 제목으로 인식되지 않아 제목 박스·24pt가
 적용되지 않는다 — R010).
 리터럴 기호를 그대로 넣으면 하위 대시가 상위 부호로 평탄화된다(왕복 compare가 검출하는 유형).
 ※·＊ 라인·표·캡션은 그대로 둔다. **발신 줄은 `<right>< '연. 월. 일.(요일), 본부 팀 ></right>`로
@@ -102,13 +102,14 @@ mcp__kordoc__generate_document(
     sizes={"dae": 15,                # □ 15pt
            "cham": 13,               # ※·＊ 13pt
            "table": 12,              # 표 12pt
-           "bodyTitle": 20},         # 제목 박스 20pt (HY헤드라인M 20pt)
+           "bodyTitle": 24},         # 제목 박스 24pt (HY헤드라인M, '26.9.24 20→24)
     bullet2="ㅇ",                    # 2단 부호 = 양식의 ㅇ (스키마 설명은 ᄋ이나 실 enum 값은 ㅇ U+3147)
     levels={"0": {"font": "HY헤드라인M", "pt": 15, "bold": True},   # □ (R024 볼드)
             "1": {"font": "휴먼명조", "pt": 15, "bold": False},      # ㅇ — bold:False가 핵심
             "2": {"font": "휴먼명조", "pt": 15, "bold": False}},     # 대시
     body_title_box=True,             # 제목 표구조(박스) — 양식 제목부 재현
     line_spacing=160,                # 편집용지 줄간격 160%
+    image_dir="{판본폴더}/figures",  # 그림·도식이 있을 때만 (§3, R088)
     profile_path="{work_dir}/format-profile.json")   # template_hwpx 설정 시에만 전달
 ```
 
@@ -122,8 +123,9 @@ mcp__kordoc__generate_document(
   (예전에는 이 치환을 수동 zip 패치로 매번 다시 짰다 — 이제는 스크립트 1회 호출로 대체).
 - **스타일 사용 검증 (R010 검증부)**: 폰트 검증은 선언(fontface·charPr) 확인으로 끝내지 않는다 —
   대표 문단(제목·□·ㅇ·대시·※·＊·표 헤더)별로 section0.xml의 run `charPrIDRef`가 의도한
-  charPr(폰트·크기)를 실제 참조하는지 확인한다. kordoc 렌더러는 generate 산출물 미리보기를
-  지원하지 않을 수 있어(환경 한계) 이 XML 사용 검증이 시각 확인의 대체 수단이다.
+  charPr(폰트·크기)를 실제 참조하는지 확인한다. kordoc `render_document`는 생성본을 근사 조판
+  (reflow)으로만 그려 글꼴·줄바꿈이 한글과 다르므로, 폰트 확인의 기준은 이 XML 사용 검증이다
+  (렌더는 그림 배치·겹침 같은 시각 확인용).
 - **붙임(R009)**: 본문에 붙임이 있으면 3열 배너 표(`| 붙임 1 | | 제목 |`, 단수는 `| 붙 임 | | 제목 |`)
   형식을 md 단계부터 유지해 변환한다 — 배너를 일반 문단으로 풀지 않는다.
 - **kordoc 자체 표기법 경고**(4자리 연도·콜론 붙임 권장 등)는 `style-guide.md`의 기관 관례(`'26.` 축약·` : ` 콜론형)가 우선이므로 **무시하고 진행한다** — 경고이지 오류가 아니다.
@@ -135,36 +137,74 @@ mcp__kordoc__generate_document(
   말고 §3.5 후처리 `apply_form_sizes`가 양식 값으로 되돌린다(두 층 모두 유지: 생성 인자는 의도
   표명, 후처리는 실제 강제).
 
-## 3. 이미지 주입 — 규격 판정 → `patch_document`
+## 3. 그림 — 해상도 판정 → `image_dir` 임베드 (R088)
 
-본문의 이미지 마커(`도해: {id}`, 출처 캡션 병기)마다 후보 이미지를 규격 판정한다.
-
-```
-python3 "$SKILL_DIR/scripts/check_image_size.py" \
-    research/{시각}_{슬러그}-{이름}.{확장자} --max-w-mm 170 --max-h-mm 90 --dpi 96
-```
-
-- 출력 JSON: `{"w_mm":..,"h_mm":..,"fits":bool,"scale_to_fit":..}`.
-- **exit 0**(규격 이내, `fits=true`): 주입 대상.
-- **exit 1**(`fits=false`): `scale_to_fit` 비율로 축소해도 판독 가능하면 축소 재판정, 아니면
-  차용 포기 — 텍스트 요약 + 출처 각주로 대체(마커 삭제).
-- **exit 2**(포맷 오류 등): 해당 이미지는 건너뛰고 사유를 보고.
-
-**통과분만** 주입한다. 방금 생성한 hwpx를 되읽어 이미지 마커 문단을 이미지 구문으로 치환한
-편집본을 만들고 `patch_document`로 원본 서식(표·글꼴·도장칸)을 유지한 채 텍스트만 치환한다.
+본문의 이미지 마커(`도해: {id}`, 출처 캡션 병기)마다 후보 이미지의 표시 크기와 실효 해상도를
+판정한다.
 
 ```
-mcp__kordoc__patch_document(
-    file_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx",
-    edited_markdown="{parse_document로 얻은 마크다운에서 도해 마커 문단만
-                      출처 캡션이 붙은 이미지로 치환한 전체 텍스트}",
-    output_path="{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx")
+python3 "$SKILL_DIR/scripts/check_image_size.py" research/{시각}_{슬러그}-{이름}.{확장자}
 ```
 
-- `patch_document`는 블록 추가/삭제를 지원하지 않는다 — 이미지 마커 문단이 이미 존재하는
-  자리에서만 치환이 성립한다(`factcheck.md` §B 배치 승인이 게이트①에서 이미 확정돼 있어야
-  하는 이유).
+- 출력 JSON: `{"px":[w,h],"src_dpi":..,"mm":[w,h],"effective_dpi":..,"sharp":bool}`. `mm`은 §3.5
+  후처리가 hwpx에 쓸 표시 크기다 — 원본 해상도(PNG pHYs·JPEG JFIF, 없으면 96dpi)로 잰 크기를
+  본문 폭 − 1mm × 90mm 상자에 비율 유지로 넣고, 작은 그림은 키우지 않는다.
+- **exit 0**(실효 150dpi 이상): 그대로 쓴다.
+- **exit 1**(미만): 인쇄 시 뭉개진다 — 더 큰 원본(원문 PDF 재추출 등)을 구하고, 없으면 판독
+  가능한지 보고 쓰되 인도 시 1줄로 고지한다.
+- **exit 2**(형식 오류 등): 해당 이미지는 건너뛰고 사유를 보고.
+- **픽셀을 줄이지 않는다.** kordoc은 그림 크기를 1px = 75 HU(96dpi)로 잡으므로, 규격에 맞추려고
+  원본을 줄이면 인쇄 해상도가 96dpi로 떨어진다('26.8.24 1814건 인도본 — 1257px 원본을 556px로
+  줄여 147×90mm·96dpi). 크기는 §3.5 후처리 `apply_figure_fit`이 원본 해상도 기준으로 다시 쓴다.
+
+임베드는 생성 단계에서 한다. 모든 `도해:` 마커는 `figures/{슬러그}.json` 명세 하나씩을 가진다 —
+이미지 도식이면 슬롯(`diagram-pool.md` §이미지 도식), research 그림이면 `{"type":"image","src":…}`.
+
+```
+python3 "$SKILL_DIR/scripts/render_diagram.py" --work-dir {work_dir} --out-dir {판본폴더}/figures \
+    > {판본폴더}/41_figures.json
+```
+
+- 도식은 Chrome·Edge·Chromium 헤드리스로 300dpi PNG(+같은 이름 HTML)로 그리고, research 그림은
+  원본 그대로 복사한다. 파일명은 `fig{NN}` 영문 순번이다 — kordoc은 `image_dir` 하위 폴더를 따라가지
+  않고 한글 파일명도 넣지 않는다('26.9.24 실측, 둘 다 alt 글자로만 남음).
+- 출력 `figure_args`를 `to_kordoc_input.py --figure`에 그대로 넘기면 마커가 `![캡션](fig{NN}.png)`로
+  바뀌고, `generate_document`에 `image_dir="{판본폴더}/figures"`를 넘기면 kordoc이 넣는다
+  (PNG·JPEG·GIF·BMP). 캡션(alt)은 hwpx에 찍히지 않으므로 캡션은 마커 위 `[ 제목 ]` 줄이, 출처는
+  아래 ※ 줄이 맡는다.
+- `font_fallback: true`면 맑은 고딕을 못 찾아 대체 서체로 그린 것이다 — 인도 시 1줄 고지하고, 기관
+  PC(또는 설정 `font_dirs`에 폰트 폴더 지정)에서 다시 돌리면 본문 표와 같은 서체가 된다.
+- exit 1은 150dpi 미만 그림이 있다는 뜻이다(도식은 항상 300dpi라 research 그림만 해당).
+
+- 생성 후 `patch_document`로 주입하는 종전 절차는 쓰지 않는다 — 블록 추가를 지원하지 않아
+  그림 문단을 새로 만들 수 없다('26.7.28 실패 기록).
 - 이미지가 없으면 이 단계는 생략하고 §3.5로 진행.
+
+### 3-1. 도식 표 치환 — `diagram_table.py` (R089)
+
+흐름(flow)·비교(compare)·체계(structure)·일정(timeline) 도식은 그림으로 두지 않고 **한글 표로 바꾼다**.
+생성으로 들어간 도식 그림(PNG)을 같은 명세로 조립한 표로 갈아 끼운다 — 한글에서 글자를 바로 고칠 수 있고,
+흐려지지 않으며, 그림보다 낮게 들어간다('26.9.25 시험: 흐름 62.7→51.5mm, 체계 77.8→61.3mm).
+
+```
+python3 "$SKILL_DIR/scripts/diagram_table.py" {work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx \
+    --work-dir {work_dir} --figures-json {판본폴더}/41_figures.json
+```
+
+- **실행 위치**: 이미지 주입(생성) **뒤**, §3.5 후처리 **앞**. 후처리의 캡션 내장(R034)이 표 앞 `[ 제목 ]`
+  줄을 표 캡션으로 넣고, 쪽 추정(R067)이 표 높이로 계산된다.
+- 표 조립: 카드 = 테두리 셀(머리 음영 + 본문), 카드 사이 = 테두리 없는 셀, 체계형 연결선 = 선만 있는 빈
+  셀. **화살표 머리는 셀 안 삼각형 도형**(hp:polygon을 글자처럼) — 기관 도식 Pool 원본과 같은 방식이다
+  (원본 17개 전부 도형, 셀 대각선 0건 — 셀 테두리·대각선만으로는 속이 빈 선 화살표밖에 못 그린다).
+  비교형 화살표는 파란 몸통 셀(라벨) + 삼각형 머리로 블록 화살표 실루엣을 만든다.
+- 도식 표는 첫 셀 이름 표지(`__harness_figure`)로 식별해 후처리가 **일반 표 규칙을 걸지 않는다** —
+  열 폭 재분배(R036)·행 높이·셀 가운데 정렬·셀 12pt(R023)·병합 음영·셀 단위 쪽 나눔(R063)·폭 축소(R042)
+  제외. 캡션 12pt·캡션 내장·쪽 추정만 함께 받는다. 도식은 **쪽에서 나누지 않는다**(pageBreak=NONE).
+- 표로 바꾼 그림의 BinData와 `content.hpf` 목록 항목은 함께 뺀다. 명세에 `"render": "image"`가 있거나
+  4유형 밖(pdca·strategy·stack·research 그림)이면 그림으로 남긴다(`kept_image`).
+- 리뷰(게이트②)도 같은 격자로 그린다(`render_review_html` → `diagram_table.html`) — 리뷰와 인도본의 도식
+  모양·높이·쪽 추정이 같다.
+- 출력 JSON `replaced`(유형·행·열·높이 mm)·`kept_image`·`missing`(그림을 못 찾음 — 이미지 주입 실패 의심).
 
 ## 3.5. 후처리 — `postprocess_hwpx.py --all`
 
@@ -238,6 +278,13 @@ python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
   머리말 영역 42.5pt로 본문 밀림 없음. 앵커 문단([표1] 구조) 기여도 실측 0pt — 본문 쪽
   제거 가능한 잔여 여백 없음. kordoc reflow 렌더는 머리말·hp:caption·pageBreakBefore를
   그리지 않으므로 렌더만으로 상단여백·캡션·배너 페이지 시작을 판정하지 말 것.
+- **본문 그림 크기·배치 (R088)**: `--spacing` 묶음의 `apply_figure_fit`이 글자 없이 그림만 든
+  본문 문단(kordoc `![캡션](파일)` 산출형)의 표시 크기를 **원본 해상도 기준**으로 다시 쓴다 —
+  BinData 픽셀과 해상도 칸(PNG pHYs·JPEG JFIF, 없으면 96dpi)으로 잰 크기를 본문 폭 − 283 hu ×
+  90mm 상자에 비율 유지로 넣고(키우지 않는다) `curSz`·`sz`·파생 캐시를 고친다. 그림 문단은
+  가운데 정렬·줄간격 100%(R041 근거 — 글자처럼 취급한 개체의 줄 높이는 줄간격 %만큼 부푼다).
+  요약의 `figure_fit.detail`에 그림별 픽셀·표시 mm·실효 dpi가, `low_res`에 150dpi 미만 개수가
+  찍힌다. 표 셀·머리말 안 그림은 비대상(아래 표 폭 정합 소관).
 - **표 폭 본문 정합 (R036·R042, '26.7.28 6차 정정)**: 표 총 폭(sz + outMargin 좌우)이
   본문 폭 − 283 hu(1.0mm)를 넘으면 표 폭·셀 폭·내부 그림을 같은 비율로 축소해 본문 폭
   **'미만'**으로 맞춘다(`apply_fit_page_width`. 셀 폭 합 == 표 sz 정확 일치).
@@ -268,7 +315,7 @@ python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
   Scripts/ 전량 제거 + hpf item/itemref 등재 철회를 함께 수행한다. 기존 산출물·재저장본은
   `postprocess_hwpx.py <파일> --spacing`만 다시 돌려도 소급 정합된다(멱등).
 - **계층 크기 재강제 `apply_form_sizes` ('26.9.8 신설)**: □·ㅇ·대시 15pt, ※·＊ 13pt,
-  제목 박스 20pt를 폰트·볼드 유지한 채 되돌린다(format-profile §2 확정값, 상수 `FORM_SIZES_PT`·
+  제목 박스 24pt('26.9.24 20→24, 한 줄 맞춤 `fit_title`)를 폰트·볼드 유지한 채 되돌린다(format-profile §2 확정값, 상수 `FORM_SIZES_PT`·
   `TITLE_BOX_SIZE_PT`). 표 셀은 비대상(R023 12pt 소관)이고 괄호 13pt(R033) run은 건너뛰어
   멱등이다. kordoc이 sizes 인자를 무시해 양식 크기가 통째로 어긋난 회귀의 항구 방어선.
 - **제목 박스 원형 복원 `apply_title_box_form` ('26.9.8 신설 · '26.9.10 판정 정정)**: 제목 박스를
@@ -300,6 +347,26 @@ python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
   열에만 되돌리는 방식으로 고쳤다. 위 3열 예시는 상한이 걸려 13.0·27.0·60.0%로 배분된다.
   `layout`(쪽수 추정)보다 **먼저**, `apply_fit_page_width`보다 먼저 돈다. 게이트는 `zero`
   (`--spacing`·`--all`) — 내용 기반 재조판이라 `--star-footnote` 단독 호출에서는 돌지 않는다.
+  **'26.9.24 리뷰 화면과 공용화**: 비중 계산은 `column_shares(행별 셀 글자, 표 폭)` 하나이고 리뷰 HTML이
+  같은 함수로 `<colgroup>`을 그린다. 허용오차를 0.001로 낮춰 항상 맞춘다(종전 0.05는 kordoc 폭을 남겨 리뷰와
+  최대 5%p 어긋났다). 하한 합이 천장(80%)을 넘으면 비례로 줄이되 `No`·번호 같은 좁은 열(하한 8% 이하)은
+  빼고, 셀 여백은 kordoc 실측 510×2로 잡는다.
+- **행 높이 재계산 `apply_row_fit` ('26.9.24 신설)**: kordoc은 생성 때의 열 폭으로 행마다 필요한 줄 수를
+  계산해 칸 높이를 적는다(1줄 1882, 줄마다 +1600 HWPUNIT). 열 폭 재배분·본문 폭 맞춤 뒤에도 그 높이가
+  남아 넓어진 열의 행이 빈 줄만큼 높게 그려졌다(시험 변환 실측: 표 3개 약 240pt, 0.34쪽). 최종 폭으로
+  다시 계산해 칸·표 높이를 고친다 — 모자란 높이는 한글이 내용만큼 늘리므로 과대만 없애면 된다. 세로 병합
+  칸은 걸친 행 높이의 합, 제목 박스·배너·산식 박스는 제외. `apply_fit_page_width` **뒤**, `layout` 앞에 돈다.
+- **제목 한 줄 맞춤 `apply_title_fit` ('26.9.24 신설)**: 제목을 24pt로 올리면서(사용자 확정) 한 줄에 안 드는
+  제목은 장평·자간을 조여 한 줄로 맞춘다(`fit_title` — 100·0에서 출발, 하한 90·-10, 넘치면 두 줄 `overflow`).
+  kordoc이 생성 크기로 조여 둔 값(87·-5)은 버린다. 제목 박스 폭이 다 정해진 뒤(`fit_page_width` 다음) 돈다 —
+  앞에서 돌면 kordoc 원래 폭으로 재서 덜 조이고 재실행마다 값이 달랐다. 리뷰 화면도 같은 함수로 그린다.
+- **원문 인용 블록 `apply_quote_block` ('26.9.24 신설, md-profile §1-6)**: 초안의 `` ```text `` 블록은
+  `to_kordoc_input`(웹앱은 `md2hwpx`)이 줄마다 보이지 않는 표식(U+2060)을 붙여 넘기고, 후처리가 그 표식으로
+  인용 줄을 알아봐(`classify` → `quote`) 대시·캡션 서식을 건너뛴 뒤 **마지막에** 표식을 지우며 굴림체 10pt·줄간격
+  130%·왼쪽 정렬, 회색 바탕 얇은 테두리 문단(연결)으로 묶는다. 재실행 때는 상자 paraPr로 알아본다(멱등).
+  대조(`compare`)는 인용 줄을 개수·문장 대조에서 빼고 되읽기본에 그대로 있는지만 본다.
+- **쪽수 추정 `layout`(R067)**: 표 높이는 `row_fit`이 적은 값을 쓰고, 붙임 배너마다 새 쪽으로 세어
+  `pages_by_part`(본문·붙임별)를 낸다 — 리뷰 화면 사이드바의 '예상 쪽수'와 같은 구분이다.
 - **표 페이지 분할 `apply_table_pagination` (R063 · '26.9.10 배치 속성 추가)**: 모든 표에
   `textWrap="TOP_AND_BOTTOM"`·`textFlow="BOTH_SIDES"`·`lock="0"`(본문 자리 차지 배치)와
   `pageBreak="CELL"`·`repeatHeader="1"`을 보장한다. **배치 속성이 없으면 페이지 분할이 듣지
@@ -309,8 +376,8 @@ python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
 - **표 캡션·셀 12pt (R023)**: 캡션(내장 hp:caption 포함)과 본문 콘텐츠 표(제목 박스 제외) 셀
   문단의 charPr을 폰트 유지·높이 1200(12pt)으로 치환한다.
 - **□ 절 제목 볼드 (R024)**: dae 문단 run charPr에 `<hh:bold/>` 변형을 배정한다.
-- **☞ 계층 처리 (R025)**: ☞ 선두 문단을 ＊·※와 동일하게 5칸 리터럴 띄어쓰기 + 내어쓰기
-  (left=0·intent=-6000, 15pt 본문 4글자 폭)로 처리하고, 인접 간격은 3pt를 준용한다.
+- **☞ 계층 처리 (R025)**: ☞ 선두 문단을 ＊·※와 동일하게 3칸 리터럴 띄어쓰기 + 내어쓰기
+  (left=0·intent=-4500, 15pt 본문 3글자 폭)로 처리하고, 인접 간격은 3pt를 준용한다.
 - **붙임·참고 배너 (R027)**: 3열 배너 표(첫 셀 '붙 임'/'붙임 N'/'참고N')의 셀 글자를
   HY헤드라인M 16pt로, 앵커 문단을 pageBreakBefore=1로 처리해 양식 참고 블록처럼 별도
   페이지에서 시작시킨다. 배너 셀은 R023 12pt 강제 대상에서 제외. 셀 테두리·채움은 양식
@@ -368,6 +435,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
   남아있는지(AI 티 3중 장치 ③ — 변환기가 기호를 문자 그대로
   박아버리는 사고의 최종 검출선).
 - **되읽기 텍스트의 밑줄 이스케이프**(`generate_document` 등)는 kordoc 파서의 정상 재현 차이로 compare가 검출하지 않는다 — 알려진 무해 차이.
+- **도식 표(§3-1)**: `도해:` 마커가 그림 대신 표로 들어가면 되읽기 그림 수는 줄고 표 수는 늘어난다 — 이때는 표·그림을 **합으로** 대조하고(`count-mismatch:tables+figures`), 도식 표는 좌표 격자라 열이 많으므로 최대 열 수는 줄어든 경우만 본다.
 - exit 0(`{"issues": []}`): 일치. §7로 진행.
 - exit 1: `issues` 배열에 `count-mismatch:{항목}` / `numbers-lost` / `markdown-leftover` 등
   판정 근거와 함께 나열 — §5로 이동.
@@ -400,7 +468,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 
 ## 7. 인도
 
-- `{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx`(판본 접두어 — R086)를 인도한다. 왕복 대조
+- `{work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx`(판본 접두어 — R087)를 인도한다. 왕복 대조
   근거 `{판본폴더}/40_roundtrip.md`와 QA 기록 `{판본폴더}/40_qa.md`는 그 판본 폴더에 남는다
   (R087) — `qa_report.py --postprocess … --structural … --compare … -o {판본폴더}/40_qa.md`가
   각 단계 JSON에서 찍는다. **손으로 쓰지 않는다** — 손글씨였을 때 건마다 1.7~12KB로
@@ -419,10 +487,11 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 | `validate_hwpx.py compare` | `validate_hwpx.py compare <20_draft.md> <40_roundtrip.md>` | 전항목 일치(`issues:[]`) | 불일치 발견 | 인자 부족(파일 접근 오류 시도 exit 2) |
 | `validate_hwpx.py numbers` | `validate_hwpx.py numbers <draft.md> <research_dir>` | 초안 수치 전부 근거 있음(`issues:[]`) | 근거 없는 수치 발견(`numbers-unsourced`) | 인자 부족 |
 | `to_kordoc_input.py` | `to_kordoc_input.py <prepared.md> -o <out.md> [--figure 슬러그=파일\|캡션]` | 변환 성공 | 매핑 없는 도식 마커 잔존 | 파일 접근·인자 오류 |
+| `diagram_table.py` | `diagram_table.py <file.hwpx> --work-dir <작업폴더> --figures-json <41_figures.json>` | 처리 완료(JSON `replaced`·`kept_image`·`missing`) | — (사용 안 함) | 인자·파일·zip/xml 오류 |
 | `qa_report.py` | `qa_report.py [--postprocess/--structural/--compare/--numbers <json>] -o 40_qa.md` | 기록 생성(구조 오류 없음) | 구조 검증 errors 존재 | JSON 파싱·파일 오류 |
 | `archive_revision.py` | `archive_revision.py snapshot\|begin\|status\|migrate\|flatten <work_dir>` | 수행 완료(JSON 보고) | — (사용 안 함) | 파일 접근 오류 |
 | `validate_hwpx.py freshness` | `validate_hwpx.py freshness <draft.md> <prepared.md>` | 대응 일치 | `prepared-stale`(초안이 앞섬) | 인자 부족 |
-| `check_image_size.py` | `check_image_size.py <img> [--max-w-mm 170] [--max-h-mm 90] [--dpi 96]` | 규격 이내(`fits:true`) | 규격 초과(`fits:false`) | 포맷 인식 실패 등 예외 |
+| `check_image_size.py` | `check_image_size.py <img> [--max-w-mm 169] [--max-h-mm 90]` | 실효 해상도 150dpi 이상(`sharp:true`) | 미만(`sharp:false` — 인쇄 시 뭉개짐) | 파일·형식 오류 |
 | `postprocess_hwpx.py` | `postprocess_hwpx.py <file.hwpx> [--star-footnote] [--spacing] [--header-banner] [--all] [--sender-size PT]` | 변경 적용 완료(요약 JSON) | 적용한 모든 처리에서 대상 0건 | 인자/파일/zip·xml 구조 오류(참고 charPr 미발견 포함) |
 
 - `postprocess_hwpx.py` 보충: `--all` = `--star-footnote`+`--spacing`+`--header-banner`

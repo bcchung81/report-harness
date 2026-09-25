@@ -200,3 +200,12 @@ def test_freshness_ignores_prep_normalization():
     draft = "<!-- 작업 메모 -->\n□ 개 요\n\n ㅇ (조사 결론) 대상 16건을 대조\n"
     prepared = "□ 개 요\n\n ㅇ (조사 결론) 대상 16건을 대조\n"
     assert freshness_check(draft, prepared) == []
+
+
+def test_compare_accepts_merged_table_roundtrip():
+    """병합 표는 되읽기가 HTML <table>로 준다 — 초안의 `A > B`·`〃` 표기와 맞춰 센다('26.9.24)."""
+    import validate_hwpx as vh
+    src = "| 성과지표 | '23년 > 목표 | '23년 > 실적 |\n| --- | --- | --- |\n| 건수 | 100 | 120 |\n| 〃 | 50 | 60 |\n"
+    rt = ('<table>\n<tr><th rowspan="2">성과지표</th><th colspan="2">\'23년</th></tr>\n<tr><td>목표</td><td>실적</td></tr>\n'
+          '<tr><td rowspan="2">건수</td><td>100</td><td>120</td></tr>\n<tr><td>50</td><td>60</td></tr>\n</table>\n')
+    assert vh.compare_texts(src, rt) == []

@@ -1,0 +1,634 @@
+<!-- 라이브 리뷰 패널 — review_server.py가 리뷰 HTML의 </body> 앞에 요청마다 끼워 넣는다.
+     정적 사본(25_review.html)에는 들어가지 않는다. 외부 URL·외부 글꼴 없음.
+     배치('26.9.24 사용자 선택 — 디자인 시안 B '문서 몰입 · 여백 메모'): 위에 떠 있는 알약 막대(상태·쪽수·승인),
+     왼쪽 아이콘 줄(이력·바뀐 곳·쪽·전체 의견 → 서랍), 코멘트는 문단 옆 여백 메모(선으로 연결), 작성 칸도 여백에.
+     문단 고르기는 종전처럼 마우스를 올리면 점선 테두리. -->
+<style>
+:root{--rv-navy:#1B1760;--rv-blue:#0080C0;--rv-ink:#1f2430;--rv-sub:#5B6475;--rv-line:#E1DDD3;--rv-desk:#F3F1EC;--rv-soft:#F7F5F0;
+ --rv-sent:#4b5b73;--rv-sent-bg:#eef2f7;--rv-deliv:#8a5a00;--rv-deliv-bg:#fff3d1;--rv-done:#1f7a45;--rv-done-bg:#e2f4e9;--rv-gone:#98a2b3;--rv-gone-bg:#f2f4f7;
+ --rv-mute:#667085;--rv-accent:#006BA6;--rv-fix:#0080C0;--rv-del:#c2410c;--rv-ask:#7c3aed;--rv-good:#1f8a4c;--rv-note-w:380px}
+html,body{background:var(--rv-desk)!important}
+body{padding:60px 0 48px}
+/* 쪽은 왼쪽 아이콘 줄 옆, 오른쪽을 메모 열로 비운다(줄 80 + 쪽 794 + 간격 28 + 메모 380 + 여유 20) */
+.page{margin:16px 0 16px max(92px, calc((100vw - 1302px) / 2 + 92px))!important;box-shadow:0 2px 6px rgba(30,28,20,.10),0 18px 40px rgba(30,28,20,.08)!important}
+/* 서랍이 열려도 쪽을 덮지 않는다 — 자리가 되면(줄 80 + 서랍 340 + 쪽 794 + 간격 28 + 메모 380 + 여유 18) 쪽을 밀고, 좁으면 덮는다 */
+@media (min-width:1640px){body.rv-dopen .page{margin-left:max(420px, calc((100vw - 1302px) / 2 + 92px))!important}}
+.rv-ui{font:13px/1.5 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;color:var(--rv-ink)}
+.rv-ui button{font-family:inherit}
+/* 위 알약 막대 */
+#rv-bar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:12px;background:#fff;border-radius:999px;padding:6px 7px 6px 16px;box-shadow:0 6px 20px rgba(30,28,20,.12);white-space:nowrap;max-width:calc(100vw - 32px)}
+.rv-dot{width:8px;height:8px;border-radius:50%;background:#2FBF71;flex-shrink:0}
+.rv-dot.bad{background:#e5484d}
+.rv-title{font-weight:700;overflow:hidden;text-overflow:ellipsis;max-width:360px}
+.rv-sep{width:1px;height:16px;background:var(--rv-line);flex-shrink:0}
+.rv-meta{font-size:12.5px;color:var(--rv-sub)}
+.rv-meta b{color:var(--rv-ink)}
+.rv-conn{font-size:11.5px;color:var(--rv-sub)}
+/* 이 보고서를 처리하는 CLI 세션 — 처리 주체 없는 코멘트를 숨기지 않는다('26.9.25 여러 보고서 동시 정리) */
+.rv-cli{display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap;cursor:help}
+.rv-cli.on{display:inline-flex}
+.rv-cli::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+.rv-cli[data-s="waiting"]{color:#1f7a45;background:#e2f4e9}.rv-cli[data-s="working"]{color:#8a5a00;background:#fff3d1}.rv-cli[data-s="none"]{color:#b42318;background:#fdecea}
+.rv-linkbtn{border:0;background:transparent;padding:0;font-size:12.5px;color:var(--rv-sub);cursor:pointer}
+.rv-linkbtn:hover{color:var(--rv-navy)}
+.rv-pillbtn{border:0;border-radius:999px;padding:8px 16px;background:var(--rv-navy);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer}
+.rv-pillbtn:disabled{background:#a6d8bb;cursor:default}
+#rv-approve-pop{position:fixed;top:60px;right:max(16px, calc(50vw - 330px));z-index:41;display:none;width:280px;background:#fff;border-radius:14px;box-shadow:0 14px 36px rgba(30,28,20,.18);padding:14px;flex-direction:column;gap:8px}
+#rv-approve-pop.on{display:flex}
+#rv-approve-pop input{border:1px solid var(--rv-line);border-radius:9px;padding:7px 9px;font:12.5px "Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+/* 왼쪽 아이콘 줄 · 서랍 */
+#rv-rail{position:fixed;left:16px;top:60px;z-index:39;width:60px;padding:8px 0;background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(30,28,20,.08);display:flex;flex-direction:column;align-items:center;gap:6px}
+.rv-railbtn{position:relative;width:50px;height:54px;border:0;border-radius:12px;background:transparent;color:var(--rv-sub);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}
+.rv-railbtn .lb{font-size:11px;font-weight:600;line-height:1}
+.rv-railbtn:hover{background:#F2F0EA;color:var(--rv-navy)}
+.rv-railbtn.on{background:#E9EBF7;color:var(--rv-navy)}
+.rv-badge{position:absolute;top:5px;right:4px;min-width:16px;height:16px;border-radius:8px;background:var(--rv-blue);color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;padding:0 3px;box-sizing:border-box}
+.rv-badge:empty{display:none}
+.rv-railsep{width:28px;height:1px;background:var(--rv-line)}
+#rv-drawer{position:fixed;left:88px;top:60px;bottom:16px;z-index:38;width:320px;background:#fff;border-radius:16px;box-shadow:0 14px 36px rgba(30,28,20,.16);display:none;flex-direction:column;overflow:hidden}
+#rv-drawer.on{display:flex}
+.rv-dhead{display:flex;align-items:center;gap:8px;padding:16px 16px 12px;border-bottom:1px solid #EEEAE1}
+.rv-dhead h3{margin:0;font-size:15.5px;flex:1;color:var(--rv-ink)}
+.rv-dbody{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.rv-dsec{display:none;flex-direction:column;gap:8px}
+.rv-dsec.on{display:flex}
+.rv-x{border:0;background:transparent;color:var(--rv-mute);cursor:pointer;font-size:15px;line-height:1;padding:2px}
+.rv-x:hover{color:var(--rv-ink)}
+.rv-seg{display:flex;background:#F2F0EA;border-radius:9px;padding:3px;gap:3px}
+.rv-seg button{flex:1;border:0;background:transparent;border-radius:7px;padding:5px 0;font-weight:600;font-size:12px;color:var(--rv-sub);cursor:pointer}
+.rv-seg button.on{background:#fff;color:var(--rv-ink);box-shadow:0 1px 2px rgba(16,24,40,.12)}
+.rv-hint{font-size:11.5px;color:var(--rv-sub)}
+.rv-flabel{font-size:12px;color:var(--rv-sub);font-weight:700}
+.rv-addr{display:inline-block;font:600 11.5px/1.6 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--rv-navy);background:#E8ECFB;border-radius:6px;padding:0 7px;cursor:pointer;white-space:nowrap}
+.rv-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rv-chg-chip{border:0;background:#FFF1C2;color:#7A5200;border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:600;cursor:pointer}
+.rv-item{border:1px solid #ECE8DF;border-radius:10px;padding:9px 10px;background:#fff;cursor:pointer}
+.rv-item:hover{border-color:#C9C1AE}
+.rv-item.gone{opacity:.55}
+.rv-item.done{background:#FAF9F6}.rv-item.done .c{color:var(--rv-sub)}
+.rv-item .top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rv-item .c{margin-top:6px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:keep-all}
+.rv-empty{color:var(--rv-mute);font-size:12.5px;text-align:center;padding:10px 0}
+.rv-num{font:700 10.5px/18px "Apple SD Gothic Neo",sans-serif;min-width:18px;height:18px;border-radius:50%;text-align:center;color:#fff;background:var(--rv-sent)}
+.rv-num.delivered{background:#d99400}.rv-num.resolved{background:var(--rv-done)}.rv-num.withdrawn{background:var(--rv-gone)}
+.rv-kchip{font-size:11px;font-weight:700;border-radius:6px;padding:0 6px}
+.rv-kchip[data-k="수정"]{color:var(--rv-fix);background:#eaf5fb}.rv-kchip[data-k="삭제"]{color:var(--rv-del);background:#fff0e8}
+.rv-kchip[data-k="질문"]{color:var(--rv-ask);background:#f3edff}.rv-kchip[data-k="좋음"]{color:var(--rv-good);background:#e8f6ee}
+.rv-schip{font-size:10.5px;font-weight:700;border-radius:6px;padding:0 5px;color:#7c3aed;background:#f3edff}
+.rv-pill{margin-left:auto;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px}
+.rv-pill.sent{color:var(--rv-sent);background:var(--rv-sent-bg)}.rv-pill.delivered{color:var(--rv-deliv);background:var(--rv-deliv-bg)}
+.rv-pill.resolved{color:var(--rv-done);background:var(--rv-done-bg)}.rv-pill.withdrawn{color:var(--rv-gone);background:var(--rv-gone-bg)}
+.rv-time{font-size:11px;color:var(--rv-mute)}
+.rv-link{border:0;background:transparent;color:var(--rv-mute);font-size:12px;cursor:pointer;padding:0}
+.rv-link:hover{color:var(--rv-del)}
+/* 여백 메모 열 */
+#rv-notes{position:absolute;left:0;top:0;width:0;height:0;z-index:30}
+#rv-lines{position:absolute;left:0;top:0;pointer-events:none;z-index:29;overflow:visible}
+#rv-lines path{fill:none;stroke:#B8B2A4;stroke-width:1.3;stroke-dasharray:3 3}
+#rv-lines path.comp{stroke:var(--rv-blue);stroke-width:1.5}
+#rv-lines path.hot{stroke:var(--rv-navy);stroke-dasharray:none}
+.rv-note{position:absolute;width:var(--rv-note-w);box-sizing:border-box;background:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 6px 18px rgba(30,28,20,.10);display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:box-shadow .2s}
+.rv-note:hover{box-shadow:0 8px 24px rgba(30,28,20,.16)}
+.rv-note .top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rv-note .c{white-space:pre-wrap;word-break:keep-all;font-size:13px;line-height:1.5}
+.rv-note .act{text-align:right}
+.rv-note.mini{flex-direction:row;align-items:center;gap:8px;padding:7px 12px;background:rgba(255,255,255,.72);box-shadow:none;font-size:12px;color:var(--rv-sub)}
+.rv-note.mini .ok{color:var(--rv-done);font-weight:700;flex-shrink:0}
+.rv-note.mini .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 작성 카드(여백 메모 열에) */
+#rv-pop{position:absolute;display:none;width:var(--rv-note-w);box-sizing:border-box;z-index:32;background:#fff;border:1.5px solid var(--rv-blue);border-radius:14px;box-shadow:0 10px 28px rgba(30,28,20,.14);padding:14px;flex-direction:column;gap:10px}
+#rv-pop.on{display:flex;animation:rvin .14s ease-out}
+@keyframes rvin{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.rv-pop-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rv-pop-top .lab{font-size:11.5px;font-weight:700;color:var(--rv-navy)}
+.rv-quote{font-size:12px;color:#7A5A00;background:#FFF1C2;border-radius:5px;padding:2px 7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rv-kinds{display:flex;gap:6px;flex-wrap:wrap}
+.rv-kind{border:1px solid var(--rv-line);border-radius:999px;padding:5px 13px;background:#fff;color:var(--rv-sub);font-size:12px;font-weight:700;cursor:pointer}
+.rv-kind.on{background:var(--rv-navy);border-color:var(--rv-navy);color:#fff}
+#rv-text{width:100%;box-sizing:border-box;min-height:72px;max-height:240px;resize:none;border:0;background:var(--rv-soft);border-radius:10px;padding:9px 11px;font:13px/1.55 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--rv-ink);outline:none}
+#rv-text:focus{box-shadow:0 0 0 2px rgba(0,128,192,.25)}
+.rv-pop-foot{display:flex;align-items:center;gap:10px}
+.rv-scope{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rv-sub);cursor:pointer}
+.rv-scope input{width:15px;height:15px;accent-color:var(--rv-navy);margin:0}
+.rv-send{margin-left:auto;border:0;border-radius:10px;padding:8px 16px;background:var(--rv-blue);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer}
+.rv-send:disabled{background:#b9d7e9;cursor:default}
+kbd{font:11px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.2);border-radius:4px;padding:0 3px}
+.rv-approve{border:0;border-radius:10px;padding:9px 0;background:var(--rv-good);color:#fff;font-size:13px;font-weight:700;cursor:pointer}
+.rv-approve:disabled{background:#a6d8bb;cursor:default}
+/* 드래그 직후 유형 도구줄 */
+#rv-pick{position:absolute;display:none;z-index:45;background:var(--rv-navy);border-radius:10px;padding:3px;box-shadow:0 6px 16px rgba(16,24,40,.28);gap:2px}
+#rv-pick.on{display:flex}
+#rv-pick button{border:0;background:transparent;color:#fff;border-radius:7px;padding:5px 9px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+#rv-pick button:hover{background:rgba(255,255,255,.16)}
+/* 문서 쪽 — 고를 수 있는 곳은 마우스를 올리면 점선(종전과 같음), 고른 곳·바뀐 곳·메모와 이어진 곳 */
+.page .blk[data-addr]:hover,.page .dg .box:hover{outline:2px dashed rgba(0,128,192,.5);outline-offset:3px;cursor:pointer;border-radius:3px}
+.page .rv-sel{outline:2px solid var(--rv-blue) !important;outline-offset:3px;background:rgba(0,128,192,.06);border-radius:3px}
+.page .rv-hov{outline:2px solid rgba(27,23,96,.35);outline-offset:3px;border-radius:3px}
+::highlight(rv-range){background-color:rgba(255,205,64,.55)}
+.page .blk.rv-chg{background:rgba(255,214,90,.35);box-shadow:inset 3px 0 0 #f5b400;transition:background 2.5s}
+.page .blk.rv-flashblk{box-shadow:0 0 0 3px rgba(0,128,192,.35);border-radius:3px;transition:box-shadow .6s}
+.rv-pb{position:absolute;left:0;right:0;height:0;border-top:1.5px dashed rgba(211,51,51,.55);pointer-events:none;z-index:2}
+.rv-pb span{position:absolute;right:6px;top:-9px;font:700 10.5px/16px "Apple SD Gothic Neo",sans-serif;color:#c33;background:#fff;padding:0 6px;border-radius:8px;border:1px solid rgba(211,51,51,.35)}
+/* 직접 수정 — 두 번 누르면 그 자리가 입력칸이 된다(문장·표 칸) */
+.rv-edit{display:flex;flex-direction:column;gap:6px;border:2px dashed var(--rv-blue);border-radius:6px;padding:6px 8px;background:#F7FBFE}
+.rv-edit .row{display:flex;gap:6px;align-items:flex-start}
+.rv-edit .mk{font-weight:700;color:var(--rv-sub);padding-top:3px;min-width:14px}
+.rv-edit input,.rv-edit textarea{font:inherit;color:#111;border:1px solid #BFD9EA;border-radius:5px;padding:3px 6px;background:#fff;outline:none;box-sizing:border-box}
+.rv-edit input{width:9em;font-weight:700}
+.rv-edit textarea{flex:1;width:100%;resize:none;line-height:1.6;min-height:2.2em}
+.rv-edit .bar{display:flex;align-items:center;gap:8px;font:12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--rv-sub)}
+.rv-edit .bar button{border:0;border-radius:8px;padding:5px 12px;font:700 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif;cursor:pointer}
+.rv-edit .save{background:var(--rv-blue);color:#fff}
+.rv-edit .cancel{background:#EEF1F5;color:#344054}
+td.rv-editing,th.rv-editing{padding:2px!important}
+td.rv-editing .rv-edit,th.rv-editing .rv-edit{padding:4px;border-width:1.5px}
+td.rv-editing textarea,th.rv-editing textarea{font-size:12pt}
+.rv-directbtn{border:1px dashed var(--rv-blue);border-radius:999px;padding:4px 11px;background:#fff;color:var(--rv-blue);font-size:12px;font-weight:700;cursor:pointer}
+#rv-toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;display:none;max-width:560px;background:#1f2430;color:#fff;border-radius:12px;padding:10px 14px;font:12.5px/1.55 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;box-shadow:0 10px 26px rgba(0,0,0,.25)}
+#rv-toast.on{display:block}
+#rv-toast.warn{background:#7A2E0E}
+.rv-item.edit{background:#F7FBFE;border-style:dashed}
+.rv-item .ba{margin-top:5px;font-size:12px;color:var(--rv-sub);display:flex;flex-direction:column;gap:2px}
+.rv-item .ba del{color:#98a2b3}
+/* 탐색 서랍('26.9.25 가독성 개선) — 사람이 읽는 제목·두 층 머리·권한 표지는 무리 머리에 한 번·보고서 바꾸기는 떠 있는 목록 */
+.rv-find{width:100%;box-sizing:border-box;border:1px solid transparent;border-radius:10px;padding:9px 12px 9px 34px;background:#F4F2EC;font:13.5px "Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--rv-ink);outline:none}
+.rv-findwrap{position:relative}.rv-findwrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--rv-mute);pointer-events:none}
+.rv-find::placeholder{color:var(--rv-mute)}
+.rv-find:focus{background-color:#fff;border-color:var(--rv-blue);box-shadow:0 0 0 3px rgba(0,128,192,.15)}
+.rv-shead{display:flex;align-items:center;gap:8px;margin:10px 2px 2px;font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--rv-sub)}
+.rv-shead::after{content:'';flex:1;height:1px;background:#ECE8DF}
+.rv-navcase{position:relative}
+.rv-casebtn{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 10px;width:100%;box-sizing:border-box;border:1px solid var(--rv-line);border-radius:12px;background:#fff;padding:11px 12px;cursor:pointer;text-align:left;font:inherit;color:var(--rv-ink)}
+.rv-casebtn:hover,.rv-casebtn.open{border-color:#B9B09B;box-shadow:0 1px 3px rgba(30,28,20,.08)}
+.rv-casebtn .nm{font-size:14.5px;font-weight:700;line-height:1.35;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.rv-casebtn .mt{grid-column:1;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--rv-sub);font-variant-numeric:tabular-nums}
+.rv-casebtn .cv{grid-column:2;grid-row:1/3;display:flex;color:var(--rv-sub);transition:transform .15s}
+.rv-casebtn.open .cv{transform:rotate(180deg)}
+.st{font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;color:var(--rv-sub);background:#EFEDE7;white-space:nowrap}.st.on{background:var(--rv-accent);color:#fff}
+.rv-cases{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:5;max-height:min(60vh,520px);overflow:auto;background:#fff;border:1px solid var(--rv-line);border-radius:12px;box-shadow:0 14px 34px rgba(30,28,20,.18);padding:6px;display:flex;flex-direction:column;gap:2px}
+.rv-cases[hidden],.rv-casehits[hidden]{display:none}
+.rv-cashead{font-size:11.5px;font-weight:700;color:var(--rv-sub);padding:6px 8px 4px}
+.rv-caserow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:8px 10px;border-radius:9px;text-decoration:none;color:var(--rv-ink)}
+.rv-caserow:hover{background:#F4F2EC}.rv-caserow.on{background:#E9EBF7;box-shadow:inset 3px 0 0 var(--rv-navy)}
+.rv-caserow .nm{font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-caserow .mt{grid-column:1;font-size:11.5px;color:var(--rv-sub);font-variant-numeric:tabular-nums}
+.rv-caserow .rt{grid-column:2;grid-row:1/3;display:flex;align-items:center;gap:4px}
+.rv-casehits{display:flex;flex-direction:column;gap:2px}
+.rv-tree{display:flex;flex-direction:column}
+.rv-grp{display:flex;align-items:center;gap:6px;width:100%;box-sizing:border-box;border:0;border-radius:8px;background:transparent;padding:10px 6px 6px;font:700 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--rv-ink);text-align:left}
+.rv-grp .n{font-size:12px;font-weight:600;color:var(--rv-sub);font-variant-numeric:tabular-nums}
+.rv-grp .gp{margin-left:auto}.rv-grp .n+.cv{margin-left:auto}.rv-grp .gp+.cv{margin-left:4px}
+.rv-grp.tog{cursor:pointer}.rv-grp.tog:hover{background:#F4F2EC}
+.rv-grp .cv{display:flex;color:var(--rv-sub);transition:transform .15s}.rv-grp .cv.up{transform:rotate(180deg)}
+.rv-steps,.rv-docs{display:flex;flex-direction:column;gap:2px}
+.rv-step{position:relative;display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 10px 4px 6px;border-radius:10px;text-decoration:none;color:var(--rv-ink);font-size:13.5px}
+.rv-step .dot{position:relative;z-index:1;flex-shrink:0;width:26px;height:26px;box-sizing:border-box;border-radius:50%;border:1.5px solid #CFC8B8;background:#fff;color:var(--rv-sub);font:700 11px/23px ui-monospace,Menlo,monospace;text-align:center}
+.rv-step:not(:last-child)::before{content:'';position:absolute;left:18.25px;top:32px;bottom:-8px;width:1.5px;background:#DDD7CA}
+.rv-step:hover,.rv-doc:hover{background:#F4F2EC}
+.rv-step.on,.rv-doc.on{background:#E9EBF7;color:var(--rv-navy);font-weight:700}
+.rv-step.on .dot{background:var(--rv-navy);border-color:var(--rv-navy);color:#fff}
+.rv-doc.on{box-shadow:inset 3px 0 0 var(--rv-navy)}
+.rv-doc{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;text-decoration:none;color:var(--rv-ink)}
+.rv-step .tx,.rv-doc .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rv-step .lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-doc .lb{font-size:13px;line-height:1.42;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+.rv-doc .sb{font-size:11.5px;font-weight:400;color:var(--rv-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-doc .nb{font:600 11px ui-monospace,Menlo,monospace;color:var(--rv-sub);margin-right:6px}
+.pm,.gp{display:inline-flex;align-items:center;gap:3px;flex-shrink:0;font-size:11.5px;font-weight:600;color:#7a5b00;white-space:nowrap}
+.rv-doc .pm,.rv-doc .rv-cnt{margin-top:2px}
+.rv-cnt{min-width:18px;height:18px;border-radius:9px;background:var(--rv-accent);color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center;padding:0 5px;box-sizing:border-box;flex-shrink:0}
+.rv-ronote{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#5c4400;background:#FFF7DC;border-radius:10px;padding:10px 12px;margin-top:4px}
+.rv-rosub{font-size:12px;color:#7a5b00}
+.rv-openrv{align-self:flex-start;border:0;border-radius:8px;background:var(--rv-navy);color:#fff;font-weight:700;font-size:12.5px;padding:7px 12px;cursor:pointer}
+.rv-openrv[data-armed]{background:#b42318}.rv-openrv:disabled{opacity:.6;cursor:default}
+.st.warn{color:#b42318;background:#fdecea}
+.rv-keys{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;color:var(--rv-sub)}
+kbd{font:600 11px Menlo,monospace;border:1px solid #d6dbe1;border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#fff;color:var(--rv-ink)}
+.rv-ro{font-size:11px;color:#7a5b00;background:#fff7dc;border:1px solid #f0dfa0;border-radius:999px;padding:1px 8px}
+body.rv-docmode .rv-formonly{display:none!important}
+.rv-otherdoc{font-size:11px;color:#6d7882;border:1px solid #e6e8ea;border-radius:999px;padding:0 6px;margin-left:4px}
+@media print{#rv-bar,#rv-rail,#rv-drawer,#rv-notes,#rv-lines,#rv-pop,#rv-pick,#rv-approve-pop,.rv-pb{display:none!important} body{padding:0} .page{margin:0!important}}
+</style>
+<div id="rv-bar" class="rv-ui" role="toolbar" aria-label="리뷰 상태">
+ <span id="rv-dot" class="rv-dot"></span>
+ <span id="rv-title" class="rv-title"></span>
+ <span id="rv-ro" class="rv-ro" hidden></span>
+ <span class="rv-sep rv-formonly"></span>
+ <button id="rv-pages-btn" class="rv-linkbtn rv-formonly" title="쪽 미리보기"><span id="rv-pages-n">-</span></button>
+ <span class="rv-sep"></span>
+ <span id="rv-counts" class="rv-meta">코멘트 0</span>
+ <span id="rv-conn" class="rv-conn">연결 중</span>
+ <span id="rv-cli" class="rv-cli" role="status"></span>
+ <button id="rv-approve-open" class="rv-pillbtn">승인 · 변환</button>
+</div>
+<div id="rv-approve-pop" class="rv-ui" role="dialog" aria-label="승인">
+ <div class="rv-flabel">팩트체크</div>
+ <div class="rv-seg" id="rv-fc"><button class="on" data-v="경량">경량</button><button data-v="전수">전수</button><button data-v="생략">생략</button></div>
+ <input id="rv-note" placeholder="승인 메모(선택)" aria-label="승인 메모">
+ <button id="rv-approve" class="rv-approve">승인 — 변환 진행</button>
+ <div class="rv-hint" id="rv-dec"></div>
+</div>
+<nav id="rv-rail" class="rv-ui" aria-label="리뷰 도구">
+ <button class="rv-railbtn" data-t="nav" title="탐색 — 이 보고서의 문서·다른 보고서" aria-label="탐색"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"></path><path d="M8 12h8M8 15.5h5"></path></svg><span class="lb">탐색</span><span class="rv-badge" id="rv-b-nav"></span></button>
+ <button class="rv-railbtn" data-t="hist" title="코멘트 이력" aria-label="코멘트 이력"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"></path><path d="M4 4v4h4"></path><path d="M12 8v4l3 2"></path></svg><span class="lb">이력</span><span class="rv-badge" id="rv-b-hist"></span></button>
+ <span class="rv-railsep"></span>
+ <button class="rv-railbtn" id="rv-general" title="특정 자리 없이 문서 전체 의견" aria-label="전체 의견 쓰기"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span class="lb">의견</span></button>
+</nav>
+<aside id="rv-drawer" class="rv-ui" aria-label="리뷰 서랍">
+ <div class="rv-dhead"><h3 id="rv-dtitle">코멘트 이력</h3><button id="rv-dclose" class="rv-x" aria-label="서랍 닫기">✕</button></div>
+ <div class="rv-dbody">
+  <section class="rv-dsec" data-t="nav">
+   <div class="rv-findwrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="rv-find" class="rv-find" type="search" placeholder="문서·보고서 찾기" aria-label="문서·보고서 찾기" autocomplete="off"></div>
+   <div class="rv-shead">보고서</div>
+   <div class="rv-navcase">
+    <button id="rv-case" class="rv-casebtn" aria-haspopup="listbox" aria-expanded="false"><span class="nm"></span><span class="mt"></span><span class="cv"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span></button>
+    <div id="rv-cases" class="rv-cases" role="listbox" aria-label="보고서 바꾸기" hidden></div>
+   </div>
+   <div class="rv-shead">이 보고서의 문서</div>
+   <div id="rv-tree" class="rv-tree" role="navigation" aria-label="문서"></div>
+   <div id="rv-casehits" class="rv-casehits" hidden></div>
+   <div class="rv-keys"><kbd>[</kbd><kbd>]</kbd> 이전·다음 문서</div>
+  </section>
+  <section class="rv-dsec" data-t="hist">
+   <div id="rv-chgwrap"><div class="rv-flabel">마지막 반영에서 바뀐 곳</div><div class="rv-chips" id="rv-chg"></div></div>
+   <div class="rv-seg" id="rv-filter"><button class="on" data-f="all">전체</button><button data-f="open">진행 중</button><button data-f="done">반영됨</button></div>
+   <div id="rv-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </section>
+  <section class="rv-dsec" data-t="page">
+   <div style="font-size:22px;font-weight:700;color:var(--rv-navy)" id="rv-pages-big">-</div>
+   <div class="rv-hint" id="rv-pages">계산 중…</div>
+   <div class="rv-hint">빨간 점선이 한글 쪽 경계(본문 247mm)입니다. 첫 변환 뒤 한글 쪽수와 다르면 알려 주세요 — 보정합니다.</div>
+  </section>
+ </div>
+</aside>
+<svg id="rv-lines" aria-hidden="true"></svg>
+<div id="rv-notes" class="rv-ui"></div>
+<div id="rv-pop" class="rv-ui" role="dialog" aria-label="코멘트 작성">
+ <div class="rv-pop-top"><span id="rv-pop-addr" class="rv-addr">-</span><span id="rv-pop-lab" class="lab">항목 전체</span><span id="rv-quote" class="rv-quote"></span><button id="rv-pop-x" class="rv-x" style="margin-left:auto" title="닫기 (Esc)" aria-label="닫기">✕</button></div>
+ <div class="rv-kinds" id="rv-kinds">
+  <button class="rv-kind on" data-k="수정">수정</button><button class="rv-kind" data-k="삭제">삭제</button><button class="rv-kind" data-k="질문">질문</button><button class="rv-kind" data-k="좋음">좋음</button>
+  <button class="rv-directbtn" id="rv-direct" title="이 항목의 글자를 그 자리에서 바로 고칩니다 (항목을 두 번 눌러도 됩니다)">직접 고치기</button>
+ </div>
+ <textarea id="rv-text" placeholder="무엇을 어떻게 고칠지 적어 주세요" aria-label="코멘트"></textarea>
+ <div class="rv-pop-foot">
+  <label class="rv-scope" title="이 문서에 반영하고 하네스 규칙 후보로 기록합니다"><input type="checkbox" id="rv-scope" data-s="rule">앞으로도 적용(규칙)</label>
+  <button id="rv-send" class="rv-send">보내기 <kbd>⌘↵</kbd></button>
+ </div>
+</div>
+<div id="rv-toast" class="rv-ui" role="status" aria-live="polite"></div>
+<div id="rv-pick" class="rv-ui"><button data-k="수정">수정</button><button data-k="삭제">삭제</button><button data-k="질문">질문</button><button data-k="좋음">좋음</button></div>
+<script>
+(function(){
+ const $=id=>document.getElementById(id), ss=window.sessionStorage;
+ const LABEL={sent:'보냄',delivered:'확인 중',resolved:'반영됨',withdrawn:'취소됨'};
+ const PH={'수정':'무엇을 어떻게 고칠지 적어 주세요','삭제':'삭제 이유(선택)','질문':'궁금한 점을 적어 주세요','좋음':'좋은 점(선택)'};
+ const DTITLE={nav:'탐색',hist:'코멘트 이력',page:'쪽 미리보기'};
+ let target=null, kind='수정', filter='all', last=[], selEl=null, anchor=null, pickRange=null, drawer=null;
+ const expanded=new Set();
+ const RVX=window.__RV||{}, BASE=RVX.base||'', DOC=RVX.doc||'20_draft.md', PERM=RVX.perm||{comment:true,edit:true,approve:true};
+ const DOCMODE=RVX.mode==='doc';
+ const API=u=>BASE+u+(u.indexOf('?')<0?'?':'&')+'doc='+encodeURIComponent(DOC);        // 허브 — 건 주소 + 문서 인자
+ const docURL=d=>BASE+'/d/'+encodeURIComponent(d);
+ const mine=x=>(x.doc||'20_draft.md')===DOC;
+ const NS=BASE+'|'+DOC, kk=k=>/^rv-(drawer|res-open|cases-open)$/.test(k)?k:k+'|'+NS;                                // 문서마다 따로 기억(바뀐 곳·쓰던 글·스크롤)
+ const get=(k,d)=>{try{const v=ss.getItem(kk(k));return v===null?d:JSON.parse(v)}catch(e){return d}}, put=(k,v)=>{try{ss.setItem(kk(k),JSON.stringify(v))}catch(e){}};
+ if(DOCMODE)document.body.classList.add('rv-docmode');
+ (function(){ const ro=document.getElementById('rv-ro'); if(!PERM.comment){ro.textContent='보기 전용'; ro.hidden=false} else if(!PERM.edit){ro.textContent='코멘트만'; ro.hidden=false}
+  if(!PERM.approve)document.getElementById('rv-approve-open').style.display='none';
+  if(!PERM.comment)document.getElementById('rv-general').style.display='none' })();
+ const HL=window.CSS&&CSS.highlights&&window.Highlight;
+ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ $('rv-title').textContent=document.title.replace(/ — 리뷰$/,'');
+ // 문서 블록 도우미
+ const pagesEl=()=>[...document.querySelectorAll('body > section.page')];
+ const blkOf=n=>{let e=n&&(n.nodeType===1?n:n.parentElement); while(e&&!(e.classList&&e.classList.contains('blk')))e=e.parentElement; return e};
+ const addrOf=b=>{let e=b; while(e&&!(e.dataset&&e.dataset.addr))e=e.nextElementSibling; return e?e.dataset.addr:(b&&b.dataset.addr||'')};
+ const blockBy=a=>a&&a!=='전체'?document.querySelector('.blk[data-addr="'+CSS.escape(a)+'"]'):null;
+ function gotoItem(x){ if(mine(x))return goto(x.addr); try{sessionStorage.setItem('rv-goto|'+BASE+'|'+(x.doc||''),JSON.stringify(x.addr))}catch(e){} location.href=docURL(x.doc) }
+ function goto(a){const b=blockBy(a); if(!b)return; b.scrollIntoView({behavior:'smooth',block:'center'}); b.classList.add('rv-flashblk'); setTimeout(()=>b.classList.remove('rv-flashblk'),1400)}
+ const y0=get('rv-y',null); if(y0!==null){window.scrollTo(0,y0); try{ss.removeItem('rv-y')}catch(e){}}
+ // 바뀐 곳
+ const snap=()=>{const m={}; document.querySelectorAll('.blk[data-addr]').forEach(b=>{if(b.dataset.addr)m[b.dataset.addr]=b.innerText}); return m};
+ let changed=get('rv-changed',[]);
+ function markChanged(prev,now){ if(!prev)return; const c=Object.keys(now).filter(a=>prev[a]!==undefined&&prev[a]!==now[a]).concat(Object.keys(now).filter(a=>prev[a]===undefined));
+  if(c.length){changed=c; put('rv-changed',c)}
+  c.forEach(a=>{const b=blockBy(a); if(b){b.classList.add('rv-chg'); setTimeout(()=>b.classList.remove('rv-chg'),7000)}}) }
+ const now0=snap(); markChanged(get('rv-prev',null),now0); put('rv-prev',now0);
+ function drawChanged(){ const box=$('rv-chg'); box.textContent=''; $('rv-chgwrap').hidden=!changed.length;   // 비었으면 자리를 차지하지 않는다
+  if(!changed.length)return;
+  changed.forEach(a=>{const s=document.createElement('button'); s.className='rv-chg-chip'; s.textContent=a; s.onclick=()=>goto(a); box.appendChild(s)}) }
+ // 서랍 — 아이콘 줄에서 연다
+ function openDrawer(t){ drawer=(drawer===t||!t)?null:t; put('rv-drawer',drawer);
+  $('rv-drawer').classList.toggle('on',!!drawer); document.body.classList.toggle('rv-dopen',!!drawer); $('rv-dtitle').textContent=DTITLE[drawer]||'';
+  document.querySelectorAll('#rv-rail .rv-railbtn[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===drawer));
+  document.querySelectorAll('.rv-dsec').forEach(s=>s.classList.toggle('on',s.dataset.t===drawer)); layoutNotes() }
+ document.querySelectorAll('#rv-rail .rv-railbtn[data-t]').forEach(b=>b.onclick=()=>openDrawer(b.dataset.t));
+ $('rv-dclose').onclick=()=>openDrawer(null); $('rv-pages-btn').onclick=()=>openDrawer('page');
+ // 여백 메모 열 — 문단 높이에 맞춰 세우고 겹치면 아래로, 작성 카드는 제자리 우선
+ const NOTE_GAP=10;
+ function notesX(){ const pg=pagesEl()[0], vw=document.documentElement.clientWidth, w=$('rv-pop').offsetWidth||380;
+  let x=(pg?pg.getBoundingClientRect().right:vw-w-40)+28; if(x+w>vw-12)x=Math.max(12,vw-w-12); return x+window.scrollX }
+ function anchorY(addr){ const b=blockBy(addr); if(b)return b.getBoundingClientRect().top+window.scrollY-4;
+  const pg=pagesEl()[0]; return (pg?pg.getBoundingClientRect().top+window.scrollY:80)+40 }
+ function layoutNotes(){
+  const x=notesX(), pop=$('rv-pop'), on=pop.classList.contains('on');
+  const notes=[...document.querySelectorAll('#rv-notes .rv-note')].map(el=>({el:el,y:anchorY(el.dataset.addr)}));
+  let cTop=null, cBot=null;
+  if(on){ pop.style.left=x+'px'; cTop=(anchor&&anchor.panel)?window.scrollY+80:anchorY(target&&target.addr); pop.style.top=cTop+'px'; cBot=cTop+pop.offsetHeight }
+  notes.sort((a,b)=>a.y-b.y); let prev=-1e9;
+  notes.forEach(n=>{ n.el.style.left=x+'px'; const h=n.el.offsetHeight; let y=Math.max(n.y,prev+NOTE_GAP);
+   if(cTop!==null&&y<cBot+NOTE_GAP&&y+h>cTop-NOTE_GAP)y=cBot+NOTE_GAP; n.el.style.top=y+'px'; n.top=y; prev=y+h });
+  drawLines(notes,x,on?cTop:null) }
+ function drawLines(notes,x,cTop){
+  const svg=$('rv-lines'), d=document.documentElement; svg.setAttribute('width',d.scrollWidth); svg.setAttribute('height',d.scrollHeight);
+  const seg=(addr,top,cls)=>{ const b=blockBy(addr); if(!b)return ''; const r=b.getBoundingClientRect(), x1=r.right+window.scrollX+6, y1=r.top+window.scrollY+12, x2=x-4, y2=top+16, m=(x1+x2)/2;
+   return '<path class="'+cls+'" d="M'+x1+' '+y1+' C '+m+' '+y1+', '+m+' '+y2+', '+x2+' '+y2+'"></path>' };
+  let html=''; notes.forEach(n=>{ if(!n.el.classList.contains('mini'))html+=seg(n.el.dataset.addr,n.top,n.el.classList.contains('hot')?'hot':'') });
+  if(cTop!==null&&target&&target.addr&&!(anchor&&anchor.panel))html+=seg(target.addr,cTop,'comp');
+  svg.innerHTML=html }
+ function drawNotes(){
+  const layer=$('rv-notes'); layer.textContent='';
+  const all=last.filter(x=>x.type==='feedback');
+  all.forEach((x,i)=>{ if(x.status==='withdrawn'||!mine(x))return;
+   const n=document.createElement('div'); n.dataset.addr=x.addr||'전체'; n.dataset.id=x.id;
+   if(x.status==='resolved'&&!expanded.has(x.id)){ n.className='rv-note mini';
+    n.innerHTML='<span class="ok">✓ 반영됨</span><span class="rv-addr">'+esc(x.addr||'전체')+'</span><span class="t">'+esc(x.comment)+'</span>';
+    n.onclick=()=>{expanded.add(x.id); drawNotes()}; layer.appendChild(n); return }
+   n.className='rv-note';
+   n.innerHTML='<div class="top"><span class="rv-num '+x.status+'">'+(i+1)+'</span><span class="rv-addr">'+esc(x.addr||'전체')+'</span><span class="rv-kchip" data-k="'+esc(x.kind||'수정')+'">'+esc(x.kind||'수정')+'</span>'
+    +(x.scope==='rule'?'<span class="rv-schip">규칙</span>':'')+'<span class="rv-pill '+x.status+'">'+(LABEL[x.status]||x.status)+'</span><span class="rv-time">'+esc((x.at||'').slice(11,16))+'</span></div>'
+    +'<div class="c">'+esc(x.comment)+'</div>';
+   if(x.status==='sent'){const a=document.createElement('div'); a.className='act'; const w=document.createElement('button'); w.className='rv-link'; w.textContent='보내기 취소';
+    w.onclick=async ev=>{ev.stopPropagation(); await post('/api/withdraw',{id:x.id})}; a.appendChild(w); n.appendChild(a)}
+   if(x.status==='resolved')n.onclick=ev=>{ if(ev.target.closest('.rv-addr'))return goto(x.addr); expanded.delete(x.id); drawNotes() };
+   else n.onclick=()=>goto(x.addr);
+   n.onmouseenter=()=>{n.classList.add('hot'); const b=blockBy(x.addr); if(b)b.classList.add('rv-hov'); layoutNotes()};
+   n.onmouseleave=()=>{n.classList.remove('hot'); const b=blockBy(x.addr); if(b)b.classList.remove('rv-hov'); layoutNotes()};
+   layer.appendChild(n) });
+  layoutNotes() }
+ // 작성 카드
+ function openPop(t,a){ if(!PERM.comment){toast('보기 전용 — 리뷰가 열린 건만 코멘트를 받습니다',true); return}
+  if(selEl)selEl.classList.remove('rv-sel'); selEl=a&&a.el&&!a.range&&!a.panel?a.el:null; if(selEl)selEl.classList.add('rv-sel');
+  target=t; anchor=a; if(HL){CSS.highlights.delete('rv-range'); if(a&&a.range)CSS.highlights.set('rv-range',new Highlight(a.range))}
+  $('rv-pop-addr').textContent=t.addr||'전체'; $('rv-pop-lab').textContent=t.addr==='전체'?'문서 전체 의견':(t.whole?'항목 전체':'고른 글자');
+  $('rv-quote').textContent=t.whole?'':(t.quote||''); $('rv-quote').style.display=(!t.whole&&t.quote)?'':'none';
+  $('rv-pop').classList.add('on'); layoutNotes(); saveCompose(); setTimeout(()=>{$('rv-text').focus(); grow()},0) }
+ function closePop(){ if(selEl)selEl.classList.remove('rv-sel'); selEl=null; target=null; anchor=null; if(HL)CSS.highlights.delete('rv-range');
+  $('rv-pop').classList.remove('on'); saveCompose(); layoutNotes() }
+ $('rv-pop-addr').onclick=()=>target&&goto(target.addr); $('rv-pop-x').onclick=()=>{$('rv-text').value=''; setKind('수정'); closePop()};
+ function setKind(k){kind=k; document.querySelectorAll('.rv-kind').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); $('rv-text').placeholder=PH[k]; saveCompose()}
+ document.querySelectorAll('.rv-kind').forEach(b=>b.onclick=()=>{setKind(b.dataset.k); $('rv-text').focus()});
+ const scopeVal=()=>$('rv-scope').checked?'rule':'doc';
+ $('rv-scope').onchange=()=>saveCompose();
+ function saveCompose(){put('rv-compose',{text:$('rv-text').value,kind:kind,scope:scopeVal(),target:target})}
+ const grow=()=>{const t=$('rv-text'); t.style.height='auto'; t.style.height=Math.min(240,t.scrollHeight+2)+'px'; layoutNotes()};
+ $('rv-text').addEventListener('input',()=>{grow(); saveCompose()});
+ // 선택 — 드래그(부분)는 유형 도구줄, 클릭(통째)은 곧바로 작성 카드
+ const inUI=el=>!!(el.closest&&el.closest('#rv-bar,#rv-rail,#rv-drawer,#rv-notes,#rv-pop,#rv-pick,#rv-approve-pop,.rv-edit,#rv-toast'));
+ const hidePick=()=>{$('rv-pick').classList.remove('on'); pickRange=null};
+ document.addEventListener('mouseup',ev=>{ if(inUI(ev.target))return; const s=getSelection(); const t=s?s.toString().trim():''; const b=t&&blkOf(s.anchorNode);
+  if(!b){hidePick();return}
+  pickRange={range:s.getRangeAt(0).cloneRange(),b:b,text:t}; const r=pickRange.range.getBoundingClientRect(), p=$('rv-pick');
+  p.classList.add('on'); p.style.left=(Math.min(r.right+8,document.documentElement.clientWidth-p.offsetWidth-8)+window.scrollX)+'px'; p.style.top=(r.top-p.offsetHeight-6+window.scrollY)+'px' });
+ document.querySelectorAll('#rv-pick button').forEach(x=>x.onclick=()=>{ if(!pickRange)return; const {range,b,text}=pickRange; hidePick();
+  setKind(x.dataset.k); openPop({addr:addrOf(b),line:+b.dataset.line||0,quote:text.replace(/\s+/g,' ').slice(0,400),whole:false},{range:range,el:b,addr:addrOf(b)}); getSelection().removeAllRanges() });
+ document.addEventListener('click',ev=>{ if(inUI(ev.target))return; const s=getSelection(); if(s&&s.toString().trim())return;
+  if($('rv-approve-pop').classList.contains('on'))$('rv-approve-pop').classList.remove('on');
+  const card=ev.target.closest&&ev.target.closest('.dg .box'); const b=blkOf(ev.target);
+  if(!b){ if($('rv-pop').classList.contains('on')&&!$('rv-text').value.trim())closePop(); return }
+  if(card){openPop({addr:addrOf(b),line:+b.dataset.line||0,quote:card.innerText.replace(/\s+/g,' ').trim().slice(0,400),whole:true},{el:card,addr:addrOf(b)}); return}
+  const body=b.querySelector('p,h1,table,.fig,.banner'); openPop({addr:addrOf(b),line:+b.dataset.line||0,quote:(body||b).innerText.replace(/\s+/g,' ').trim().slice(0,400),whole:true},{el:b,addr:addrOf(b)}) });
+ $('rv-general').onclick=ev=>{ev.stopPropagation(); openPop({addr:'전체',line:0,quote:'',whole:true},{panel:true})};
+ // 보내기·승인
+ async function post(u,body){const r=await fetch(BASE+u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({doc:DOC},body))}); return r.json()}
+ async function send(){ const c=$('rv-text').value.trim(); if(!c&&(kind==='수정'||kind==='질문')){$('rv-text').focus(); return}
+  $('rv-send').disabled=true; try{ await post('/api/feedback',Object.assign({comment:c,kind:kind,scope:scopeVal()},target||{addr:'전체',line:0,quote:''}));
+   $('rv-text').value=''; setKind('수정'); $('rv-scope').checked=false; closePop();
+   if(cliState==='none')toast('보냈습니다 — 처리할 Claude 세션이 없어 쌓아 둡니다(세션이 wait를 걸면 넘어갑니다)') } finally{ $('rv-send').disabled=false } }
+ $('rv-send').onclick=send;
+ document.addEventListener('keydown',ev=>{ if((ev.metaKey||ev.ctrlKey)&&ev.key==='Enter'&&document.activeElement===$('rv-text')){ev.preventDefault(); send()}
+  if(ev.key==='Escape'){ if(!$('rv-cases').hidden){showCases(false); return} hidePick(); $('rv-approve-pop').classList.remove('on'); if($('rv-pop').classList.contains('on'))closePop(); else if(drawer)openDrawer(null)} });
+ $('rv-approve-open').onclick=ev=>{ev.stopPropagation(); $('rv-approve-pop').classList.toggle('on')};
+ let fc='경량'; document.querySelectorAll('#rv-fc button').forEach(b=>b.onclick=()=>{fc=b.dataset.v; document.querySelectorAll('#rv-fc button').forEach(x=>x.classList.toggle('on',x===b))});
+ $('rv-approve').onclick=async()=>{ $('rv-approve').disabled=true; await post('/api/decision',{decision:'approved',factcheck:fc,note:$('rv-note').value.trim()}); $('rv-note').value='' };
+ document.querySelectorAll('#rv-filter button').forEach(b=>b.onclick=()=>{filter=b.dataset.f; document.querySelectorAll('#rv-filter button').forEach(x=>x.classList.toggle('on',x===b)); drawList()});
+ // 이력(서랍)·상태 숫자·메모
+ function drawList(){ const fb=last.filter(x=>x.type==='feedback'); const box=$('rv-list'); box.textContent='';
+  const show=fb.map((x,i)=>Object.assign({n:i+1},x)).filter(x=>filter==='all'||(filter==='open'?(x.status==='sent'||x.status==='delivered'):x.status==='resolved')).reverse();
+  if(!show.length){const e=document.createElement('div'); e.className='rv-empty'; e.textContent=fb.length?'해당하는 코멘트가 없습니다':'아직 보낸 코멘트가 없습니다'; box.appendChild(e)}
+  const edits=last.filter(x=>x.type==='edit');
+  if(filter!=='open')edits.slice().reverse().forEach(x=>{ const it=document.createElement('div'); it.className='rv-item edit';
+   it.innerHTML='<div class="top"><span class="rv-addr">'+esc(x.addr||('L'+x.line))+'</span><span class="rv-kchip" data-k="수정">직접 수정</span><span class="rv-pill '+(x.status==='resolved'?'resolved':'sent')+'">'+(x.status==='sent'?'CLI 전달 전':(x.status==='delivered'?'CLI 확인 중':'확인됨'))+'</span></div>'
+    +'<div class="ba"><del>'+esc(x.before)+'</del><span>'+esc(x.after)+'</span></div>';
+   it.onclick=()=>gotoItem(x); box.appendChild(it) });
+  show.forEach(x=>{ const it=document.createElement('div'); it.className='rv-item'+(x.status==='withdrawn'?' gone':'')+(x.status==='resolved'?' done':'');
+   it.innerHTML='<div class="top"><span class="rv-num '+x.status+'">'+x.n+'</span><span class="rv-addr">'+esc(x.addr||'전체')+'</span><span class="rv-kchip" data-k="'+esc(x.kind||'수정')+'">'+esc(x.kind||'수정')+'</span>'
+    +(x.scope==='rule'?'<span class="rv-schip">규칙</span>':'')+'<span class="rv-pill '+x.status+'">'+(LABEL[x.status]||x.status)+'</span></div><div class="c">'+esc(x.comment)+'</div>';
+   if(!mine(x)){const t=it.querySelector('.top'); const s_=document.createElement('span'); s_.className='rv-otherdoc'; s_.textContent=((RVX.docs||[]).find(d=>d.doc===x.doc)||{label:x.doc}).label; t.appendChild(s_)}
+   it.onclick=()=>{ gotoItem(x); if(x.status==='resolved'){expanded.add(x.id); drawNotes()} };
+   it.onmouseenter=()=>{const b=blockBy(x.addr); if(b)b.classList.add('rv-hov')}; it.onmouseleave=()=>{const b=blockBy(x.addr); if(b)b.classList.remove('rv-hov')};
+   box.appendChild(it) });
+  const cnt=s=>fb.filter(x=>x.status===s).length, open=cnt('sent')+cnt('delivered');
+  $('rv-counts').innerHTML='보냄 <b>'+cnt('sent')+'</b> · 확인 중 <b>'+cnt('delivered')+'</b> · 반영됨 <b>'+cnt('resolved')+'</b>';
+  $('rv-b-hist').textContent=open||'';
+  const dec=last.filter(x=>x.type==='decision').pop();
+  $('rv-dec').textContent=dec?('승인 전달 · 팩트체크 '+(dec.factcheck||'경량')+' · '+(LABEL[dec.status]||'')):'';
+  if(dec&&dec.status!=='withdrawn'){$('rv-approve').disabled=true; $('rv-approve-open').disabled=true; $('rv-approve-open').textContent='승인 전달됨'}
+  drawNotes(); drawTree() }
+ // 탐색 — 이 보고서의 문서 트리와 보고서 바꾸기(목록 화면으로 가지 않는다)
+ const GROUPS=[['stage','보고서 단계'],['extra','부속 문서'],['research','자료']];
+ const CHEV='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>';
+ const LOCK='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
+ const openCount=d=>last.filter(x=>x.type==='feedback'&&(x.doc||'20_draft.md')===d&&(x.status==='sent'||x.status==='delivered')).length;
+ const findQ=()=>($('rv-find').value||'').trim().toLowerCase();
+ const match=(q,...xs)=>!q||xs.some(x=>String(x||'').toLowerCase().includes(q));
+ const permTag=p=>!p.comment?'보기':(!p.edit?'코멘트만':'');
+ const ymd=d=>d?d.slice(2,4)+'.'+d.slice(4,6)+'.'+d.slice(6):'';
+ function drawTree(){ const q=findQ(), box=$('rv-tree'), act=!!(RVX.case||{}).active; box.textContent=''; let hits=0;
+  if(!act&&!q){ const n=document.createElement('div'), m=/^인도\s*(?:r(\d+))?/.exec((RVX.case||{}).stage||''), rev=m?(+m[1]||0):null, p2=x=>String(x).padStart(2,'0');
+   n.className='rv-ronote';
+   n.innerHTML='<div><b>보기 전용</b> — 코멘트는 리뷰를 연 보고서만 받습니다</div>'
+    +(rev!==null?'<div class="rv-rosub">인도된 보고서(r'+p2(rev)+')입니다. 열면 개정 작업이 되고 다음 인도는 r'+p2(rev+1)+'입니다 — 인도본은 그대로 둡니다</div>':'')
+    +'<button class="rv-openrv" type="button">'+(rev!==null?'개정으로 리뷰 열기':'이 보고서 리뷰 열기')+'</button>';
+   n.querySelector('button').onclick=ev=>openReview(ev.currentTarget,rev!==null); box.appendChild(n) }
+  GROUPS.forEach(([g,lab])=>{ const ds=(RVX.docs||[]).filter(d=>d.group===g&&match(q,d.label,d.sub,d.title,d.doc)); if(!ds.length)return;
+   hits+=ds.length;
+   const tags=[...new Set(ds.map(d=>permTag(d.perm)))], gtag=act&&tags.length===1?tags[0]:'';   // 무리 전체가 같으면 머리에 한 번만
+   const tog=g==='research'&&!q&&!DOC.startsWith('research/'), open=!tog||get('rv-res-open',false);
+   const h=document.createElement(tog?'button':'div'); h.className='rv-grp'+(tog?' tog':'');
+   h.innerHTML='<span class="t">'+esc(lab)+'</span><span class="n">'+ds.length+'</span>'+(gtag?'<span class="gp">'+LOCK+esc(gtag)+'</span>':'')+(tog?'<span class="cv'+(open?' up':'')+'">'+CHEV+'</span>':'');
+   if(tog){h.onclick=()=>{put('rv-res-open',!open); drawTree()}; h.setAttribute('aria-expanded',open)}
+   box.appendChild(h); if(!open)return;
+   const list=document.createElement('div'); list.className=g==='stage'?'rv-steps':'rv-docs'; box.appendChild(list);
+   ds.forEach(d=>{ const a=document.createElement('a'), on=d.doc===DOC, tag=act&&!gtag?permTag(d.perm):'', n=openCount(d.doc);
+    a.className=(g==='stage'?'rv-step':'rv-doc')+(on?' on':''); a.href=docURL(d.doc); a.title=d.title||d.label;
+    a.innerHTML=(g==='stage'?'<span class="dot">'+esc(d.num)+'</span>':'')
+     +'<span class="tx"><span class="lb">'+(g!=='stage'&&d.num?'<span class="nb">'+esc(d.num)+'</span>':'')+esc(d.label)+'</span>'+(d.sub?'<span class="sb">'+esc(d.sub)+'</span>':'')+'</span>'
+     +(tag?'<span class="pm">'+LOCK+esc(tag)+'</span>':'')+(n?'<span class="rv-cnt" title="처리 전 코멘트">'+n+'</span>':'');
+    if(on)a.setAttribute('aria-current','page'); list.appendChild(a) }) });
+  if(!hits){const e=document.createElement('div'); e.className='rv-empty'; e.textContent='이 보고서에 맞는 문서가 없습니다'; box.appendChild(e)}
+  const other=last.filter(x=>x.type==='feedback'&&!mine(x)&&(x.status==='sent'||x.status==='delivered')).length;
+  $('rv-b-nav').textContent=other||'' }
+ // 리뷰 열기 — 인도된 보고서는 한 번 더 눌러야 열린다(개정 착수: 서버가 초안 스냅샷을 남긴다)
+ async function openReview(btn,revise){
+  if(revise&&!btn.dataset.armed){ btn.dataset.armed='1'; btn.textContent='한 번 더 누르면 개정으로 엽니다';
+   setTimeout(()=>{ if(btn.isConnected&&!btn.disabled){delete btn.dataset.armed; btn.textContent='개정으로 리뷰 열기'} },5000); return }
+  btn.disabled=true; let r={};
+  try{ r=await post('/api/activate',{revise:!!revise}) }catch(e){ r={error:'서버에 닿지 않습니다'} }
+  if(r.ok){ put('rv-opened',1); location.reload(); return }
+  btn.disabled=false; delete btn.dataset.armed; toast(r.error||'열지 못했습니다',true) }
+ // 보고서 바꾸기 — 버튼 아래 떠 있는 목록(서랍 배치는 그대로). 찾기 칸에 쓰면 문서 아래 '다른 보고서'로 함께 거른다.
+ let hubCache=null;
+ const caseMeta=c=>[ymd(c.date),c.time].filter(Boolean).join(' ');
+ function drawCaseBtn(){ const c=RVX.case||{}, b=$('rv-case'); b.querySelector('.nm').textContent=c.title||c.name||''; b.title=(c.name||'')+' — 다른 보고서로 바꾸기';
+  b.querySelector('.mt').innerHTML=esc(caseMeta(c))+(c.active?'<span class="st on">리뷰 중</span>':'<span class="st">보기 전용</span>') }
+ function caseRow(c){ const c0=RVX.case||{}, cur=c.date===c0.date&&c.name===c0.name, a=document.createElement('a');
+  a.className='rv-caserow'+(cur?' on':''); a.href=c.url; a.title=c.name; a.setAttribute('role','option'); a.setAttribute('aria-selected',cur);
+  a.innerHTML='<span class="nm">'+esc(c.title||c.name)+'</span><span class="mt">'+esc(caseMeta(c)+' · '+c.stage)+'</span>'
+   +'<span class="rt">'+(c.active?'<span class="st on">리뷰 중</span>'+(c.cli==='none'?'<span class="st warn" title="처리할 Claude 세션 없음 — 코멘트는 쌓아 둠">CLI 없음</span>':''):'')+(c.open?'<span class="rv-cnt" title="처리 전 코멘트">'+c.open+'</span>':'')+'</span>';
+  return a }
+ function drawCases(){ const box=$('rv-cases'); box.textContent='';
+  if(!hubCache){box.innerHTML='<div class="rv-empty">불러오는 중…</div>'; return}
+  const h=document.createElement('div'); h.className='rv-cashead'; h.textContent='보고서 '+hubCache.length+'건 · 리뷰 중 먼저, 최근 순'; box.appendChild(h);
+  hubCache.forEach(c=>box.appendChild(caseRow(c))) }
+ function drawCaseHits(){ const q=findQ(), box=$('rv-casehits'), rows=q?(hubCache||[]).filter(c=>match(q,c.title,c.name,c.date)):[];
+  box.textContent=''; box.hidden=!rows.length; if(!rows.length)return;   // 맞는 보고서가 없으면 자리를 차지하지 않는다
+  const hd=document.createElement('div'); hd.className='rv-shead'; hd.textContent='다른 보고서 '+rows.length; box.appendChild(hd);
+  rows.forEach(c=>box.appendChild(caseRow(c))) }
+ async function loadCases(){ if(!hubCache){try{hubCache=(await (await fetch('/api/hub',{cache:'no-store'})).json()).cases||[]}catch(e){hubCache=[]}} drawCases(); drawCaseHits() }
+ function showCases(on){ $('rv-cases').hidden=!on; $('rv-case').setAttribute('aria-expanded',on); $('rv-case').classList.toggle('open',on); if(on)loadCases() }
+ $('rv-case').onclick=ev=>{ev.stopPropagation(); showCases($('rv-cases').hidden)};
+ document.addEventListener('click',ev=>{ if(!$('rv-cases').hidden&&!(ev.target.closest&&ev.target.closest('.rv-navcase')))showCases(false) });
+ $('rv-find').oninput=()=>{ showCases(false); drawTree(); if(findQ()&&!hubCache)loadCases(); else drawCaseHits() };
+ $('rv-find').onkeydown=ev=>{ if(ev.key==='Enter'){const a=document.querySelector('#rv-tree a, #rv-casehits a'); if(a)location.href=a.href}
+  if(ev.key==='Escape'&&findQ()){ev.stopPropagation(); ev.target.value=''; ev.target.dispatchEvent(new Event('input'))} };
+ document.addEventListener('keydown',ev=>{ const t=ev.target; if(ev.metaKey||ev.ctrlKey||ev.altKey||(t.closest&&t.closest('input,textarea,select,[contenteditable="true"]')))return;
+  if(ev.key!=='['&&ev.key!==']')return; const ds=RVX.docs||[], i=ds.findIndex(d=>d.doc===DOC), j=i+(ev.key===']'?1:-1);
+  if(i>=0&&j>=0&&j<ds.length){ev.preventDefault(); location.href=docURL(ds[j].doc)} });
+ // 쪽 나눔 미리보기 — 실제로 그려진 높이를 한글 본문 높이(247mm)로 나눈다. 붙임은 새 쪽에서 시작한다.
+ function paginate(){
+  document.querySelectorAll('.rv-pb').forEach(x=>x.remove());
+  if(DOCMODE){layoutNotes(); return}
+  const probe=document.createElement('div'); probe.style.cssText='position:absolute;visibility:hidden;height:247mm'; document.body.appendChild(probe);
+  const H=probe.getBoundingClientRect().height; probe.remove(); if(!H)return;
+  let total=0; const per=[];
+  pagesEl().forEach(sec=>{ const top=parseFloat(getComputedStyle(sec).paddingTop), base=sec.getBoundingClientRect().top+top;
+   const blks=[...sec.children].filter(c=>c.classList.contains('blk')); const lastB=blks[blks.length-1];
+   const h=lastB?lastB.getBoundingClientRect().bottom-base:0, n=Math.max(1,Math.ceil((h-2)/H)); per.push(n);
+   for(let k=1;k<n;k++){const d=document.createElement('div'); d.className='rv-pb'; d.style.top=(top+k*H)+'px'; d.innerHTML='<span>'+(total+k+1)+'쪽</span>'; sec.appendChild(d)}
+   total+=n });
+  const detail='본문 '+per[0]+(per.length>1?' · 붙임 '+per.slice(1).join('·'):'');
+  $('rv-pages-n').innerHTML='<b style="color:var(--rv-ink)">'+total+'쪽</b> · '+detail; $('rv-pages-big').textContent=total+'쪽';
+  $('rv-pages').textContent='본문 '+per[0]+'쪽'+(per.length>1?' · '+per.slice(1).map((n,i)=>'붙임'+(i+1)+' '+n+'쪽').join(' · '):'');
+  layoutNotes() }
+ // 갱신 — 주기 요청 없이 서버가 보낼 때만(SSE). 화면은 CLI '반영 완료'(refresh·resolve) 때 바뀐 항목만 온다.
+ function fullReload(){saveCompose(); put('rv-y',window.scrollY); location.reload()}
+ const hms=()=>new Date().toTimeString().slice(0,8);
+ const RV=window.__RV||{}; let ver=RV.ver||null, boot=RV.boot||null, ui=null;
+ const frag=h=>{const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild};
+ function afterSwap(changedAddrs){
+  const now=snap(); if(changedAddrs.length){changed=changedAddrs; put('rv-changed',changed)}
+  changedAddrs.forEach(a=>{const b=blockBy(a); if(b){b.classList.add('rv-chg'); setTimeout(()=>b.classList.remove('rv-chg'),7000)}});
+  put('rv-prev',now); drawChanged();
+  if(target&&target.addr&&target.addr!=='전체'){ const b=blockBy(target.addr);
+   if(b&&(!anchor||!anchor.el||!anchor.el.isConnected)){ if(HL)CSS.highlights.delete('rv-range'); if(selEl)selEl.classList.remove('rv-sel'); selEl=b; b.classList.add('rv-sel'); anchor={el:b,addr:target.addr} } }
+  drawList(); paginate(); $('rv-conn').textContent='갱신 '+hms() }
+ function applyPatch(d){
+  if(d.css){const os=document.head.querySelector('style'); if(os)os.textContent=d.css}
+  if(d.title){document.title=d.title+' — 리뷰'; $('rv-title').textContent=d.title}
+  if(d.all){ const olds=pagesEl(), at=olds[0]||$('rv-bar'); d.all.forEach(h=>document.body.insertBefore(frag(h),at)); olds.forEach(o=>o.remove()) }
+  else{ const ps=pagesEl();
+   Object.keys(d.pages||{}).forEach(i=>{const o=ps[+i]; if(o)o.replaceWith(frag(d.pages[i]))});
+   const ps2=pagesEl();
+   (d.blocks||[]).forEach(x=>{const o=ps2[x.p]&&ps2[x.p].children[x.i]; if(o)o.replaceWith(frag(x.html))});
+   (d.lines||[]).forEach(x=>{const o=ps2[x.p]&&ps2[x.p].children[x.i]; if(o){o.id='L'+x.line; o.dataset.line=x.line}}) }
+  afterSwap(d.changed||[]) }
+ async function fullSwap(){
+  const nd=new DOMParser().parseFromString(await (await fetch(location.pathname,{cache:'no-store'})).text(),'text/html'), prev=snap();
+  const m=[...nd.scripts].map(x=>x.textContent.match(/window\.__RV=(\{.*?\});/)).find(Boolean); if(m){const r=JSON.parse(m[1]); ver=r.ver; boot=r.boot}
+  applyPatch({css:nd.head.querySelector('style').textContent, all:[...nd.querySelectorAll('body > section.page')].map(x=>x.outerHTML)});
+  const now=snap(); afterSwap(Object.keys(now).filter(a=>prev[a]!==now[a])) }
+ const setConn=(ok,t)=>{$('rv-dot').className=ok?'rv-dot':'rv-dot bad'; if(t)$('rv-conn').textContent=t};
+ const CLI_TXT={waiting:['CLI 대기 중','Claude 세션이 이 보고서의 코멘트를 기다리고 있습니다'],
+  working:['CLI 처리 중','Claude 세션이 앞서 받은 코멘트를 고치는 중입니다 — 새 코멘트는 다음 차례에 넘어갑니다'],
+  none:['CLI 없음 · 코멘트는 쌓아 둠','이 보고서를 처리하는 Claude 세션이 없습니다. 코멘트는 쌓아 두었다가 세션이 wait(여러 보고서면 wait --all)를 걸면 넘어갑니다']};
+ let cliState=null;
+ function setCli(c){ const el=$('rv-cli'); cliState=c&&c.state; const on=!!(RVX.case||{}).active&&!!cliState; el.classList.toggle('on',on); if(!on)return;
+  const t=CLI_TXT[cliState]||CLI_TXT.none; el.dataset.s=cliState; el.textContent=t[0]; el.title=t[1] }
+ const es=new EventSource(API('/api/events'));
+ es.addEventListener('hello',ev=>{ const d=JSON.parse(ev.data); setConn(true,/^갱신/.test($('rv-conn').textContent)?'':'연결됨');
+  if(ui!==null&&d.ui!==ui)return fullReload(); ui=d.ui;
+  last=d.items; drawList(); setCli(d.cli);
+  if(d.version!==ver||d.boot!==boot){boot=d.boot; fullSwap()} });
+ es.addEventListener('cli',ev=>setCli(JSON.parse(ev.data)));
+ es.addEventListener('items',ev=>{last=JSON.parse(ev.data); drawList()});
+ es.addEventListener('patch',ev=>{ const d=JSON.parse(ev.data);
+  if(d.from!==ver){fullSwap(); return}
+  applyPatch(d); ver=d.to });
+ es.onerror=()=>setConn(false,'연결 끊김 — 다시 잇는 중');
+ // 직접 수정 — 문장(□ ㅇ - ※·제목·발신·캡션)과 병합 없는 표의 칸. 두 번 누르거나 작성 카드의 '직접 고치기'.
+ const EDIT_KINDS=new Set(['title','sending','dae','yo','dash','cham','star','caption','other']);
+ const kindOf=b=>[...b.classList].find(c=>EDIT_KINDS.has(c)||c==='table'||c==='formula');
+ let toastT=null;
+ function toast(msg,warn){ const t=$('rv-toast'); t.textContent=msg; t.className='rv-ui on'+(warn?' warn':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='rv-ui',warn?6000:3000) }
+ let editing=null;
+ function endEdit(){ if(!editing)return; const e=editing; editing=null; if(e.box&&e.box.isConnected)e.box.remove(); if(e.hide&&e.hide.isConnected)e.hide.style.display=''; if(e.cell&&e.cell.isConnected){e.cell.classList.remove('rv-editing'); e.cell.innerHTML=e.cellHTML} }
+ function editorBox(fields,onSave){ const box=document.createElement('div'); box.className='rv-edit';
+  const row=document.createElement('div'); row.className='row';
+  if(fields.mark){const m=document.createElement('span'); m.className='mk'; m.textContent=fields.mark; row.appendChild(m)}
+  let lead=null; if(fields.lead!==null&&fields.lead!==undefined){lead=document.createElement('input'); lead.value=fields.lead; lead.setAttribute('aria-label','굵은 머리말'); row.appendChild(lead)}
+  const ta=document.createElement('textarea'); ta.value=fields.body; ta.setAttribute('aria-label','본문'); row.appendChild(ta); box.appendChild(row);
+  const bar=document.createElement('div'); bar.className='bar';
+  bar.innerHTML='<span style="flex:1">⌘↵ 저장 · Esc 취소 — 기호·굵은 머리말 표기는 자동</span>';
+  const cancel=document.createElement('button'); cancel.className='cancel'; cancel.textContent='취소'; cancel.onclick=ev=>{ev.stopPropagation(); endEdit()};
+  const save=document.createElement('button'); save.className='save'; save.textContent='저장'; save.onclick=ev=>{ev.stopPropagation(); onSave(lead?lead.value:null,ta.value,save)};
+  bar.append(cancel,save); box.appendChild(bar);
+  const fit=()=>{ta.style.height='auto'; ta.style.height=ta.scrollHeight+2+'px'};
+  ta.addEventListener('input',fit); setTimeout(()=>{fit(); ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length)},0);
+  box.addEventListener('keydown',ev=>{ if((ev.metaKey||ev.ctrlKey)&&ev.key==='Enter'){ev.preventDefault(); onSave(lead?lead.value:null,ta.value,save)} if(ev.key==='Escape'){ev.stopPropagation(); endEdit()} });
+  return box }
+ async function saveEdit(payload,btn){ btn.disabled=true;
+  try{ const r=await fetch(BASE+'/api/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({doc:DOC},payload))}); const d=await r.json();
+   if(r.status===409){toast(d.error,true); endEdit(); return}
+   if(!r.ok){toast(d.error||'저장하지 못했습니다',true); btn.disabled=false; return}
+   if(!d.changed){endEdit(); return}
+   editing=null;                                   // 새 조각이 곧 들어온다(서버가 다시 그려 보낸다)
+   if(d.issues&&d.issues.length)toast('저장했습니다 — 검사: '+d.issues.slice(0,2).map(x=>x.rule+(x.message?' '+x.message:'')).join(' · '),true);
+   else toast('저장했습니다 — 초안에 반영하고 다시 그렸습니다');
+  }catch(e){toast('서버에 닿지 않습니다',true); btn.disabled=false} }
+ async function editPara(b){ endEdit(); const line=+b.dataset.line; if(!line)return;
+  const src=await (await fetch(API('/api/source?line='+line),{cache:'no-store'})).json(); if(src.error){toast(src.error,true); return}
+  const target_=b.querySelector('p,.titlebox h1')||b.querySelector('p'); const hide=b.querySelector('.titlebox')||target_; if(!hide)return;
+  const mk=(src.prefix||'').trim();
+  const box=editorBox({mark:mk,lead:src.lead,body:src.body},(lead,body,btn)=>saveEdit({kind:'para',line:src.line,raw:src.raw,lead:lead,body:body,addr:addrOf(b)},btn));
+  hide.style.display='none'; hide.after(box); editing={box:box,hide:hide} }
+ async function editCell(b,cell){ endEdit(); const table=cell.closest('table');
+  if(table.querySelector('[rowspan],[colspan]')){toast('병합된 표의 칸은 코멘트로 요청해 주세요',true); return}
+  const rows=[...table.querySelectorAll('tr')], tr=cell.parentElement, row=rows.indexOf(tr), col=[...tr.children].indexOf(cell);
+  const src=await (await fetch(API('/api/source?line='+b.dataset.line+'&row='+row+'&col='+col),{cache:'no-store'})).json(); if(src.error){toast(src.error,true); return}
+  const html=cell.innerHTML; cell.classList.add('rv-editing'); cell.innerHTML='';
+  const box=editorBox({body:src.text},(lead,body,btn)=>saveEdit({kind:'cell',line:src.line,raw:src.raw,col:src.col,text:body,addr:addrOf(b)},btn));
+  cell.appendChild(box); editing={box:box,cell:cell,cellHTML:html} }
+ function startEdit(b,el){ if(!PERM.edit){toast(PERM.comment?'이 문서는 직접 고칠 수 없습니다 — 코멘트로 요청해 주세요':'보기 전용 건입니다',true); return}
+  if(+(b.dataset.lines||1)>1){toast('여러 줄에 걸친 문단은 코멘트로 요청해 주세요',true); return}
+  const k=kindOf(b); if(!k){toast('이 항목은 코멘트로 요청해 주세요(도식·붙임 띠 등)',true); return}
+  const cell=el&&el.closest&&el.closest('td,th');
+  if(k==='table'||k==='formula'){ const c=cell||b.querySelector('td'); if(c)editCell(b,c); return }
+  editPara(b) }
+ document.addEventListener('dblclick',ev=>{ if(inUI(ev.target))return; const b=blkOf(ev.target); if(!b)return;
+  ev.preventDefault(); const s=getSelection(); if(s)s.removeAllRanges(); hidePick();
+  if($('rv-pop').classList.contains('on')&&!$('rv-text').value.trim())closePop();
+  startEdit(b,ev.target) });
+ $('rv-direct').onclick=ev=>{ev.stopPropagation(); const b=blockBy(target&&target.addr); if(!b){toast('고칠 항목을 먼저 눌러 주세요',true); return}
+  const el=anchor&&anchor.el; if(!$('rv-text').value.trim())closePop(); startEdit(b,el) };
+ // 시작
+ window.addEventListener('resize',layoutNotes);
+ drawChanged(); drawCaseBtn(); drawTree(); openDrawer(get('rv-drawer',null));
+ if(get('rv-opened',0)){ put('rv-opened',0); toast('이 보고서 리뷰를 열었습니다 — Claude 세션이 wait --all을 걸면 코멘트가 넘어갑니다') }
+ const cp=get('rv-compose',null);
+ if(cp){ $('rv-text').value=cp.text||''; setKind(cp.kind||'수정'); $('rv-scope').checked=cp.scope==='rule';
+  if(cp.target){ const t=cp.target; if(t.addr==='전체')openPop(t,{panel:true}); else{const el=blockBy(t.addr); if(el)openPop(t,{el:el,addr:t.addr})} } }
+ (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{ paginate();
+  try{const g=sessionStorage.getItem('rv-goto|'+BASE+'|'+DOC); if(g){sessionStorage.removeItem('rv-goto|'+BASE+'|'+DOC); goto(JSON.parse(g))}}catch(e){} });
+})();
+</script>

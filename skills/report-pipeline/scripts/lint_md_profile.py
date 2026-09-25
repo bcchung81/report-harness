@@ -35,6 +35,8 @@ CAPTION_NUM = re.compile(r"^\s*[\[<]\s*표\s*\d+\s*[.．]")
 ANNEX_DEFER = re.compile(r"[(（]\s*상세[^)）]*붙\s*임")
 # R051: ㅇ 괄호 리드가 2음절 추상어인 경우. (품 질)·(배 포)처럼 벌려쓴 형태와 (품질) 형태 모두.
 LEAD_SHORT = re.compile(r"^[ㅇ○]\s*\*{0,2}[(（]\s*([가-힣])\s*([가-힣])\s*[)）]")
+# R016: ㅇ 괄호 리드는 볼드로 쓴다 — `ㅇ (측정 기준) …`처럼 `**`를 빠뜨리면 hwpx·리뷰 모두 보통 굵기로 나간다.
+LEAD_PLAIN = re.compile(r"^[ㅇ○]\s*[(（][^)）]*[)）]")
 FOOTNOTE_MAX = 4   # R052: 용어 각주(＊ 선두 문단) 문서당 상한 — 초과분은 용어 자체를 업무언어로 교체
 
 # R046: 본문 날짜는 'yy.m월 월 단위. 4자리 연도 풀 표기를 금지한다.
@@ -64,6 +66,39 @@ CONNECTIVES = ("하고", "하며", "하여", "해서", "도록", "하고자", "�
 CONNECTIVE_MAX = 3
 
 
+# 원문 인용 블록 — ```text … ``` 사이 줄은 문법으로 읽지 않고 글자 그대로 싣는다('26.9.24 사용자 지시:
+# 프롬프트·지시문 원문을 마크다운 뷰어처럼 요약 없이). 린트·감사·변환 입력·대조가 이 함수들로 같은 경계를 쓴다.
+FENCE = re.compile(r"^\s*```\s*([\w-]*)\s*$")
+QUOTE_LANGS = ("", "text")
+QUOTE_MAX_LINES = 25   # 발췌 상한 — '26.9.24 사용자가 더 긴 발췌를 원해 15→25(실제 한도는 붙임 1쪽 안에 드는가)
+
+
+def quote_blocks(text):
+    """원문 인용 블록 목록 — [(여는 줄, 닫는 줄 또는 None, 언어, 안쪽 줄 수)] (줄 번호 1부터)."""
+    out, open_ = [], None
+    for i, line in enumerate(text.split("\n"), 1):
+        m = FENCE.match(line)
+        if not m:
+            continue
+        if open_ is None:
+            open_ = (i, m.group(1))
+        else:
+            out.append((open_[0], i, open_[1], i - open_[0] - 1))
+            open_ = None
+    if open_ is not None:
+        out.append((open_[0], None, open_[1], 0))
+    return out
+
+
+def mask_fences(text):
+    """인용 블록(울타리 줄 포함)을 빈 줄로 바꾼다 — 줄 번호는 그대로라 위반 위치가 어긋나지 않는다."""
+    lines = text.split("\n")
+    for start, end, _, _ in quote_blocks(text):
+        for k in range(start - 1, (end if end else len(lines))):
+            lines[k] = ""
+    return "\n".join(lines)
+
+
 def lint_text(text):
     out, bullet_run = [], 0
     footnote_run = 0    # 문서 전체 ＊ 각주 문단 수 (R052)
@@ -72,10 +107,20 @@ def lint_text(text):
     in_plan_section = False    # 현재 □ 블록이 '향후 계획'인가 (R059)
     conj = {}                  # 현재 □ 절의 연결어 카운트 (R057)
     conj_flagged = set()       # 절당 연결어별 1회만 보고
+    annex_lead = None          # 붙임 배너 직후 상태 — "sep": 배너 구분 행 대기, "next": 첫 내용 줄 대기 (R009)
 
     def close_section():
         conj.clear()
         conj_flagged.clear()
+
+    for start, end, lang, n in quote_blocks(text):          # 인용 블록 — 울타리 규칙만 보고 안쪽은 건너뛴다
+        if end is None:
+            out.append({"line": start, "rule": "quote-block-unclosed", "text": "``` 닫는 줄이 없다"})
+        elif lang not in QUOTE_LANGS:
+            out.append({"line": start, "rule": "quote-block-lang", "text": f"```{lang} — ```text만 쓴다"})
+        elif n > QUOTE_MAX_LINES:
+            out.append({"line": start, "rule": "quote-block-too-long", "text": f"{n}줄 — {QUOTE_MAX_LINES}줄 이내로 발췌"})
+    text = mask_fences(text)
 
     for i, line in enumerate(text.splitlines(), 1):
         if not line.strip():
@@ -93,6 +138,16 @@ def lint_text(text):
             yo_paren_lead = False
         elif stripped_[:1] in ("ㅇ", "○"):
             yo_paren_lead = bool(PAREN_LEAD_YO.match(stripped_))
+        # --- R009 붙임 배너 바로 뒤 ※ 금지 ('26.9.24 사용자 지시) ------------
+        # 붙임 도입 설명을 ※로 시작하면 배너 아래 단서만 덩그러니 남는다 — ㅇ 항목이나 표로 시작한다
+        if ANNEX_BANNER.match(stripped_):
+            annex_lead = "sep"
+        elif annex_lead == "sep" and set(stripped_) <= set("|-: "):
+            annex_lead = "next"
+        elif annex_lead:
+            if stripped_.startswith("※"):
+                out.append({"line": i, "rule": "annex-lead-note", "text": stripped_[:80]})
+            annex_lead = None
         # --- R046 날짜 풀 표기 (발신 줄 제외) ------------------------------
         if not SENDING.match(stripped_) and DATE_FULL.search(stripped_):
             out.append({"line": i, "rule": "date-full-form", "text": stripped_[:80]})
@@ -124,6 +179,8 @@ def lint_text(text):
             out.append({"line": i, "rule": "annex-crossref", "text": line.strip()[:80]})
         if LEAD_SHORT.match(line.strip()):
             out.append({"line": i, "rule": "lead-too-short", "text": line.strip()[:80]})
+        if LEAD_PLAIN.match(line.strip()):
+            out.append({"line": i, "rule": "lead-not-bold", "text": line.strip()[:80]})
         _b = line.strip()
         if _b[:1] in ("□", "ㅇ", "○", "-") and len(_b) > 2:
             _plain = _b.replace("**", "").replace("==", "")

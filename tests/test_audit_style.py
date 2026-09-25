@@ -146,7 +146,7 @@ def test_ending_repeat_detected():
 def test_ending_repeat_in_annex_exempt():
     """붙임(회의록·대조표)의 종결 반복은 자료 성격이라 R080 대상이 아니다.
 
-    R082가 audit_style violation 0을 초안 확정 조건으로 못박은 뒤로, 붙임 전수 데이터가
+    R074가 audit_style violation 0을 초안 확정 조건으로 못박은 뒤로, 붙임 전수 데이터가
     본문 산문 규칙에 걸려 게이트를 막는 구도였다 — article-in-body·confidence-tag와
     같은 층위의 제외로 맞춘다."""
     body = "".join(f" ㅇ **(항목 {n})** 상대 기관이 보유한 자료의 제공 조건을 회의에서 확인\n\n"
@@ -182,3 +182,45 @@ def test_varied_endings_pass():
            " ㅇ **(기관별 수요)** 업무 수요 표에서 비어 있는 상대 기관 쪽 항목을 보완\n")
     v, w = audit_text(doc)
     assert "ending-repeat" not in rules(v) and "ending-repeat" not in rules(w)
+
+
+# ---------------------------------------------------------------- 쉬운 말·두괄식 (R091)
+def _w(text):
+    import audit_style as au
+    return [x["rule"] for x in au.audit_text(text)[1]]
+
+
+BASE = "개선 추진 보고\n< '26. 9. 25.(목), 경영기획본부 AI디지털심화팀 >\n\n□ 개 요\n\n"
+
+
+def test_plain_words_come_from_style_guide_and_report_once_per_term():
+    import audit_style as au
+    assert au.PLAIN_WORDS.get("파생값") == "계산값" and "AI" in au.ABBR_OK
+    rules = _w(BASE + "ㅇ **(수집)** 파생값은 파생값 계산으로 처리\n\nㅇ **(검증)** 파생값을 대조\n")
+    assert rules.count("plain-word") == 1
+
+
+def test_annex_is_not_checked_for_plain_words():
+    text = BASE + "ㅇ **(수집)** 계산값을 모아 보고\n\n| 붙임 1 | | 상세 |\n| --- | --- | --- |\n\nㅇ **(구성)** 파생값·스크립트 사양\n"
+    assert "plain-word" not in _w(text)
+
+
+def test_abbreviation_needs_korean_explanation_once():
+    assert "abbr-unexplained" in _w(BASE + "ㅇ **(인정)** T1만 실적으로 인정\n")
+    assert "abbr-unexplained" not in _w(BASE + "ㅇ **(인정)** 시스템 기록(T1)만 실적으로 인정\n")
+    assert "abbr-unexplained" not in _w(BASE + "ㅇ **(인정)** AI 처리 건수로 인정\n")      # 허용 약어
+
+
+def test_clause_chain_and_history_and_background_lead():
+    chained = BASE + "ㅇ **(수집 착수)** 보존 기간을 조회해 범위를 정한 뒤, 기록지를 배포하고 수집 착수\n"
+    assert {"clause-chain", "history-narration"} <= set(_w(chained))
+    assert "lead-not-conclusion" in _w(BASE + "ㅇ **(추진 배경)** 그간 부서별로 따로 산정해 비교가 어려움\n")
+    assert "lead-not-conclusion" not in _w(BASE + "ㅇ **(측정 기준)** 18건을 4개 유형으로 나눠 성과를 보고\n")
+
+
+def test_skeleton_lists_section_titles_and_first_points():
+    import audit_style as au
+    sk = au.skeleton(BASE + "ㅇ **(결론)** 표준 기록으로 성과를 산정\n\nㅇ 둘째\n\n□ 향후 계획\n\nㅇ 10월 1차 산정\n\n"
+                     "| 붙임 1 | | 상세 |\n| --- | --- | --- |\n\n□ 붙임 절\n")
+    assert [x["section"] for x in sk] == ["개 요", "향후 계획"]
+    assert sk[0]["first"].startswith("ㅇ (결론) 표준 기록")

@@ -23,6 +23,8 @@ def load_config(path=None):
         "state_dir": p("state_dir", pathlib.Path.cwd() / ".report-harness"),
         "knowledge_vault": p("knowledge_vault", None),
         "template_hwpx": p("template_hwpx", None),
+        # 도식 이미지용 PC 폰트 폴더(맑은 고딕 등) — 기관 폰트는 저장소에 넣을 수 없어 설정으로 받는다
+        "font_dirs": [pathlib.Path(x).expanduser() for x in raw.get("font_dirs", [])],
         # 번들 자산(양식 원본·도식 Pool 경량 사본) — 설정 무관, 스킬 상대 경로 고정
         "assets_dir": ASSETS_DIR,
     }
@@ -34,7 +36,7 @@ def work_dir(config, slug, now=None):
     return d
 
 def history_paths(work_dir):
-    """건별 이력 폴더 규약 (R086) — 현행 산출물과 절대 겹치지 않는 자리.
+    """건별 이력 폴더 규약 (R087) — 현행 산출물과 절대 겹치지 않는 자리.
 
     `history/drafts/`는 아직 변환되지 않은 초안 스냅샷, `history/rNN_{시각}/`은 그 판본
     인도본을 만든 변환 세트다. 인도본 hwpx는 `final/`에 `rNN_YYYYMMDD_` 접두어로 쌓이므로

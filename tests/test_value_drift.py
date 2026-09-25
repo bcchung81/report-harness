@@ -99,11 +99,11 @@ def test_form_sizes_match_profile():
     산출한 '26.9.8 회귀 이후, 양식 값을 후처리가 되돌린다 — 그 값이 프로파일과 갈리면
     되돌린 결과 자체가 틀리므로 두 곳의 일치를 여기서 강제한다."""
     profile = _profile_text()
-    assert "| 문서 제목 | HY헤드라인M | 20pt |" in profile, "프로파일의 제목 20pt 행이 사라졌다"
+    assert "| 문서 제목 | HY헤드라인M | 24pt |" in profile, "프로파일의 제목 24pt 행이 사라졌다"
     assert "| □ (1단 제목) | HY헤드라인M | 15pt |" in profile, "프로파일의 □ 15pt 행이 사라졌다"
     assert "| ㅇ (2단 요지) | 휴먼명조 | 15pt |" in profile, "프로파일의 ㅇ 15pt 행이 사라졌다"
     assert "| - (3단 상세) | 휴먼명조 | 15pt |" in profile, "프로파일의 대시 15pt 행이 사라졌다"
-    assert ph.TITLE_BOX_SIZE_PT == 20
+    assert ph.TITLE_BOX_SIZE_PT == 24
     assert ph.FORM_SIZES_PT["dae"] == 15
     assert ph.FORM_SIZES_PT["yo"] == 15
     assert ph.FORM_SIZES_PT["dash"] == 15
@@ -169,3 +169,55 @@ def test_no_stale_line_length_claim():
             # 정정을 서술하는 문맥(R062 본문·표기 규약 안내)에서의 인용만 허용
             ok = any(k in line for k in ("R050", "정정", "→ R062", "오인"))
             assert ok, f"{p.name}에 폐기된 75자 기준이 유효 서술로 남아 있다: {line[:60]}"
+
+
+# ---------------------------------------------------------------- 도식 배색 (R090)
+_rd_spec = importlib.util.spec_from_file_location("rd_drift", ROOT / "skills/report-pipeline/scripts/render_diagram.py")
+rd = importlib.util.module_from_spec(_rd_spec)
+_rd_spec.loader.exec_module(rd)
+
+
+def _palette_rows():
+    """§8 도식 배색 표의 (상수, 값) — `STATUS.done`처럼 점 표기는 STATUS 사전의 채움 색."""
+    sec = _profile_text().split("## 8. 도식 배색", 1)[1]
+    return {m.group(1): m.group(2).upper()
+            for m in re.finditer(r"^\|[^|]+\|\s*`([A-Z_.a-z]+)`\s*\|\s*(#[0-9A-Fa-f]{6})\s*\|", sec, re.M)}
+
+
+def _code_color(name):
+    if name.startswith("STATUS."):
+        return rd.STATUS[name.split(".", 1)[1]][0].upper()
+    return getattr(rd, name).upper()
+
+
+def test_diagram_palette_matches_profile():
+    rows = _palette_rows()
+    assert len(rows) >= 14
+    diff = {k: (v, _code_color(k)) for k, v in rows.items() if _code_color(k) != v}
+    assert diff == {}, f"프로파일 ↔ render_diagram 배색 불일치: {diff}"
+
+
+def _lum(h):
+    h = h.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    f = lambda c: c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+
+
+def _contrast(a, b):
+    la, lb = sorted([_lum(a), _lum(b)], reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def test_diagram_palette_contrast_and_grayscale():
+    """글자를 얹는 조합은 4.5:1, 선·화살표는 흰 바탕 3:1, 비교·상태는 흑백에서도 갈린다(KRDS 원칙)."""
+    white, navy = "#FFFFFF", rd.NAVY
+    text_pairs = [(white, rd.BLUE_FILL), (white, rd.ACCENT), (navy, rd.HEAD), (navy, rd.HEAD_STRONG),
+                  (rd.OLD_TEXT, rd.HEAD_OLD), (navy, rd.ACCENT_SOFT)] + [(fg, bg) for bg, fg, _ in rd.STATUS.values()]
+    low = [(a, b, round(_contrast(a, b), 2)) for a, b in text_pairs if _contrast(a, b) < 4.5]
+    assert low == [], f"글자 명도대비 4.5:1 미달: {low}"
+    graphics = [rd.NAVY, rd.BLUE, rd.LINE, rd.ACCENT_LINE]
+    assert all(_contrast(c, white) >= 3.0 for c in graphics)
+    assert abs(_lum(rd.HEAD_OLD) - _lum(rd.HEAD_STRONG)) >= 0.15, "비교도 종전·개선 머리가 흑백에서 같아 보인다"
+    shades = sorted(_lum(bg) for bg, _, _ in rd.STATUS.values())
+    assert min(b - a for a, b in zip(shades, shades[1:])) >= 0.1, "일정 상태 3단계가 흑백에서 갈리지 않는다"

@@ -806,7 +806,7 @@ def test_space_hierarchy_prefix_and_flatten(tmp_path):
     assert "<hp:t>□ 절</hp:t>" in sec              # 0칸
     assert "<hp:t> ㅇ 요지</hp:t>" in sec           # 1칸
     assert "<hp:t>   - 상세</hp:t>" in sec          # 3칸
-    assert "<hp:t>     ＊ 각주</hp:t>" in sec       # 5칸 (star-footnote 미실행이라 텍스트만 확인)
+    assert "<hp:t>   ＊ 각주</hp:t>" in sec       # 3칸 (star-footnote 미실행이라 텍스트만 확인, R019 '26.9.24 정정)
     # 내어쓰기: ㅇ 문단 paraPr left=3000·intent=-3000 (랩 줄 자동 들여쓰기)
     import xml.etree.ElementTree as _ET
     with zipfile.ZipFile(str(p)) as z:
@@ -824,7 +824,7 @@ def test_space_hierarchy_prefix_and_flatten(tmp_path):
             kinds_seen[k] = margins.get(para.get("paraPrIDRef"), {})
     assert kinds_seen["yo"] == {"left": "0", "intent": "-3000"}
     assert kinds_seen["dash"] == {"left": "0", "intent": "-3750"}
-    assert kinds_seen["star"] == {"left": "0", "intent": "-5200"}
+    assert kinds_seen["star"] == {"left": "0", "intent": "-3900"}
 
 
 def test_page_margins_forced_to_template(tmp_path):
@@ -965,9 +965,9 @@ def test_arrow_hierarchy_spacing(tmp_path):
         hdr = ET.fromstring(z.read("Contents/header.xml"))
         sec = z.read("Contents/section0.xml").decode()
         sec_root = ET.fromstring(z.read("Contents/section0.xml"))
-    # ☞ 문단: ※·＊와 같은 5칸 선두 띄어쓰기
-    assert "<hp:t>     ☞ 결론 유도 문장</hp:t>" in sec
-    # 내어쓰기: left=0·intent=-6000 (15pt 본문 4글자 폭)
+    # ☞ 문단: ※·＊와 같은 3칸 선두 띄어쓰기(R019 '26.9.24 정정)
+    assert "<hp:t>   ☞ 결론 유도 문장</hp:t>" in sec
+    # 내어쓰기: left=0·intent=-4500 (15pt 본문 3글자 폭)
     margins = {}
     for pp in hdr.iter(ph.qn("hh", "paraPr")):
         m = pp.find(ph.qn("hh", "margin"))
@@ -977,7 +977,7 @@ def test_arrow_hierarchy_spacing(tmp_path):
                                      if m.find(ph.qn("hc", t)) is not None}
     for para in sec_root.iter(ph.qn("hp", "p")):
         if ph.classify(para) == "arrow":
-            assert margins[para.get("paraPrIDRef")] == {"left": "0", "intent": "-6000"}
+            assert margins[para.get("paraPrIDRef")] == {"left": "0", "intent": "-4500"}
 
 
 def test_classify_arrow():
@@ -1672,7 +1672,7 @@ def test_superscript_star_splits_run_and_keeps_footnote_plain(tmp_path):
     # (3) 각주 문단(선두 ＊)은 run 분리도 위첨자 charPr 배정도 없음 — 평문 유지
     foot = _runs_of_para(sec, "＊ 바이브코딩")
     assert len(foot) == 1
-    assert foot[0][0] == "     ＊ 바이브코딩 : AI 보조 개발 방식"  # R025 5칸만 붙음
+    assert foot[0][0] == "   ＊ 바이브코딩 : AI 보조 개발 방식"  # R019·R025 3칸만 붙음
     assert sup[foot[0][1]] is False
 
 
@@ -1873,7 +1873,7 @@ def test_form_sizes_restores_form_values(tmp_path):
     assert summary["form_sizes"]["runs_changed"] > 0
     assert summary["form_sizes"]["title_runs_changed"] == 1
     h = _heights_by_text(str(p))
-    assert h["문서 제목"] == ph.TITLE_BOX_SIZE_PT * 100 == 2000
+    assert h["문서 제목"] == ph.TITLE_BOX_SIZE_PT * 100 == 2400
     assert h["□ 추진 배경"] == ph.FORM_SIZES_PT["dae"] * 100 == 1500
     assert h["   - 상세 문장"] == ph.FORM_SIZES_PT["dash"] * 100 == 1500
 
@@ -1968,8 +1968,8 @@ def test_column_fit_does_not_narrow_the_content_column(tmp_path):
     `구 분 | 담당 | 내 용` 표는 기관 보고서의 전형인데, 종전 상한 60%가 kordoc이 이미
     74%를 준 내용 열을 끌어내리고 그만큼을 라벨 열에 얹었다('26.9.10 실측 35315→28515).
     내용 비례 배분이 목적인 단계가 정률 상한과 싸운 것이다. 지금은 하한이 '가장 긴 셀이
-    한 줄에 들어갈 폭'이고 상한은 다른 열의 하한 합에서 자연히 생긴다 — 적정한 표는
-    아예 손대지 않는 것이 정답이다."""
+    한 줄에 들어갈 폭'이고 상한은 다른 열의 하한 합에서 자연히 생긴다. '26.9.24부터는 리뷰 화면과
+    같은 폭을 내려고 항상 맞추므로(허용오차 0.001), 내용 열이 의미 있게 줄지 않는지만 본다."""
     widths = [4144, 8064, 35315]
     texts = [["구 분", "담당", "내 용"],
              ["도입", "기획팀", "기관 내부 업무 처리 절차를 단계별로 나누어 점검하고 병목 구간을 개선 과제로 정리"],
@@ -1979,7 +1979,7 @@ def test_column_fit_does_not_narrow_the_content_column(tmp_path):
     summary = ph.process_file(str(p), star=False, spacing=True)
     detail = summary["column_fit"]["detail"]
     after = detail[0]["after"] if detail else widths
-    assert after[2] >= widths[2], "내용 열이 오히려 좁아졌다"
+    assert after[2] >= widths[2] * 0.98, "내용 열이 오히려 좁아졌다"
     assert after[2] == max(after)
 
 
@@ -1989,22 +1989,12 @@ def test_column_floors_keep_longest_cell_on_one_line():
     회귀 대상: 하한을 머리글로만 잡아 `과제 10`이 `과제`/`10`으로, `No`가 `N`/`o`로
     쪼개졌다('26.9.10 렌더 실측). _weighted_len은 줄 길이 판정용(ASCII 0.5)이라
     열 폭 하한에 쓰면 영문 머리글을 과소평가한다."""
-    section = _column_fit_section([3627, 5878, 38018],
-                                  [["No", "과제명", "내 용"],
-                                   ["1", "과제 1", "긴 서술" * 20],
-                                   ["20", "과제 10", "긴 서술" * 20]])
-    root = ET.fromstring(section)
-    tbl = next(t for t, _ in ph._iter_content_tables([root]))
-    rows = tbl.findall(ph.qn("hp", "tr"))
+    texts = [["No", "과제명", "내 용"], ["1", "과제 1", "긴 서술" * 20], ["20", "과제 10", "긴 서술" * 20]]
     total = 3627 + 5878 + 38018
-    floors = ph._column_floors(rows, 3, total)
-    assert floors[0] * total >= ph._cell_width_hu("No") + ph.COL_FIT_CELL_PAD
-    assert floors[1] * total >= ph._cell_width_hu("과제 10") + ph.COL_FIT_CELL_PAD
-    assert floors[2] == ph.COL_FIT_FLOOR_MAX, "긴 서술 열의 하한은 상한선에서 잘린다"
-    shares = ph._fit_shares([1.0, 3.5, 47.0], floors)
-    assert abs(sum(shares) - 1.0) < 1e-9
-    assert all(sh >= f - 1e-9 for sh, f in zip(shares, floors))
-    assert shares[2] == max(shares)
+    shares = ph.column_shares(texts, total)
+    assert shares[0] * total >= ph._cell_width_hu("No") + ph.COL_FIT_CELL_PAD
+    assert shares[1] * total >= ph._cell_width_hu("과제 10") + ph.COL_FIT_CELL_PAD
+    assert abs(sum(shares) - 1.0) < 1e-9 and shares[2] == max(shares)   # 긴 서술 열은 비례로 가장 큰 몫
 
 
 def test_column_fit_is_idempotent(tmp_path):
@@ -2230,3 +2220,335 @@ def test_title_box_form_reports_skip_reason(tmp_path):
     assert first["title_box_form"]["skipped"] is None
     second = ph.process_file(str(p), star=False, spacing=True)
     assert second["title_box_form"]["skipped"] == "already_restored"
+
+
+# ── apply_figure_fit (R088) ─────────────────────────────────────────────────
+# kordoc은 그림 크기를 1px = 75 HU로 잡는다 — 픽셀을 줄여 맞추면 인쇄 해상도가 96dpi로 떨어진다.
+
+def _png(w, h, dpi=None):
+    import struct, zlib
+    def chunk(tag, body):
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body))
+    out = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+    if dpi:
+        ppm = int(round(dpi / 0.0254))
+        out += chunk(b"pHYs", struct.pack(">IIB", ppm, ppm, 1))
+    return out + chunk(b"IDAT", b"") + chunk(b"IEND", b"")
+
+
+def _kordoc_pic(ref, w_px, h_px):
+    """kordoc gen-image 산출형 — orgSz=curSz=sz = px × 75(170mm 초과 시 폭 기준 축소)."""
+    w, h = w_px * 75, h_px * 75
+    if w > 48189:
+        h, w = round(h * 48189 / w), 48189
+    return (f'<hp:pic id="1" zOrder="0" numberingType="PICTURE" textWrap="TOP_AND_BOTTOM">'
+            f'<hp:offset x="0" y="0"/><hp:orgSz width="{w}" height="{h}"/><hp:curSz width="{w}" height="{h}"/>'
+            f'<hp:rotationInfo angle="0" centerX="{w // 2}" centerY="{h // 2}" rotateimage="1"/>'
+            f'<hp:renderingInfo><hc:transMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/>'
+            f'<hc:scaMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/>'
+            f'<hc:rotMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/></hp:renderingInfo>'
+            f'<hc:img binaryItemIDRef="{ref}"/>'
+            f'<hp:sz width="{w}" widthRelTo="ABSOLUTE" height="{h}" heightRelTo="ABSOLUTE" protect="0"/>'
+            f'<hp:pos treatAsChar="1" horzAlign="LEFT"/></hp:pic>')
+
+
+def _figure_case(pics):
+    """(header, section, data) — pics는 [(ref, 픽셀 폭, 높이, dpi)] 각각 그림만 든 문단."""
+    paras = "".join(f'<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0">{_kordoc_pic(r, w, h)}'
+                    f'</hp:run></hp:p>' for r, w, h, _ in pics)
+    sec = _fit_section(paras)
+    header = ET.fromstring(HEADER_XML.encode("utf-8"))
+    items = "".join(f'<opf:item id="{r}" href="BinData/{r}.png" media-type="image/png" isEmbeded="1"/>'
+                    for r, *_ in pics)
+    data = {"Contents/content.hpf": f'<opf:package xmlns:opf="x"><opf:manifest>{items}</opf:manifest></opf:package>'.encode()}
+    data.update({f"BinData/{r}.png": _png(w, h, d) for r, w, h, d in pics})
+    return header, sec, data
+
+
+def _pic_size(sec, n=0):
+    pic = list(sec.iter(ph.qn("hp", "pic")))[n]
+    cur, sz = pic.find(ph.qn("hp", "curSz")), pic.find(ph.qn("hp", "sz"))
+    assert (cur.get("width"), cur.get("height")) == (sz.get("width"), sz.get("height"))
+    return int(cur.get("width")), int(cur.get("height")), pic
+
+
+def test_figure_fit_keeps_pixels_and_caps_height():
+    """1257×768px(96dpi) 원본: kordoc이 170×104mm로 둔 것을 90mm 높이 상자로 줄이고 217dpi 유지."""
+    header, sec, data = _figure_case([("fig", 1257, 768, 96)])
+    r = ph.apply_figure_fit(header, [sec], data)
+    assert r["figures"] == 1 and r["low_res"] == 0
+    d = r["detail"][0]
+    assert d["mm"] == [147.3, 90.0] and d["effective_dpi"] == 217 and d["sharp"] is True
+    w, h, pic = _pic_size(sec)
+    assert h == int(round(90 * ph.HU_PER_MM))
+    sca = pic.find(ph.qn("hp", "renderingInfo")).find(ph.qn("hc", "scaMatrix"))
+    org = pic.find(ph.qn("hp", "orgSz"))
+    assert sca.get("e1") == f"{w / int(org.get('width')):.6f}"   # 파생 캐시 재계산(R042 위생)
+
+
+def test_figure_fit_flags_downsampled_copy():
+    """종전 방식(556px로 축소)은 같은 크기에서 96dpi — low_res로 보고한다."""
+    header, sec, data = _figure_case([("small", 556, 340, None)])
+    r = ph.apply_figure_fit(header, [sec], data)
+    assert r["low_res"] == 1 and r["detail"][0]["effective_dpi"] == 96
+
+
+def test_figure_fit_uses_embedded_dpi_and_never_enlarges():
+    """300dpi로 만든 1417px 도식은 120mm 그대로 — 상자보다 작으면 키우지 않는다."""
+    header, sec, data = _figure_case([("dg", 1417, 600, 300)])
+    r = ph.apply_figure_fit(header, [sec], data)
+    assert r["detail"][0]["mm"] == [120.0, 50.8] and r["detail"][0]["effective_dpi"] == 300
+
+
+def test_figure_fit_width_below_body_minus_slack():
+    """폭 상한은 본문 폭 - 1mm(R042) — 2000px 300dpi 도식(169.3mm)은 여유 안으로 줄인다."""
+    header, sec, data = _figure_case([("wide", 2000, 800, 300)])
+    ph.apply_figure_fit(header, [sec], data)
+    w, _, _ = _pic_size(sec)
+    assert w <= TEXT_W - ph.FIT_PAGE_SLACK
+
+
+def test_figure_fit_centers_paragraph_with_single_spacing():
+    """그림 문단은 가운데 정렬·줄간격 100%(R041 — 160%면 그림 높이의 60%가 빈 줄로 남는다)."""
+    header, sec, data = _figure_case([("fig", 1257, 768, 96)])
+    ph.apply_figure_fit(header, [sec], data)
+    p = [q for q in sec.findall(ph.qn("hp", "p")) if q.find(f".//{ph.qn('hp', 'pic')}") is not None][0]
+    pp = [x for x in header.iter(ph.qn("hh", "paraPr")) if x.get("id") == p.get("paraPrIDRef")][0]
+    assert pp.find(ph.qn("hh", "align")).get("horizontal") == "CENTER"
+    assert pp.find(ph.qn("hh", "lineSpacing")).get("value") == "100"
+
+
+def test_figure_fit_idempotent():
+    header, sec, data = _figure_case([("fig", 1257, 768, 96)])
+    ph.apply_figure_fit(header, [sec], data)
+    first = _pic_size(sec)[:2]
+    n_pp = len(list(header.iter(ph.qn("hh", "paraPr"))))
+    ph.apply_figure_fit(header, [sec], data)
+    assert _pic_size(sec)[:2] == first
+    assert len(list(header.iter(ph.qn("hh", "paraPr")))) == n_pp   # 재실행 시 paraPr을 더 늘리지 않는다
+
+
+def test_figure_fit_ignores_pictures_in_tables():
+    """표 셀 안 그림(배너 로고 등)은 R042 apply_fit_page_width 소관이라 건드리지 않는다."""
+    sec = _fit_section(_fit_tbl("9700001", 40000, 0, 0, [20000, 20000], extra=PIC_XML))
+    header = ET.fromstring(HEADER_XML.encode("utf-8"))
+    r = ph.apply_figure_fit(header, [sec], {})
+    assert r["figures"] == 0
+
+
+def test_image_pixels_formats():
+    import struct
+    assert ph.image_pixels(_png(640, 480))[:2] == (640, 480)
+    assert round(ph.image_pixels(_png(640, 480, 300))[2]) == 300
+    jfif = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\x00\x01\x01\x01" + struct.pack(">HH", 200, 200) + b"\x00\x00"
+    sof = b"\xff\xc0" + struct.pack(">HBHHB", 11, 8, 600, 800, 1) + b"\x01\x11\x00"
+    assert ph.image_pixels(b"\xff\xd8" + jfif + sof + b"\xff\xd9") == (800, 600, 200)
+    assert ph.image_pixels(b"GIF89a" + struct.pack("<HH", 32, 16) + bytes(8)) == (32, 16, None)
+    bmp = b"BM" + bytes(16) + struct.pack("<ii", 100, -50) + bytes(12) + struct.pack("<i", 11811) + bytes(8)
+    w, h, dpi = ph.image_pixels(bmp)
+    assert (w, h, round(dpi)) == (100, 50, 300)
+    with pytest.raises(ValueError):
+        ph.image_pixels(b"\x00\x01\x02\x03" * 8)
+
+
+def test_figure_between_caption_and_table_survives(tmp_path):
+    """캡션 → 그림 → 산식 박스 순서에서 그림 문단이 지워지지 않는다('26.9.24 실측 결함).
+
+    종전에는 그림 문단이 'empty'로 판정돼 캡션 내장이 빈 줄로 보고 지웠다."""
+    pic = _kordoc_pic("figA", 1997, 641)
+    section = SECTION_XML.replace(
+        '<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>[ 표 제목 ]</hp:t></hp:run></hp:p>',
+        '<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>[ 그림 제목 ]</hp:t></hp:run></hp:p>'
+        f'<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0">{pic}</hp:run></hp:p>').replace(
+        'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">',
+        'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core">', 1)
+    sec = ET.fromstring(section.encode("utf-8"))
+    header = ET.fromstring(HEADER_XML.encode("utf-8"))
+    pic_p = [p for p in sec.findall(ph.qn("hp", "p")) if p.find(f".//{ph.qn('hp', 'pic')}") is not None][0]
+    assert ph.classify(pic_p) == "figure"
+    r = ph.apply_caption_embed(header, [sec])
+    assert r["embedded"] == 0 and r["orphan_captions"] == 1       # 캡션은 그림 위에 남는다
+    assert len(list(sec.iter(ph.qn("hp", "pic")))) == 1            # 그림 보존
+    run_cp = pic_p.find(ph.qn("hp", "run")).get("charPrIDRef")
+    ph.apply_spacing(header, [sec])
+    assert pic_p.find(ph.qn("hp", "run")).get("charPrIDRef") == run_cp   # 스페이서로 바뀌지 않는다
+
+
+def test_figure_spacing_follows_table_transitions():
+    assert ph.transition_for("caption", "figure") == ph.TRANSITIONS[("caption", "table")]
+    assert ph.transition_for("figure", "cham") == ph.TRANSITIONS[("table", "cham")]
+    assert ph.transition_for("yo", "figure") == ph.TRANSITIONS[("yo", "table")]
+
+
+def test_figure_caption_styled_and_kept_with_figure():
+    """그림 위 캡션은 가운데 정렬·다음 문단과 함께 — 캡션만 쪽 끝에 남지 않게 한다."""
+    header, sec, data = _figure_case([("fig", 1257, 768, 96)])
+    cap = ET.fromstring(f'<hp:p xmlns:hp="{NS["hp"]}" paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0">'
+                        f'<hp:t>[ 그림 제목 ]</hp:t></hp:run></hp:p>')
+    fig_p = [p for p in sec.findall(ph.qn("hp", "p")) if ph.classify(p) == "figure"][0]
+    sec.insert(list(sec).index(fig_p), cap)
+    r = ph.apply_figure_fit(header, [sec], data)
+    assert r["captions_styled"] == 1
+    pp = [x for x in header.iter(ph.qn("hh", "paraPr")) if x.get("id") == cap.get("paraPrIDRef")][0]
+    assert pp.find(ph.qn("hh", "align")).get("horizontal") == "CENTER"
+    assert pp.find(ph.qn("hh", "breakSetting")).get("keepWithNext") == "1"
+    assert ph.transition_for("figure", "table") == ("figure_to_table", ph.FIGURE_AFTER_GAP)
+    assert ph.transition_for("banner", "table") == ("banner_to_table", ph.ANNEX_BANNER_GAP) == ("banner_to_table", 800)
+    assert ph.transition_for("banner", "yo") == ("banner_to_yo", 800)
+    assert ph.transition_for("figure", "yo") == ("figure_to_yo", ph.FIGURE_AFTER_GAP)
+
+
+# ── apply_table_merge — 2단 머리행·〃 세로 병합·라벨 열 ('26.9.24 경영관리 프레임워크 틀) ──────
+
+def _merge_tbl(rows, bold_first=False):
+    """kordoc 산출형 표 — 행마다 [(글자, header)], 칸 폭 1000·높이 500."""
+    trs = []
+    for r, row in enumerate(rows):
+        tcs = []
+        for c, text in enumerate(row):
+            hdr = "1" if r == 0 else "0"
+            cp = "1" if (bold_first and c == 0 and r > 0) else "0"
+            tcs.append(f'<hp:tc header="{hdr}" borderFillIDRef="1"><hp:subList><hp:p paraPrIDRef="0">'
+                       f'<hp:run charPrIDRef="{cp}"><hp:t>{text}</hp:t></hp:run></hp:p></hp:subList>'
+                       f'<hp:cellAddr colAddr="{c}" rowAddr="{r}"/><hp:cellSpan colSpan="1" rowSpan="1"/>'
+                       f'<hp:cellSz width="1000" height="500"/></hp:tc>')
+        trs.append("<hp:tr>" + "".join(tcs) + "</hp:tr>")
+    body = (f'<hp:p paraPrIDRef="0"><hp:run charPrIDRef="0"><hp:t>□ 제목</hp:t></hp:run></hp:p>'
+            f'<hp:p paraPrIDRef="0"><hp:run charPrIDRef="0"><hp:tbl rowCnt="{len(rows)}" colCnt="{len(rows[0])}">'
+            f'<hp:sz width="{1000 * len(rows[0])}" height="{500 * len(rows)}"/>{"".join(trs)}</hp:tbl></hp:run></hp:p>')
+    sec = ET.fromstring(f'<hs:sec xmlns:hs="{NS["hs"]}" xmlns:hp="{NS["hp"]}" xmlns:hc="{NS["hc"]}">{body}</hs:sec>')
+    header = ET.fromstring(HEADER_XML.encode("utf-8"))
+    cps = header.find(f".//{ph.qn('hh', 'charProperties')}")
+    import copy as _c
+    copy_bold = _c.deepcopy(next(cp for cp in cps.findall(ph.qn("hh", "charPr")) if cp.get("id") == "0"))
+    copy_bold.set("id", "1")
+    ET.SubElement(copy_bold, ph.qn("hh", "bold"))
+    cps.append(copy_bold)
+    return header, sec
+
+
+def _grid(sec):
+    tbl = next(sec.iter(ph.qn("hp", "tbl")))
+    out = []
+    for tr in tbl.findall(ph.qn("hp", "tr")):
+        out.append([(ph._cell_text(tc), tc.find(ph.qn("hp", "cellAddr")).get("rowAddr"),
+                     tc.find(ph.qn("hp", "cellAddr")).get("colAddr"), ph._span(tc)) for tc in tr.findall(ph.qn("hp", "tc"))])
+    return tbl, out
+
+
+def test_two_level_header_from_arrow_notation():
+    header, sec = _merge_tbl([["성과지표", "'23년 > 목표", "'23년 > 실적", "추진실적"], ["건수", "1", "2", "달성"]])
+    r = ph.apply_table_merge(header, [sec])
+    tbl, g = _grid(sec)
+    assert r["two_level_headers"] == 1 and tbl.get("rowCnt") == "3"
+    assert [(t, s) for t, _, _, s in g[0]] == [("성과지표", (1, 2)), ("'23년", (2, 1)), ("추진실적", (1, 2))]
+    assert [(t, rr, cc) for t, rr, cc, _ in g[1]] == [("목표", "1", "1"), ("실적", "1", "2")]
+    assert [rr for _, rr, _, _ in g[2]] == ["2"] * 4                      # 본문 행 주소가 한 칸 밀린다
+
+
+def test_ditto_merges_with_cell_above_and_label_column_shaded():
+    header, sec = _merge_tbl([["구분", "내용", "실적"], ["처리 건수", "a", "1"], ["〃", "b", "2"], ["정확도", "c", "3"]],
+                             bold_first=True)
+    r = ph.apply_table_merge(header, [sec])
+    tbl, g = _grid(sec)
+    assert r["ditto_merged"] == 1 and r["label_columns"] == 1
+    assert g[1][0][0] == "처리 건수" and g[1][0][3] == (1, 2) and len(g[2]) == 2       # 〃 칸은 사라지고 위 칸이 덮는다
+    fill = {bf.get("id"): bf for bf in header.iter(ph.qn("hh", "borderFill"))}
+    first = tbl.findall(ph.qn("hp", "tr"))[1].find(ph.qn("hp", "tc"))
+    wb = fill[first.get("borderFillIDRef")].find(f".//{ph.qn('hc', 'winBrush')}")
+    assert wb is not None and wb.get("faceColor") == ph.LABEL_FILL
+
+
+def test_table_merge_skips_plain_tables():
+    header, sec = _merge_tbl([["구분", "내용"], ["가", "나"]])
+    assert ph.apply_table_merge(header, [sec]) == {"two_level_headers": 0, "ditto_merged": 0, "label_columns": 0}
+
+
+# ── apply_line_fit (R062) — 내어쓰기·여러 run ─────────────────────────────────
+# '26.9.24 시험 변환 실측: 폭을 내어쓰기 없이 계산하고 첫 run(부호)만 조여, 2줄로 보고한 ㅇ 문단이
+# 한글에서 3줄이 됐다.
+
+def _line_fit_case(n):
+    base = re.search(r'<hh:charPr id="0".*?</hh:charPr>', HEADER_XML, re.S).group(0)
+
+    def variant(i, r, s):
+        return (base.replace('id="0"', f'id="{i}"').replace('<hh:ratio hangul="100"', f'<hh:ratio hangul="{r}"')
+                .replace('<hh:spacing hangul="0"', f'<hh:spacing hangul="{s}"'))
+    head = HEADER_XML.replace("</hh:charProperties>", variant(2, 97, -4) + variant(3, 100, -4) + "</hh:charProperties>")
+    hang = (re.search(r'<hh:paraPr id="0".*?</hh:paraPr>', head, re.S).group(0)
+            .replace('id="0"', 'id="1"').replace('<hc:intent value="0"', '<hc:intent value="-3000"'))
+    head = head.replace("</hh:paraProperties>", hang + "</hh:paraProperties>")
+    para = ('<hp:p paraPrIDRef="1" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t> ㅇ<hp:tab width="750" leader="0" type="1"/>'
+            '</hp:t></hp:run><hp:run charPrIDRef="2"><hp:t>(리드)</hp:t></hp:run>'
+            f'<hp:run charPrIDRef="3"><hp:t> {("가나 " * n).strip()}</hp:t></hp:run></hp:p>')
+    return ET.fromstring(head.encode("utf-8")), _fit_section(para)
+
+
+def test_line_fit_counts_hanging_indent_and_tightens_every_text_run():
+    header, sec = _line_fit_case(23)   # 전체 폭이면 2줄, 내어쓰기(30pt)를 빼고 어절로 채우면 3줄
+    r = ph.apply_line_fit(header, [sec])
+    assert r["fitted"] == 1 and r["overflow"] == 0
+    runs = list(sec.iter(ph.qn("hp", "run")))[1:]
+    got = [ph._charpr_metrics(header, run.get("charPrIDRef"))[1:] for run in runs]
+    assert got == [(100, 0), (97, -5), (100, -5)]   # 부호 칸은 그대로, 리드·본문은 함께(맞춤 여유 3% 포함)
+    assert ph.apply_line_fit(header, [sec])["fitted"] == 0      # 재실행 무변경
+
+
+def test_line_fit_leaves_paragraph_that_fits():
+    header, sec = _line_fit_case(20)
+    assert ph.apply_line_fit(header, [sec])["fitted"] == 0
+
+
+def test_sender_line_with_curly_quote_is_sending():
+    """kordoc은 곧은따옴표를 ’로 바꾼다 — 발신 줄이 캡션으로 떨어지지 않아야 한다(R012·R060)."""
+    for q in ("'", "’", ""):
+        p = ET.fromstring(f'<hp:p xmlns:hp="{NS["hp"]}"><hp:run><hp:t>&lt; {q}26. 9. 24.(목), 본부 팀 &gt;</hp:t></hp:run></hp:p>')
+        assert ph.classify(p) == "sending", q
+
+
+def test_line_fit_keeps_safety_margin_below_two_full_lines():
+    """경계(2.00줄)까지 채우지 않는다 — 추정 1.99줄 대시가 화면·한글에서 3줄이 됐다('26.9.24 게이트②)."""
+    avail, h = 444.4, 15.0
+    wl = 2 * avail / h * 0.99                 # 여유 없이 계산하면 2줄에 들어가는 길이
+    assert ph.lines_at(wl, avail, h, 100, 0) == 2
+    ratio, spacing = ph.fit_line(wl, avail, h, 100, 0)
+    assert (ratio, spacing) != (100, 0) and ph.lines_at(wl, avail * ph.FIT_SLACK, h, ratio, spacing) <= 2
+
+
+def test_lines_at_wraps_by_word():
+    """어절 단위 채움 — 줄 끝에 안 들어가는 어절은 다음 줄로 넘어가 빈자리를 남긴다."""
+    words = [4.0] * 7                          # 4글자 어절 7개 = 글자로는 31칸
+    assert ph.lines_at(31.0, 150, 15, 100, 0) == 4            # 한 줄 10칸 — 글자 단위면 4줄
+    assert ph.lines_at(31.0, 150, 15, 100, 0, words) == 4     # 어절 단위: 2어절(8.5칸)씩 → 4줄
+    assert ph.lines_at(31.0, 210, 15, 100, 0, words) == 3     # 한 줄 14칸: 3어절(13칸)씩 → 3줄(글자 단위면 3줄)
+    assert ph.lines_at(31.0, 190, 15, 100, 0, words) == 4     # 12.7칸: 2어절씩 → 4줄(글자 단위면 3줄)
+    assert ph.lines_at(31.0, 190, 15, 100, 0) == 3
+    assert ph.word_lens("검수·수정 시간") == [5.0, 2.0]        # 가운뎃점은 전각
+
+
+# ── apply_row_fit — 열 폭을 바꾼 뒤의 행 높이 ─────────────────────────────────
+
+def test_row_fit_rewrites_stale_heights_from_final_widths():
+    """kordoc은 생성 때 폭으로 높이를 적는다 — 열이 넓어진 뒤 남은 빈 줄만큼의 높이를 걷어낸다('26.9.24)."""
+    section = _column_fit_section([24000, 24000], [["구 분", "내 용"], ["가", "나" * 30]])
+    root = ET.fromstring(section)
+    tbl = next(t for t, _ in ph._iter_content_tables([root]))
+    for tc in tbl.iter(ph.qn("hp", "tc")):
+        tc.find(ph.qn("hp", "cellSz")).set("height", "6682")          # 옛 폭 기준 4줄 높이가 남아 있다
+    header = ET.fromstring(HEADER_XML.encode("utf-8"))
+    r = ph.apply_row_fit(header, [root])
+    hs = [max(int(tc.find(ph.qn("hp", "cellSz")).get("height")) for tc in tr.findall(ph.qn("hp", "tc")))
+          for tr in tbl.findall(ph.qn("hp", "tr"))]
+    assert hs[0] == ph.ROW_PAD_HU + ph.ROW_LINE_HU                  # 머리행 1줄
+    assert hs[1] == ph.ROW_PAD_HU + ph.ROW_LINE_HU * 2              # '나'×30 = 36000HU → 폭 22980에서 2줄
+    assert r["rows_changed"] == 2 and ph.apply_row_fit(header, [root])["rows_changed"] == 0
+
+
+def test_title_24pt_fits_one_line():
+    """제목 24pt('26.9.24 사용자 확정) — 한 줄에 안 들면 장평·자간을 조이고, 하한으로도 넘치면 두 줄(overflow)."""
+    assert ph.TITLE_BOX_SIZE_PT == 24
+    avail = ph.TITLE_TEXT_WIDTH_HU / 100
+    assert ph.fit_title("짧은 제목 보고", avail) == (100, 0, False)
+    r, s, over = ph.fit_title("AI 도입 전후 효과 분석 체계 마련 방안 요약 보고", avail)
+    assert not over and (r, s) != (100, 0) and r >= ph.MIN_RATIO and s >= ph.MIN_SPACING
+    assert ph.fit_title("아주 긴 제목이 들어가서 한 줄에 절대로 들어가지 못하는 경우의 보고서 제목 예시", avail)[2] is True

@@ -11,7 +11,10 @@
 - violations (exit 1): style-guide 철칙 위반이면서 오탐이 거의 없는 것
 - warnings  (exit 0): 문서 유형에 따라 합법일 수 있어 사람 확인이 필요한 것
 """
-import sys, json, re
+import sys, json, re, pathlib
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from lint_md_profile import mask_fences   # noqa: E402  (인용 블록 경계 단독 출처)
 
 # ── style-guide §2: 계층 부호 ────────────────────────────────────────────────
 LEAD = re.compile(r"^\s*(□|ㅇ|○|-|※|＊)\s")
@@ -61,6 +64,98 @@ CONFIDENCE_TAG = re.compile(r"\[(?:확정|추정)[^\]]*\]")
 # ── R077: 본문에 조문 번호를 나열하지 않는다(붙임 대조표로 배출) ────────────
 ARTICLE_NO = re.compile(r"제\d+조(?:의\d+)?(?:제\d+항)?(?:제\d+호(?:의\d+)?)?")
 
+# ── R091: 쉬운 말·두괄식 (style-guide §11 — 국어기본법 제14조, 국립국어원 「쉬운 공문서 쓰기 길잡이」) ──
+# 용어표·허용 약어는 style-guide.md가 단일 출처다(웹앱 사본에도 같은 파일이 실린다). 전부 warnings —
+# 문맥상 합법일 수 있어 사람이 판단한다. 대상은 본문(붙임 앞) 계층 문구뿐이다.
+STYLE_GUIDE = pathlib.Path(__file__).resolve().parent.parent / "references" / "style-guide.md"
+ABBR = re.compile(r"(?<![A-Za-z0-9])[A-Z][A-Z0-9&]+(?![A-Za-z0-9])")
+# 연결 어미(절 이음) — 쉼표 없이 잇는 경우가 많아 어미로 센다. '보고·참고'처럼 명사로 끝나는 말은 걸리지 않게
+# 동사 어미 형태(…하고·…해·…쳐·한 뒤)만 본다
+CLAUSE = re.compile(r"[가-힣]+(?:하고|하며|하여|되어|되고|되며|이며|으며|하되|지만|는데|면서|거나)(?=[\s,])"
+                    r"|[가-힣]{2,}해(?=[\s,])|[가-힣]+쳐(?=[\s,])|한 뒤|마친 뒤")
+HISTORY = re.compile(r"그간|그동안|기존에는|당초|거쳐|되짚어|한 뒤|마친 뒤|경위")
+BACKGROUND_START = re.compile(r"^(?:그간|그동안|기존|최근|현재|종전|당초|지난|앞서)")
+BACKGROUND_CLAUSE = re.compile(r"에 따라|에 따른|을 위해|를 위해|위하여|관련하여|과 관련|와 관련")
+NOUN_TOKEN = re.compile(r"^[가-힣0-9·]{2,}$")
+NOT_BARE = ("을", "를", "이", "가", "은", "는", "의", "에", "로", "와", "과", "도", "만", "서", "고", "며", "해",
+            "여", "게", "지", "한", "할", "된", "될", "인", "적", "등", "함", "음", "임", "됨", "및", "며")
+NOUN_CHAIN = 5
+LEAD_PAREN = re.compile(r"^\s*(?:ㅇ|○|-|※)\s*(?:\([^)]*\)\s*)?")
+
+
+def load_plain_words(path=STYLE_GUIDE):
+    """style-guide §11 용어표·허용 약어 — ({쓰지 않을 말: 바꿀 말}, 허용 약어 집합). 파일이 없으면 빈 값."""
+    try:
+        t = pathlib.Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return {}, set()
+    words = {}
+    m = re.search(r"<!-- plain-words -->(.*?)<!-- /plain-words -->", t, re.S)
+    if m:
+        for row in re.finditer(r"^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|", m.group(1), re.M):
+            k, v = row.group(1), row.group(2)
+            if k != "쓰지 않을 말" and not set(k) <= set("-: "):
+                words[k] = v
+    a = re.search(r"^허용 약어:\s*(.+)$", t, re.M)
+    return words, ({x.strip() for x in a.group(1).split(",")} if a else set())
+
+
+PLAIN_WORDS, ABBR_OK = load_plain_words()
+
+
+def _noun_run(text):
+    """조사·어미 없이 이어진 명사 어절의 최장 구간(길잡이 49쪽 '명사 나열')."""
+    best, cur = [], []
+    for tok in text.split():
+        bare = NOUN_TOKEN.match(tok) and not tok.endswith(NOT_BARE)
+        cur = cur + [tok] if bare else []
+        if len(cur) > len(best):
+            best = cur
+    return best
+
+
+def _plain_checks(i, body, w, words_seen, abbr_seen):
+    """R091 — 한 계층 문구(이어진 줄 포함)의 쉬운 말 검사. 용어·약어는 문서 단위로 모아 끝에서 1건씩."""
+    text = LEAD_PAREN.sub("", body)
+    for k in PLAIN_WORDS:
+        n = text.count(k)
+        if n:
+            words_seen.setdefault(k, [i, 0])[1] += n
+    for m in ABBR.finditer(text):
+        ab = m.group(0)
+        if ab in ABBR_OK or ab in abbr_seen:
+            continue
+        before, after = text[:m.start()], text[m.end():]
+        explained = bool(re.search(r"[가-힣]\s*\(\s*$", before) and after.lstrip().startswith(")")) \
+            or bool(re.match(r"\s*\([가-힣]", after))
+        abbr_seen[ab] = (i, explained)
+    n = len(CLAUSE.findall(text)) + len(re.findall(r"\s및\s", text))
+    if n >= 2:
+        w.append({"line": i, "rule": "clause-chain", "text": f"한 문장에 이음 {n + 1}개 — 나눠 쓴다: {text[:50]}"})
+    run = _noun_run(text)
+    if len(run) >= NOUN_CHAIN:
+        w.append({"line": i, "rule": "noun-chain", "text": " ".join(run)[:60]})
+    h = HISTORY.search(text)
+    if h:
+        w.append({"line": i, "rule": "history-narration", "text": f"'{h.group(0)}' — 경위보다 결과·판단을: {text[:50]}"})
+
+
+def skeleton(text):
+    """되말하기 점검용 뼈대 — 본문 □ 제목과 각 절 첫 ㅇ(R091, 길잡이 56쪽 환언 검사)."""
+    out, cur = [], None
+    for i, line in enumerate(mask_fences(text).split("\n"), 1):
+        s = line.strip()
+        if ANNEX_BANNER.match(s):
+            break
+        m = SECTION.match(s)
+        if m:
+            cur = {"section": _strip_markup(m.group(1)), "line": i, "first": ""}
+            out.append(cur)
+        elif cur is not None and not cur["first"] and re.match(r"^(ㅇ|○)\s", s):
+            cur["first"] = _strip_markup(s)
+    return out
+
+
 # ── R076: 절 서사 순위 — 앞 순위가 뒤 순위보다 뒤에 오면 역전 ──────────────
 SECTION_RANK = {
     "추진 배경": 1, "검토 배경": 1, "개 요": 1, "개요": 1,
@@ -97,7 +192,8 @@ def _flush_endings(section_endings, v, w):
 
 
 def audit_text(text: str):
-    """(violations, warnings) 두 목록을 돌려준다."""
+    """(violations, warnings) 두 목록을 돌려준다. 원문 인용 블록(```text) 안은 원문 그대로라 감사하지 않는다."""
+    text = mask_fences(text)
     lines = text.split("\n")
     v, w = [], []
     in_annex = False
@@ -116,6 +212,8 @@ def audit_text(text: str):
 
     # 2. 절 제목·종결어미·조문 표기
     section_endings = {}
+    words_seen, abbr_seen = {}, {}      # R091 — 문서 단위로 모아 끝에서 1건씩
+    first_yo = False                    # R091 — 절 첫 ㅇ 두괄식 검사 대기
     for i, line in enumerate(lines, 1):
         stripped = line.strip()
         if ANNEX_BANNER.match(stripped):
@@ -136,6 +234,7 @@ def audit_text(text: str):
                 w.append({"line": i, "rule": "section-title-offpool", "text": raw[:80]})
             if not in_annex and key in SECTION_RANK:
                 ranks.append((i, key, SECTION_RANK[key]))
+            first_yo = not in_annex
             continue
 
         if ARTICLE_SYMBOL.search(stripped):
@@ -156,6 +255,14 @@ def audit_text(text: str):
                     break
                 buf += " " + s
             body = _strip_markup(buf)
+            if not in_annex:
+                _plain_checks(i, body, w, words_seen, abbr_seen)
+                if first_yo and re.match(r"^(ㅇ|○)\s", stripped):
+                    first_yo = False
+                    lead = LEAD_PAREN.sub("", body)
+                    if BACKGROUND_START.match(lead) or BACKGROUND_CLAUSE.search(lead.split(",")[0][:25]):
+                        w.append({"line": i, "rule": "lead-not-conclusion",
+                                  "text": f"절 첫 ㅇ가 배경·경위로 시작 — 결론을 먼저: {lead[:50]}"})
             if QUOTED_TAIL.search(body) or ENDING_EXEMPT.search(body):
                 continue
             if BAD_ENDING.search(body):
@@ -167,6 +274,11 @@ def audit_text(text: str):
                 # 같은 종결이 겹치는 것은 자료 성격이지 문장 습관이 아니다.
                 section_endings.setdefault(em.group(1), []).append(i)
     _flush_endings(section_endings, v, w)
+    for k, (line, n) in words_seen.items():            # R091 — 용어별 1건
+        w.append({"line": line, "rule": "plain-word", "text": f"'{k}' {n}회 → '{PLAIN_WORDS[k]}'"})
+    for ab, (line, explained) in abbr_seen.items():
+        if not explained:
+            w.append({"line": line, "rule": "abbr-unexplained", "text": f"'{ab}' — 처음 한 번 우리말로 풀어 쓴다"})
     # R076: 서사 순위 역전
     for (l1, k1, r1), (l2, k2, r2) in zip(ranks, ranks[1:]):
         if r2 < r1:
@@ -181,14 +293,18 @@ def audit_text(text: str):
 
 if __name__ == "__main__":
     # exit 계약: 0 통과(경고만 있어도 0) / 1 철칙 위반 / 2 인자·파일 오류
-    if len(sys.argv) != 2:
-        print("usage: audit_style.py <draft.md>", file=sys.stderr)
+    args = [a for a in sys.argv[1:] if a != "--skeleton"]
+    if len(args) != 1:
+        print("usage: audit_style.py <draft.md> [--skeleton]", file=sys.stderr)
         sys.exit(2)
     try:
-        src = open(sys.argv[1], encoding="utf-8").read()
+        src = open(args[0], encoding="utf-8").read()
     except OSError as e:
         print(f"error: {e}", file=sys.stderr)
         sys.exit(2)
+    if "--skeleton" in sys.argv:        # 되말하기 점검용 뼈대(R091) — 감사 없이 출력만
+        print(json.dumps({"skeleton": skeleton(src)}, ensure_ascii=False, indent=1))
+        sys.exit(0)
     viol, warn = audit_text(src)
     print(json.dumps({"violations": viol, "warnings": warn},
                      ensure_ascii=False, indent=1))
