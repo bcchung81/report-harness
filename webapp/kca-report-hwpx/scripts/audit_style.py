@@ -37,6 +37,14 @@ NOUN_ENDING_OK = {
     "게임", "프레임", "타임", "처음", "다음", "마음", "소음", "녹음", "발음", "모음", "이음", "얼음", "웃음", "믿음", "물음"}
 
 
+def external_citation(line):
+    """외부 자료를 인용한 줄인가 — 외부 주체(국가·국제기구·기관 약칭·자료명 「…」)와 근거어가 함께 있어야 한다.
+    자료명은 법령명·짧은 강조(「잠정」)가 아닐 때만 주체로 보고, 근거어는 「…」 밖에서만 찾는다(제목 속 '기준'·'70%')."""
+    titles = [t for t in DOC_TITLE.findall(line) if len(t.strip()) >= 5 and not LAW_TITLE.search(t.strip())]
+    rest = DOC_TITLE.sub(" ", line)
+    return bool((titles or EXTERNAL_ENTITY.search(rest)) and EVIDENCE.search(rest))
+
+
 def _source_count(line):
     """출처 줄에 적힌 자료 수 — ';'로 나눈 칸과 「자료명」 수 중 큰 값."""
     body = SOURCE_LINE.sub("", line)
@@ -78,6 +86,7 @@ SECTION_POOL = {
 }
 # 절 제목에 붙는 (안)·번호 등을 떼고 비교한다.
 SECTION_NUM = re.compile(r"^\s*[0-9IVXⅠ-Ⅹ]+\s*[.．]\s*")
+SECTION_SUFFIX = re.compile(r"\s*[①-⑳]\s*(?:[:：].*)?$|\s*[:：].*$")
 # 붙임 배너(style-guide §8, 3열 표) 이후의 □는 붙임 내부 구조라 본문 절 어휘 풀 대상이 아니다.
 ANNEX_BANNER = re.compile(r"^\s*\|\s*붙\s*임")
 
@@ -109,9 +118,16 @@ NOUN_CHAIN = 5
 LEAD_PAREN = re.compile(r"^\s*(?:ㅇ|○|-|※)\s*(?:\([^)]*\)\s*)?")
 # R092 — 외부 자료 인용 ※ 줄은 출처 줄(`※ 자료: 기관, 「자료명」(연도), 쪽`)을 단다. '26.9.25 1127 검증에서 외부 인용 5건 중
 # 규격 출처 줄이 0건이었다(METR·영국 정부는 기관명만, 정부 원문 산식은 출처 없음). 오탐 여지가 있어 warnings.
-SOURCE_LINE = re.compile(r"^\s*※\s*자료\s*:")
+SOURCE_LINE = re.compile(r"^\s*※\s*(?:자료|출처)\s*:")
 NOTE_LINE = re.compile(r"^\s*※\s*(?:주|단|참고|비고)\s*[:：,)]")   # 인용에 붙는 단서 줄 — 새 인용이 아니다
-EXTERNAL_CUE = re.compile(r"「[^」]+」|\([A-Z][A-Za-z0-9]+\)|미국|영국|일본|독일|프랑스|캐나다|중국|EU|OECD|해외|국외|동종")
+# 외부 인용 = 외부 주체 + 근거어, 두 신호가 함께 있을 때만('26.9.25 운영 초안 14건 재점검: 한 신호로 보면 내부 약호
+# '(T3)'·'(REJ)', 법령명 「…법률」, 강조 괄호 「잠정」, 내부 문서 「… 방안」 참조, 국가명만 든 판단 문장까지 잡아 12건이 오탐)
+EXTERNAL_ENTITY = re.compile(r"미국|영국|일본|독일|프랑스|캐나다|중국|호주|싱가포르|(?<![A-Za-z])(?:EU|OECD|UN|IMF)(?![A-Za-z])|"
+                             r"세계은행|해외|국외|동종|(?:기관|기구|연구소|연구원|협회|위원회|대학|정부)\s*\([A-Z][A-Za-z0-9]{2,}\)")
+EVIDENCE = re.compile(r"연구|조사|실험|통계|보고서|백서|논문|설문|발표|사례|실적|규칙|기준|방법론|가이드|평가|분석|추정|전망|"
+                      r"\d+(?:\.\d+)?\s*(?:%|배)")
+DOC_TITLE = re.compile(r"「([^」]+)」")
+LAW_TITLE = re.compile(r"(?:법|법률|령|규칙|규정|지침|고시|훈령|예규|조례)$")   # 법령은 이름이 곧 출처다
 INLINE_SOURCE = re.compile(r"「[^」]+」.*'\d{2}.*\d+쪽")      # 문장 안에 자료명·연도·쪽이 모두 있으면 출처 줄로 본다
 HIER_LEAD = re.compile(r"^\s*(□|ㅇ|○|-)\s")
 
@@ -263,6 +279,7 @@ def audit_text(text: str):
                 v.append({"line": i, "rule": "section-numbered", "text": raw[:80]})
             key = SECTION_NUM.sub("", raw)
             key = re.sub(r"\(안\)\s*$", "", key).strip()
+            key = SECTION_SUFFIX.sub("", key).strip()       # '검토 결과 ① : 부제' → '검토 결과'(풀 어휘 + 번호·부제)
             if not in_annex and key not in SECTION_POOL:
                 w.append({"line": i, "rule": "section-title-offpool", "text": raw[:80]})
             if not in_annex and key in SECTION_RANK:
@@ -281,7 +298,7 @@ def audit_text(text: str):
 
         if SOURCE_LINE.match(stripped):     # 출처 줄은 자료명(원어 제목·약칭)이라 쉬운 말·종결 검사 대상이 아니다
             continue
-        if stripped.startswith("※") and EXTERNAL_CUE.search(stripped) and not INLINE_SOURCE.search(stripped):
+        if stripped.startswith("※") and external_citation(stripped) and not INLINE_SOURCE.search(stripped):
             sourced, later = False, 0
             for nxt in lines[i:]:           # 다음 ㅇ·□·대시 전까지(표·도식 캡션을 건너) 출처 줄을 찾는다
                 s = nxt.strip()
@@ -292,7 +309,7 @@ def audit_text(text: str):
                     break
                 if HIER_LEAD.match(s) or ANNEX_BANNER.match(s):
                     break
-                if s.startswith("※") and EXTERNAL_CUE.search(s) and not NOTE_LINE.match(s):
+                if s.startswith("※") and external_citation(s) and not NOTE_LINE.match(s):
                     later += 1              # 뒤 인용 — 그 출처 줄이 이 인용 것까지 적었는지는 자료 수로 가린다
             if not sourced:
                 w.append({"line": i, "rule": "source-line-missing",

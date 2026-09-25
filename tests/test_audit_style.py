@@ -323,3 +323,33 @@ def test_common_nouns_ending_in_ham_im_pass():
     for ok in ("화물 운임", "위원 비상임", "민원 보관함", "담당 주임"):
         v, _ = audit_text(BASE + f"ㅇ **(측정 기준)** 산정 대상은 {ok}\n")
         assert "ending-forbidden" not in rules(v), ok
+
+
+def test_internal_codes_laws_and_emphasis_are_not_external_citations():
+    """외부 인용은 외부 주체 + 근거어가 함께 있을 때만 — 운영 초안 14건 재점검에서 12건이 오탐이었다('26.9.25):
+    내부 약호 괄호, 법령명, 강조 괄호, 내부 문서 참조, 국가명만 든 판단, '※ 출처:' 줄."""
+    fp = ("※ 구조화 설문·만족도(T3)는 반기 1회 수집하되 실적의 단독 근거로 불인정",
+          "※ 상담·응답형 과제의 반려(REJ)는 답변 오류로 재응답이 필요했던 건",
+          "※ 「인공지능 및 데이터 기반 행정 활성화에 관한 법률」('26.8월 시행)은 현황 제출만 규율",
+          "※ 처리 건수 30건 미만 과제는 순절감을 「잠정」으로 표기해 다음 분기에 재산출",
+          "※ 실무 상세는 「측정·산출 기준(안) 상세본」 별도 참조",
+          "※ \"프랑스 제품\"도 \"중국 제품\"도 단독으로는 부정확하며, 인증 요건은 어느 쪽에나 동일",
+          "※ 출처: 디지털플랫폼정부위원회, 「공공부문 초거대 AI 도입·활용 가이드라인 2.0」('25.4월) 그림 14")
+    for line in fp:
+        assert "source-line-missing" not in _w(BASE + line + "\n"), line
+    tp = ("※ 재작업 소요는 음(-)의 절감으로 계상해 상쇄(영국 기업통상부 조정 규칙 준용)",
+          "※ 해당 업체는 국내 24건·미국 80건의 인증 실적 보유",
+          "※ 「2024 공공부문 AI 실태조사」에서 도입률 38%")
+    for line in tp:
+        assert "source-line-missing" in _w(BASE + line + "\n"), line
+
+
+def test_numbered_section_with_subtitle_uses_pool_word():
+    """'□ 검토 결과 ① : 부제'는 풀 어휘 '검토 결과'에 번호·부제가 붙은 것이다('26.9.25 운영 초안 재점검 — 4건 오탐)."""
+    for title in ("검토 결과 ① : 발송 제품은 동일", "검토 결과 ②", "검토 결과: 요약"):
+        _, w = audit_text(f"점검 결과 보고\n< '26. 9. 25.(금), 경영기획본부 AI디지털심화팀 >\n\n□ {title}\n\n"
+                          "ㅇ **(판단)** 두 제품의 인증 요건이 같아 추가 시험 없이 도입 가능\n")
+        assert "section-title-offpool" not in rules(w), title
+    _, w = audit_text("점검 결과 보고\n< '26. 9. 25.(금), 경영기획본부 AI디지털심화팀 >\n\n□ 작성 개요\n\n"
+                      "ㅇ **(판단)** 두 제품의 인증 요건이 같아 추가 시험 없이 도입 가능\n")
+    assert "section-title-offpool" in rules(w)
