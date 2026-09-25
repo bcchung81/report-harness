@@ -82,7 +82,8 @@ Claude Code를 실행한 뒤 프롬프트에 순서대로 입력한다.
 ```
 
 까지 입력했을 때 `report-research` · `report-analyze` · `report-draft` · `report-export` ·
-`report-doctor` 5종이 자동완성에 뜨면 커맨드가 붙은 것이다.
+`report-doctor` · `report-review` 6종이 자동완성에 뜨면 커맨드가 붙은 것이다. `/report-review`는 아웃라인·초안을
+라이브 리뷰어(`http://127.0.0.1:3333/`)로 여는 커맨드다 — 인자가 없으면 가장 최근 작업폴더를 연다.
 
 **설치 직후 `/report-doctor`를 한 번 돌리는 것을 권한다.** 실행 환경·스크립트·규약·인증과
 kordoc MCP 연결까지 순서대로 점검하고 막힌 지점을 지목한다 — 특히 **kordoc이 연결되지 않으면

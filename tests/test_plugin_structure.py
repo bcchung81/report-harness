@@ -97,7 +97,7 @@ def test_skill_docs_call_scripts_via_skill_dir():
 
 def test_commands_and_bundle():
     for c in ["report-research", "report-analyze", "report-draft", "report-export",
-              "report-doctor"]:
+              "report-doctor", "report-review"]:
         assert (ROOT / "commands" / f"{c}.md").is_file()
     assert (ROOT / "skills/humanizer/SKILL.md").is_file()
 

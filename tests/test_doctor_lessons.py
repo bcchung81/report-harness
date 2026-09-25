@@ -63,3 +63,21 @@ def test_kordoc_recovery_command_uses_the_pinned_version(tmp_path):
     """자가진단의 복구 명령은 `.mcp.json`에 고정된 kordoc 버전을 쓴다 — 못 읽으면 버전 없이."""
     assert doctor.kordoc_package().startswith("kordoc@")
     assert doctor.kordoc_package(tmp_path) == "kordoc"
+
+
+def test_installed_copy_check_covers_user_commands(tmp_path):
+    """사용자 커맨드 폴더에 하네스 커맨드 사본이 있으면 빠진 것·다른 것도 경고한다('26.9.25: /report-export 사본이
+    후처리 문구가 빠진 옛 판, /report-doctor 미등록)."""
+    repo, inst = tmp_path / "repo", tmp_path / "skills"
+    (repo / "commands").mkdir(parents=True)
+    (repo / "commands" / "report-export.md").write_text("new", encoding="utf-8")
+    (repo / "commands" / "report-review.md").write_text("r", encoding="utf-8")
+    files = ["commands/report-export.md", "commands/report-review.md"]
+    assert doctor.installed_copy_check(repo, inst, files) is None                   # 커맨드 사본을 쓰지 않는 환경
+    (tmp_path / "commands").mkdir()
+    (tmp_path / "commands" / "report-export.md").write_text("old", encoding="utf-8")
+    out = doctor.installed_copy_check(repo, inst, files)
+    assert out["상태"] == doctor.WARN and "2개" in out["값"] and "commands" in out["조치"]
+    (tmp_path / "commands" / "report-export.md").write_text("new", encoding="utf-8")
+    (tmp_path / "commands" / "report-review.md").write_text("r", encoding="utf-8")
+    assert doctor.installed_copy_check(repo, inst, files)["상태"] == doctor.OK

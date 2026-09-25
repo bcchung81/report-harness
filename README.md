@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.6.1-green.svg)
+![version](https://img.shields.io/badge/version-0.6.2-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -256,7 +256,7 @@ report-harness/
 │   │   └── scripts/verify_claims.py   패널이 지어낸 수치·오귀속 검출
 │   └── humanizer/           윤문 — AI 문체 흔적 제거 (MIT © DaleSeo)
 │
-├── commands/                슬래시 커맨드 6종
+├── commands/                슬래시 커맨드 7종
 ├── hooks/                   안전망 훅 2종 — hwpx 검증 우회 차단 · 초안(20_draft.md) 린트
 │
 ├── webapp/kca-report-hwpx/  ★ 웹앱 배포판 원본 — MCP 없이 자립
@@ -319,13 +319,14 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 | `"이어서 해줘"` | 마지막 작업폴더를 찾아 그 지점부터 |
 
 단계를 직접 짚고 싶으면 `/report-research` · `/report-analyze` · `/report-draft` ·
-`/report-export`를 쓴다. 진단은 `/report-doctor`. 보고서 짜임새만 점검하고 싶으면 `"이 아웃라인 설계 점검해줘"` —
+`/report-export`를 쓴다. 진단은 `/report-doctor`, 리뷰 화면을 직접 열 때는 `/report-review`. 보고서 짜임새만 점검하고 싶으면 `"이 아웃라인 설계 점검해줘"` —
 `report-writing` 스킬이 목적·결론·근거 구조 지침(`report-craft.md`)으로 본다.
 
 게이트①·②의 아웃라인과 초안은 **라이브 리뷰어**(`http://127.0.0.1:3333`)에서 본다. 한글 양식에 가깝게(쪽 경계·예상
 쪽수) 그려진 문서에서 문단을 골라 코멘트를 남기면 CLI가 받아 고치고, 고친 항목만 화면에 다시 그린다. 외부로 나가는
 전송은 없다. 리뷰어를 띄우지 않을 때도 초안 렌더러가 변환 뒤 후처리와 같은 식으로 예상 쪽수를 내서, 분량이 넘치는지
-승인 전에 안다.
+승인 전에 안다. 게이트 밖에서 다시 보고 싶으면 `/report-review`로 연다 — 인자가 없으면 가장 최근 건,
+`all`이면 리뷰 중인 건 전부, `닫기`면 그 건의 리뷰를 닫는다.
 
 ## 시작하기
 

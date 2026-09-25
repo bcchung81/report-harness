@@ -162,21 +162,34 @@ def installed_copy_check(repo=None, installed=None, files=None):
     """저장소의 하네스 스킬과 `~/.claude/skills` 사본이 같은가 — 다르면 새 세션이 옛 하네스로 돈다.
 
     '26.9.15 설치본에 factcheck.md가 없어 게이트①이 참조를 못 한 사고가 있었다. 저장소 체크아웃(.git)에서 돌릴 때만
-    본다 — 플러그인 설치나 사본 안에서 돌리면 비교할 원본이 없어 None. files는 테스트용(기본: git ls-files skills).
-    대상 스킬은 저장소 `skills/`의 하위 폴더 전부다 — 이름 목록을 따로 두면 새 스킬(cross-verify)이 빠졌다(리뷰 #2)."""
+    본다 — 플러그인 설치나 사본 안에서 돌리면 비교할 원본이 없어 None. files는 테스트용(기본: git ls-files skills commands).
+    대상 스킬은 저장소 `skills/`의 하위 폴더 전부다 — 이름 목록을 따로 두면 새 스킬(cross-verify)이 빠졌다(리뷰 #2).
+    커맨드도 본다(`installed` 옆 `commands/`) — 사용자 커맨드 폴더에 하네스 커맨드가 하나라도 있으면 사본을 쓰는 환경으로
+    보고, 빠진 커맨드·다른 커맨드를 센다('26.9.25: `/report-export` 사본이 후처리 단계 문구가 빠진 옛 판이었고
+    `/report-doctor`는 등록돼 있지 않았다)."""
     repo = pathlib.Path(repo) if repo else ROOT
     installed = pathlib.Path(installed) if installed else pathlib.Path.home() / ".claude" / "skills"
     if files is None:
         if not (repo / ".git").exists():
             return None
         try:
-            files = subprocess.run(["git", "-C", str(repo), "ls-files", "--", "skills"],
+            files = subprocess.run(["git", "-C", str(repo), "ls-files", "--", "skills", "commands"],
                                    capture_output=True, text=True, timeout=20).stdout.splitlines()
         except Exception:
             return None
     stale, present = [], False
+    commands = installed.parent / "commands"
+    cmd_names = [pathlib.PurePosixPath(f).name for f in files if pathlib.PurePosixPath(f).parts[:1] == ("commands",)]
+    uses_cmds = commands.is_dir() and any((commands / n).exists() for n in cmd_names)
     for f in files:
         parts = pathlib.PurePosixPath(f).parts
+        if parts[:1] == ("commands",) and len(parts) == 2:
+            if uses_cmds:
+                present = True
+                copy = commands / parts[1]
+                if not copy.is_file() or copy.read_bytes() != (repo / f).read_bytes():
+                    stale.append(f)
+            continue
         if len(parts) < 3 or parts[0] != "skills" or not (installed / parts[1]).is_dir():
             continue
         present = True
@@ -188,7 +201,7 @@ def installed_copy_check(repo=None, installed=None, files=None):
     if not stale:
         return {"항목": "설치 사본", "상태": OK, "값": "~/.claude/skills 사본이 저장소와 일치", "조치": ""}
     return {"항목": "설치 사본", "상태": WARN, "값": f"사본과 다른 파일 {len(stale)}개 (예: {stale[0]})",
-            "조치": "커밋 뒤 `git archive HEAD skills/…`로 ~/.claude/skills 사본 교체"}
+            "조치": "커밋 뒤 `git archive HEAD skills/…`로 ~/.claude/skills 사본 교체, 커맨드는 `cp commands/*.md ~/.claude/commands/`"}
 
 
 def classify_lessons(rows):
