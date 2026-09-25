@@ -99,6 +99,11 @@ def checks():
     # ⑧ 조치 예고된 미승격 lesson — 잊히는 경로를 눈에 보이게 한다
     out.append(pending_lessons_check())
 
+    # ⑩ 설치 사본 신선도 — 저장소 체크아웃에서 돌릴 때만(개발 노트북: 스킬을 ~/.claude/skills 사본으로 쓰는 경우)
+    cp = installed_copy_check()
+    if cp:
+        out.append(cp)
+
     # ⑨ 규칙 시드 동기화 — 플러그인이 갱신한 규칙이 운영본에 들어왔는가(설치자 환경)
     try:
         r = subprocess.run([sys.executable, str(SCRIPTS / "sync_rules.py")], capture_output=True, text=True, timeout=30)
@@ -122,6 +127,41 @@ def checks():
 # fix란이 '앞으로 고치겠다'로 읽히는 표현 — kind 필드가 없는 옛 기록('26.9.25 이전)을 참고로만 셀 때 쓴다.
 PLEDGE = ("항구 대책", "보강", "필요", "검토", "해야", "추가 검토")
 OPEN_KINDS = ("defect", "feature")      # 하네스 코드로 고칠 일 — 해결되면 resolved_by(커밋·R번호)를 단다
+
+
+HARNESS_SKILLS = ("report-pipeline", "report-research", "report-writing", "humanizer")
+
+
+def installed_copy_check(repo=None, installed=None, files=None):
+    """저장소의 하네스 스킬과 `~/.claude/skills` 사본이 같은가 — 다르면 새 세션이 옛 하네스로 돈다.
+
+    '26.9.15 설치본에 factcheck.md가 없어 게이트①이 참조를 못 한 사고가 있었다. 저장소 체크아웃(.git)에서 돌릴 때만
+    본다 — 플러그인 설치나 사본 안에서 돌리면 비교할 원본이 없어 None. files는 테스트용(기본: git ls-files)."""
+    repo = pathlib.Path(repo) if repo else ROOT
+    installed = pathlib.Path(installed) if installed else pathlib.Path.home() / ".claude" / "skills"
+    if files is None:
+        if not (repo / ".git").exists():
+            return None
+        try:
+            files = subprocess.run(["git", "-C", str(repo), "ls-files", "--", *[f"skills/{s}" for s in HARNESS_SKILLS]],
+                                   capture_output=True, text=True, timeout=20).stdout.splitlines()
+        except Exception:
+            return None
+    stale, present = [], False
+    for f in files:
+        parts = pathlib.PurePosixPath(f).parts
+        if len(parts) < 3 or parts[0] != "skills" or not (installed / parts[1]).is_dir():
+            continue
+        present = True
+        copy = installed / pathlib.Path(*parts[1:])
+        if not copy.is_file() or copy.read_bytes() != (repo / f).read_bytes():
+            stale.append("/".join(parts[1:]))
+    if not present:
+        return None                       # 사본을 쓰지 않는 환경(플러그인 설치)
+    if not stale:
+        return {"항목": "설치 사본", "상태": OK, "값": "~/.claude/skills 사본이 저장소와 일치", "조치": ""}
+    return {"항목": "설치 사본", "상태": WARN, "값": f"사본과 다른 파일 {len(stale)}개 (예: {stale[0]})",
+            "조치": "커밋 뒤 `git archive HEAD skills/…`로 ~/.claude/skills 사본 교체"}
 
 
 def classify_lessons(rows):

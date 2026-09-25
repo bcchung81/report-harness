@@ -31,3 +31,21 @@ def test_pending_check_reports_warn_only_for_open_items(tmp_path):
                  encoding="utf-8")
     assert doctor.pending_lessons_check(p)["상태"] == doctor.OK
     assert doctor.pending_lessons_check(tmp_path / "없음.jsonl")["값"].startswith("축적본 없음")
+
+
+def test_installed_copy_check_flags_stale_or_missing_files(tmp_path):
+    """저장소 스킬과 ~/.claude/skills 사본이 다르면 경고 — 새 세션이 옛 하네스로 도는 것을 막는다('26.9.15 사고)."""
+    repo, inst = tmp_path / "repo", tmp_path / "installed"
+    for rel, body in (("skills/report-pipeline/SKILL.md", "v2"), ("skills/report-pipeline/references/factcheck.md", "x")):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(body, encoding="utf-8")
+    (inst / "report-pipeline").mkdir(parents=True)
+    (inst / "report-pipeline" / "SKILL.md").write_text("v1", encoding="utf-8")                  # 옛 사본, factcheck.md 없음
+    files = ["skills/report-pipeline/SKILL.md", "skills/report-pipeline/references/factcheck.md"]
+    out = doctor.installed_copy_check(repo, inst, files)
+    assert out["상태"] == doctor.WARN and "2개" in out["값"]
+    (inst / "report-pipeline" / "SKILL.md").write_text("v2", encoding="utf-8")
+    (inst / "report-pipeline" / "references").mkdir()
+    (inst / "report-pipeline" / "references" / "factcheck.md").write_text("x", encoding="utf-8")
+    assert doctor.installed_copy_check(repo, inst, files)["상태"] == doctor.OK
+    assert doctor.installed_copy_check(repo, tmp_path / "없음", files) is None                  # 사본 없는 환경(플러그인)

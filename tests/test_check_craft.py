@@ -72,3 +72,12 @@ def test_cli_exit_codes(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["ok"] is True
     assert cc.main(["outline", str(tmp_path)]) == 2                    # 10_outline.md 없음
     assert cc.main(["draft", str(tmp_path)]) == 2
+
+
+def test_analysis_needs_four_sections(tmp_path):
+    """05_analysis.md는 논지 후보·총괄표 후보·근거 공백·인용 재료 목록 네 절을 둔다(SKILL ② analyze, R092·R094)."""
+    full = "# 05 분석\n\n## 1. 논지 후보\n\n## 2. 총괄표 후보\n\n## 3. 근거 공백 목록\n\n## 4. 인용 재료 목록 (R092)\n"
+    assert cc.check("analysis", _w(tmp_path, "05_analysis.md", full)) == []
+    missing = cc.check("analysis", _w(tmp_path, "05_analysis.md", full.replace("## 4. 인용 재료 목록 (R092)\n", "")))
+    assert len(missing) == 1 and "인용 재료" in missing[0]
+    assert cc.main(["analysis", str(tmp_path / "없음")]) == 2

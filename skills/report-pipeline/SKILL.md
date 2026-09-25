@@ -112,6 +112,13 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
      탓에 어긋날 수 있어 근사치로만 쓰고, 정확한 값이 필요하면 원본(xlsx 등)을 요청한다('26.9.5).
    - **인용 재료 목록(R092)**: 본문에 인용할 외부 수치·원문·구조 — 출처(research 파일·쪽)·기준시점·이용 조건
      (공공누리 유형 등)·쓰임(본문 문구·차트·도식·표·붙임)·본문 절. 표 틀은 `diagram-pool.md` '외부 자료 인용'.
+
+   네 절의 제목(논지 후보·총괄표 후보·근거 공백·인용 재료 목록)이 다 있는지 확인한다 — 빠진 절은 게이트⓪·①에서
+   묻거나 설계할 재료가 없다는 뜻이다(R094):
+
+   ```
+   python3 "$SKILL_DIR/scripts/check_craft.py" analysis {work_dir}
+   ```
 3. 게이트 없음.
 4. **시간 상한 5분**(기계 시간). 근접하면 문서 팬아웃 수를 줄이고 파싱 실패 문서는 원본 그대로
    목록에 남긴 채 진행한다.
@@ -559,7 +566,7 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 - `references/report-craft.md` — 보고서 설계 지침(무엇을 어떤 순서로 세우나 — 목적·결론·근거 구조). 게이트⓪ 끝(§1 보고 설계)·
   아웃라인(§2 설계 점검)·초안 자가감사(§3 점검표)에 읽는다. 문장 규칙과 부딪히면 style-guide가 이긴다. 따로 부르는 입구는
   `report-writing` 스킬.
-- `scripts/check_craft.py {context|outline} <work_dir>` — 설계 칸 검사(R094). 칸의 존재만 본다. exit 0/1(빠진 칸)/2.
+- `scripts/check_craft.py {context|analysis|outline} <work_dir>` — 설계 칸 검사(R094). 칸·절의 존재만 본다. exit 0/1(빠진 칸)/2.
 - `scripts/sync_rules.py [--apply] [--state …] [--seed …]` — 시드에만 있는 규칙을 운영 규칙에 덧붙인다(§0-4).
   본문이 다른 규칙은 보고만(`changed`), 운영본에만 있는 규칙은 보존(`local_only`). exit 0/2.
 - `references/factcheck.md` — §A 전수 팩트체크 절차(게이트②·export의 "전수" 선택 시)·
