@@ -385,3 +385,12 @@ def test_title_that_wraps_to_two_lines_is_warned():
     assert "title-two-lines" in rules(w)
     _, w = audit_text("시간을 줄인 AI 초안 도우미 시범운영 결과 보고" + body)
     assert "title-two-lines" not in rules(w)
+
+
+def test_result_report_flow_is_not_an_order_inversion():
+    """결과보고의 '개 요 → 추진 성과 → 검토 결과 → 향후 계획'은 역전이 아니다(R054·R076, '26.9.25 실전 점검 채점)."""
+    doc = ("시범운영 결과 보고\n< '26. 9. 25.(금), 경영기획본부 AI디지털심화팀 >\n\n"
+           + "".join(f"□ {t}\n\nㅇ **(요지)** 검수 시간을 포함해 건당 45분 절감을 확인\n\n"
+                     for t in ("개 요", "추진 성과", "검토 결과", "향후 계획")))
+    v, _ = audit_text(doc)
+    assert "section-order" not in rules(v)

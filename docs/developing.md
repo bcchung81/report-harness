@@ -121,6 +121,23 @@ python3 -m pytest -q
 줄'인지 가려, 그런 줄만 새 시드 줄로 바꾸거나(폐지된 번호면 지우고) 설치자가 고친 줄은 그대로 둔다. 계보에 빠진 줄이
 있으면 `test_sync_rules.py`가 실패한다. git 이력 전체에서 다시 모으려면 `--git`.
 
+### 실전 점검 — 파이프라인 전 구간을 헤드리스로
+
+회귀 테스트는 스크립트를 부품별로 본다. LLM이 SKILL.md를 읽고 자료 → 초안 → hwpx까지 실제로 가는지는
+`scripts/smoke_pipeline.py`가 본다 — 가상 자료로 `claude -p` 세션을 돌리고 결과를 결정론으로 채점한다(린트·감사·설계
+칸·구조·되읽기 대조·예상 쪽수·턴·비용). 실행마다 임시 폴더의 설정 파일을 `REPORT_HARNESS_CONFIG`로 가리켜 운영 폴더와
+섞이지 않는다. 로그인된 Claude Code와 kordoc MCP가 필요하고 1회 약 10분·수 달러라 CI에서는 돌리지 않는다.
+
+```bash
+python3 scripts/smoke_pipeline.py --runs 2                          # 현재 하네스
+python3 scripts/smoke_pipeline.py --runs 3 --rules /path/슬림판.md   # 규칙 판본 A/B — state_dir에 미리 둔다
+python3 scripts/smoke_pipeline.py --score-only <결과 폴더>            # 다시 채점만
+```
+
+'26.9.25 첫 실행(9분·60턴)에서 CI가 못 보는 결함 3건을 찾았다 — R054 절 제목 경고, '끝.' 없는 문서의 머리말 그림
+오계수, 게이트② 승인 뒤 쪽수 맞추기 압축. 헤드리스 세션은 `--dangerously-skip-permissions`로 돌므로 이 스크립트의 가상
+자료로만 쓴다.
+
 CI(`.github/workflows/test.yml`)는 새 클론에서 pytest 전량·배포 가드·웹앱 빌드를 돌린다. 설치하는 것은 테스트 러너
 pytest 하나뿐이다 — 이 설치를 빼 두었던 동안(8월~9월) CI가 매번 실패했다. 푸시 전 로컬에서 새 클론으로 한 번
 돌려 보면(`git clone . /tmp/x && cd /tmp/x && python3 -m pytest -q`) '로컬에서만 초록'을 미리 잡는다.

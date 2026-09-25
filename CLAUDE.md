@@ -33,6 +33,7 @@ python3 skills/report-pipeline/scripts/doctor.py            # 자가진단
 python3 skills/report-pipeline/scripts/consolidate_rules.py --check   # 규칙 통폐합 현황
 python3 skills/report-pipeline/scripts/sync_rules.py        # 시드 ↔ 운영 규칙 차이(--apply로 반영)
 python3 scripts/build_seed_lineage.py                        # 시드를 고친 뒤 — 배포 시드 줄 지문(계보) 갱신
+python3 scripts/smoke_pipeline.py --runs 1                   # 실전 점검 — 헤드리스 전 구간 + 결정론 채점(로그인·kordoc 필요, CI 아님)
 ```
 
 의존성 설치 단계가 없다 — **모든 런타임 스크립트는 파이썬 표준 라이브러리만 쓴다**(웹앱
@@ -158,5 +159,6 @@ CI가 돌기 때문).
 | `test_validate_hwpx.py` | 구조 검증·왕복 대조 회귀(되읽기 오탐 5종·literal-markup) |
 | `test_check_craft.py` · `test_sync_rules.py` · `test_doctor_lessons.py` | 설계 칸 검사(R094)·시드 동기화·교훈 스키마 판정 |
 | `test_lint_draft_hook.py` · `test_verify_hwpx_hook.py` | 안전망 훅 2종 — 대상 한정·block 조건 |
+| `test_smoke_pipeline.py` | 실전 점검 도구의 채점부(헤드리스 실행 자체는 CI 밖 — `scripts/smoke_pipeline.py`) |
 
 새 규칙(R0NN)을 추가하면 대체로 이 중 둘 이상을 함께 고쳐야 통과한다.
