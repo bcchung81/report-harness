@@ -378,16 +378,99 @@ def flatten_research(work_dir, apply=False):
     return {"work_dir": str(work_dir), "moves": moves, "applied": bool(apply and moves)}
 
 
+# --- 앞 단계 문서의 노후화 ('26.9.25 사용자 선택 — 기록 동결 + 어긋남 표시) -----------------
+# 초안이 생기면 아웃라인·분석은 앞 게이트의 **기록**이다. 게이트② 수정이 쌓이면 아웃라인은 초안 구조를 모르게
+# 되고('26.9.25 1127 실측: 초안 캡션 14개 중 9개가 아웃라인에 없음), 사람이 그것을 현행으로 믿거나 낡은
+# 아웃라인으로 초안을 다시 만들면 게이트② 수정분이 사라진다. 고쳐 쓰지 않고, 어긋남을 결정론으로 세고,
+# 승인 때 기계가 '반영 결과' 블록을 덧붙인다(사람이 쓴 논지·근거는 그대로).
+RECORDS = ("10_outline.md", "05_analysis.md")
+SEAL_START = "<!-- gate2-record:start — archive_revision.py seal이 쓴다. 손으로 고치지 않는다 -->"
+SEAL_END = "<!-- gate2-record:end -->"
+_HEAD = re.compile(r"^□\s*(.+?)\s*$", re.M)
+_CAPTION = re.compile(r"^\[\s*(.+?)\s*\]\s*$", re.M)
+_ANNEX = re.compile(r"^\|\s*(붙임\s*\d+)\s*\|\s*\|\s*(.+?)\s*\|", re.M)
+_NORM = re.compile(r"[\s·\-—–()（）\[\]「」『』'‘’\"“”.,]")
+
+
+def draft_structure(text):
+    """초안의 구조 항목 — 절(□)·표/도식 캡션([ … ])·붙임 제목. 아웃라인과 대조하는 단위."""
+    return {"sections": _HEAD.findall(text), "captions": _CAPTION.findall(text),
+            "annexes": [f"{a} {t}" for a, t in _ANNEX.findall(text)]}
+
+
+def _unsealed(text):
+    """기계 블록을 뺀 사람이 쓴 부분."""
+    if SEAL_START in text and SEAL_END in text:
+        a, b = text.index(SEAL_START), text.index(SEAL_END) + len(SEAL_END)
+        return text[:a] + text[b:]
+    return text
+
+
+def drift(work_dir):
+    """앞 단계 문서가 초안과 얼마나 어긋났나 — 초안의 구조 항목 중 그 문서에 없는 것.
+
+    아웃라인은 구조의 계획서라 절·캡션·붙임을 대조하고, 분석은 구조를 다루지 않으므로 초안보다 오래됐는지만
+    본다. 봉인 블록(seal)도 문서의 일부로 센다 — 승인 때 덧붙인 반영 결과가 있으면 어긋남은 0이 된다.
+    """
+    work_dir = pathlib.Path(work_dir)
+    draft = work_dir / "20_draft.md"
+    if not draft.is_file():
+        return {}
+    st = draft_structure(draft.read_text(encoding="utf-8"))
+    out = {}
+    for name in RECORDS:
+        p = work_dir / name
+        if not p.is_file():
+            continue
+        body = _NORM.sub("", p.read_text(encoding="utf-8"))
+        items = st["sections"] + st["captions"] + st["annexes"]
+        missing = [x for x in items if _NORM.sub("", x) not in body] if name == "10_outline.md" else []
+        out[name] = {"missing": missing, "n": len(missing),
+                     "older": p.stat().st_mtime < draft.stat().st_mtime}
+    return out
+
+
+def seal(work_dir, now=None):
+    """게이트② 승인 때 아웃라인 끝에 '반영 결과' 블록을 쓴다(다시 부르면 그 블록만 바꾼다 — 멱등).
+
+    사람이 쓴 논지·근거는 건드리지 않는다. 블록에는 승인된 초안의 절·표/도식·붙임과, 아웃라인에 없던 것
+    (게이트② 중 추가)을 적는다 — 이후 구조는 20_draft.md가 기준이라는 표지이기도 하다.
+    """
+    work_dir = pathlib.Path(work_dir)
+    outline, draft = work_dir / "10_outline.md", work_dir / "20_draft.md"
+    if not (outline.is_file() and draft.is_file()):
+        return {"sealed": False, "reason": "10_outline.md 또는 20_draft.md가 없다"}
+    text = outline.read_text(encoding="utf-8")
+    human = _unsealed(text).rstrip("\n")
+    st = draft_structure(draft.read_text(encoding="utf-8"))
+    body = _NORM.sub("", human)
+    added = [x for x in st["sections"] + st["captions"] + st["annexes"] if _NORM.sub("", x) not in body]
+    now = now or datetime.datetime.now()
+    day = f"'{now:%y}.{now.month}.{now.day}"
+    lines = [SEAL_START, f"## 게이트② 반영 결과 ({day} 승인 — 이후 구조는 20_draft.md가 기준)", "",
+             "- 절: " + (" · ".join(f"□ {x}" for x in st["sections"]) or "없음"),
+             "- 표·도식: " + (" · ".join(f"[ {x} ]" for x in st["captions"]) or "없음"),
+             "- 붙임: " + (" · ".join(st["annexes"]) or "없음"),
+             "- 아웃라인에 없던 것(게이트② 중 추가): " + (" · ".join(added) or "없음"), SEAL_END]
+    outline.write_text(human + "\n\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    row = {"kind": "seal", "at": stamp(now), "added": len(added),
+           "fingerprint": content_fingerprint(draft.read_text(encoding="utf-8"))}
+    append_index(work_dir, row)
+    return {"sealed": True, "added": added}
+
+
 USAGE = ("usage: archive_revision.py snapshot <work_dir> --label <사유> [--file 20_draft.md]\n"
          "       archive_revision.py begin <work_dir>          # 변환 시작 — 판본 폴더 선할당\n"
          "       archive_revision.py status <work_dir>         # 초안↔마지막 인도본 대응\n"
+         "       archive_revision.py drift <work_dir>          # 아웃라인·분석이 초안과 어긋난 곳\n"
+         "       archive_revision.py seal <work_dir>           # 게이트② 승인 — 아웃라인에 반영 결과 덧붙임\n"
          "       archive_revision.py migrate <work_dir|reports_dir> [--apply]\n"
          "       archive_revision.py flatten <work_dir|reports_dir> [--apply]  # research/ 평탄화")
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="작업폴더 이력 관리", usage=USAGE)
-    ap.add_argument("mode", choices=("snapshot", "begin", "status", "migrate", "flatten"))
+    ap.add_argument("mode", choices=("snapshot", "begin", "status", "drift", "seal", "migrate", "flatten"))
     ap.add_argument("path")
     ap.add_argument("--label", help="스냅샷 사유 (snapshot 필수)")
     ap.add_argument("--file", default="20_draft.md", help="스냅샷 대상 파일")
@@ -403,6 +486,10 @@ def main(argv=None):
         out = begin(root)
     elif args.mode == "status":
         out = status(root)
+    elif args.mode == "drift":
+        out = drift(root)
+    elif args.mode == "seal":
+        out = seal(root)
     else:
         # 작업폴더 하나든 reports_dir 전체든 같은 명령으로 처리한다
         targets = [root] if (root / "20_draft.md").is_file() else sorted(

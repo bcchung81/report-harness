@@ -189,6 +189,10 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 색·크기는 스크립트가 정하므로 LLM은 슬롯 글자만 쓴다. 도식에 담긴 내용은 본문 개조식에도 적는다
 (이미지는 기계가 읽지 못한다).
 
+**초안이 이미 있는 건에서 아웃라인으로 초안을 다시 쓰지 않는다**('26.9.25) — 초안이 생긴 뒤의 아웃라인·분석은
+앞 게이트의 기록이라 게이트② 수정분을 모른다(`archive_revision.py drift`가 어긋남을 센다). 다시 써야 하면 사용자
+확인을 받고 `archive_revision.py snapshot {work_dir} --label 재작성전`을 먼저 뜬다.
+
 **메인 단일 컨텍스트**에서 집필한다(문체·논지 일관성 — 절별 병렬 집필 금지, 이는 하네스
 전체의 금기 2건 중 하나). `md-profile.md` 서브셋 안에서만 쓴다 — GFM 전체가 아니라 변환
 가능 문법만.
@@ -275,8 +279,8 @@ python3 "$SKILL_DIR/scripts/render_review_html.py" {work_dir}/20_draft.md
 | 문서 | 코멘트 | 직접 수정 | 코멘트 처리(`wait` 출력의 `doc`) | lessons `gate` |
 |---|---|---|---|---|
 | `20_draft.md` | O | O | 아래 게이트② 처리 그대로 | draft |
-| `10_outline.md` | O | O | 해당 절·표 설계만 고친다 — 게이트① | outline |
-| `05_analysis.md` | O | O | 논지 후보·총괄표·인용 재료 목록(R092)을 고친다 | analyze |
+| `10_outline.md` | O | 초안 전만 | 초안 전(게이트①)이면 해당 절·표 설계를 고친다. **초안이 생긴 뒤에는 앞 게이트의 기록** — 고치지 않고 구조 지적은 초안에 반영(승인 때 `seal`이 반영 결과를 덧붙인다) | outline |
+| `05_analysis.md` | O | 초안 전만 | 초안 전이면 논지 후보·총괄표·인용 재료 목록(R092)을 고친다. 초안이 생긴 뒤에는 기록 — 인용 재료 판단 변화는 새 줄(반영 결과)로 덧붙인다 | analyze |
 | `00_context.md` | O | X | 고치지 않고 **정정 줄을 새로 덧붙인다**(결정 기록은 덮어쓰지 않는다) | — |
 | `research/*.md` | O(메모) | X | 원문 발췌는 고치지 않는다 — 판단 메모(신뢰 낮음·제외 등)는 05 인용 재료 목록·manifest 새 줄에 반영 | research |
 | 그 밖의 루트 md(부속 산출물) | O | O | 해당 줄만 고친다 | — |
@@ -308,7 +312,8 @@ python3 "$SKILL_DIR/scripts/review_server.py" wait {work_dir}           # Bash �
   수정 전 사본 `history/drafts/20_draft.{시각}.리뷰직접수정전.md`), 표기 검사·문체 감사도 돌려 화면에 알렸다.
   **되돌리거나 덮어쓰지 않는다** — 초안을 다시 읽어 이후 편집의 기준으로 삼고, lint·감사를 다시 돌려 위반만
   고친 뒤 `resolve {work_dir} e1…`로 '확인됨'을 표시한다. 같은 줄을 CLI가 먼저 고쳤으면 서버가 저장을 거절(409)한다.
-- `decision: approved`(위 막대의 '승인 · 변환' → 팩트체크 선택 → 승인)가 오면 아래 선택지 1로 간다 — 팩트체크는 경량(기본값),
+- `decision: approved`(위 막대의 '승인 · 변환' → 팩트체크 선택 → 승인)가 오면 먼저 `archive_revision.py seal {work_dir}`로
+  아웃라인 끝에 '게이트② 반영 결과'(승인된 초안의 절·표/도식·붙임, 게이트② 중 추가된 것)를 덧붙이고 아래 선택지 1로 간다 — 팩트체크는 경량(기본값),
   승인 노트에 "전수"·"생략"이 있으면 그 값. 그다음 `review_server.py stop {work_dir}`.
 - **리뷰 화면 = 변환 결과의 약속**: 줄 맞춤(`fit_line`)·간격(`transition_for`)·표 열 폭(`column_shares`)을 후처리와
   같은 함수로 그리고, 사이드바 '예상 쪽수'와 빨간 쪽 경계선은 한글 본문 높이(247mm) 기준이다 — 후처리
@@ -330,9 +335,21 @@ python3 "$SKILL_DIR/scripts/review_server.py" wait {work_dir}           # Bash �
   `case`·`work_dir`이 붙으니 **건마다 그 `work_dir`의 `00_context.md`와 규칙 태그를 다시 읽고** 고친 뒤
   `resolve {그 work_dir} f…`로 표시한다 — 코멘트 번호(f1…)는 건마다 따로라 섞으면 다른 건을 '반영됨'으로 만든다.
   건을 세션마다 나눠 맡겨도 된다(아래 임대가 충돌을 막는다).
+- **처리 분담 — 2건 이상이면 서브에이전트**('26.9.25 사용자 선택): `wait --all`이 넘긴 코멘트가 **2건 이상의 보고서**에
+  걸치면 ① `review_server.py sum`으로 하네스 지문을 적고 ② 보고서마다 서브에이전트 1개를 한 메시지로 띄운다 —
+  지시서는 `references/review-worker.md`, 넘길 것은 `work_dir`·`SKILL_DIR`·그 보고서 항목. 에이전트는 데이터만 고치고
+  (초안·명세·부속 md, 기록 문서는 덧붙이기만) 질문·'앞으로도 적용'·하네스 결함·모호한 것은 `to_main`으로 돌려준다.
+  ③ 돌아오면 `sum`을 다시 봐서 달라졌으면 하네스를 건드린 것이다 — 되돌리고 원인을 보고한다(저장소 개발 환경이면
+  `git status --porcelain -- skills tests webapp`도 비어야 한다). ④ 메인이 보고서별로 `resolve {work_dir} {done id…}`,
+  `to_main`은 직접 처리(질문은 사용자에게, 규칙 후보는 lessons, 하네스 결함은 잠금 뒤 수정 또는 defect 기록),
+  에이전트의 `lessons`도 메인이 적는다. ⑤ 다시 `wait --all`. 보고서 1건이면 지금처럼 메인이 직접 처리한다 —
+  에이전트마다 기준 문서를 다시 읽어 1건일 때는 비용만 는다. 한 보고서의 묶음은 한 에이전트만 맡는다(금기 2).
 - **처리 세션 임대**: `wait`는 건마다 임대(`history/drafts/.review_owner.json`)를 잡는다. 다른 세션이 잡은 건은 넘기고
   (출력 `held`), 모두 남의 것이면 **exit 3** — 같은 코멘트를 두 세션이 고치지 않는다(금기 1). `stop`이 임대를 풀고, 세션
   프로세스가 끝나거나 마지막 신호 뒤 30분이 지나면 빈 것으로 본다. 코멘트를 넘기는 읽기·표시는 프로세스 사이 잠금으로 묶였다.
+- **화면 조작**('26.9.25): ⌘K(Windows는 Ctrl+K) 빠른 이동(이 문서의 절·표·도식·코멘트·문서·보고서·명령), `?` 단축키
+  도움말, 보낸 뒤 5초 '되돌리기'(쓰던 글을 다시 연다), 메모 카드의 진행 단계(보냄 → 확인 중 → 반영됨), 화면 오른쪽
+  가장자리의 코멘트·바뀐 곳 위치 표시. 운영체제 '동작 줄이기' 설정이면 움직임을 끈다.
 - **화면의 CLI 상태**(위 막대): 대기 중(wait가 기다림)·처리 중(받은 코멘트를 고치는 중)·**없음**(처리할 세션 없음 —
   코멘트는 쌓아 두고 다음 wait 때 넘어간다). 서랍의 보고서 목록에도 리뷰 중인데 CLI가 없는 건은 'CLI 없음'이 붙는다.
 - **하네스 잠금**: 코멘트 때문에 규칙을 승격(`rules.md`·시드)하거나 하네스 코드·참조 문서를 고칠 때, 그리고 변환(④)
@@ -517,10 +534,12 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   재정의용이다(`--star-indent`는 R019 폐기로 제거 — 넘기면 exit 2). 표 폭 정합(R036·R042)·
   패키지 정합(R043 — 내부망 반입 판별용 정본 프로파일)은 플래그 무관 상시 적용.
   exit 0(적용)/1(대상 0건 — 원인 확인)/2(인자·파일·구조 오류).
-- `scripts/archive_revision.py snapshot|begin|status|migrate|flatten <work_dir>` — 이력·정리
+- `scripts/archive_revision.py snapshot|begin|status|drift|seal|migrate|flatten <work_dir>` — 이력·정리
   (R087). `snapshot --label <사유>`는 현행 초안을 `history/drafts/`로 복사(현행본 불변),
   `begin`은 변환 판본 폴더를 선할당하고 접두어를 알려 준다, `status`는 초안↔마지막 인도본
-  대응을 본다, `migrate`·`flatten`은 구 구조 1회 정리(기본 계획 출력, `--apply`로 수행).
+  대응을 본다, `drift`는 초안의 절·캡션·붙임 중 아웃라인에 없는 것(분석은 오래됐는지만)을 세고 — 리뷰어 서랍의
+  '어긋남 N' — `seal`은 게이트② 승인 때 아웃라인 끝에 반영 결과 블록을 쓴다(멱등, 사람이 쓴 부분 불변),
+  `migrate`·`flatten`은 구 구조 1회 정리(기본 계획 출력, `--apply`로 수행).
 - `scripts/to_kordoc_input.py <prepared.md> -o <convert_input.md> [--figure 슬러그=파일|캡션]`
   — 개조식 표기를 kordoc 입력 마크다운으로 되돌린다. 미치환 도식 마커가 남으면 exit 1.
 - `scripts/qa_report.py --postprocess … --structural … --compare … -o 40_qa.md` — 각 단계
@@ -543,9 +562,11 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   (127.0.0.1, 허브 — 왼쪽 서랍에서 보고서 바꾸기·리뷰 열기 + 건마다 모든 md). `serve`를 다른 건으로 또 부르면 떠 있는
   허브에 합류, `stop`은 그 건의 리뷰만 닫고 처리 세션 임대를 푼다(마지막 건이면 서버 종료).
   `serve`는 신호 때 바뀐 항목만 열린 탭에 보냄(SSE, 새로고침·주기 요청 없음), `wait`는 새 코멘트·승인이 올
-  때까지 대기 후 JSON 출력(exit 0, `--timeout` 초과 시 1, 다른 세션이 잡은 건뿐이면 3 — `--all`은 리뷰 중인 건 전부),
+  때까지 대기 후 JSON 출력(exit 0, `--timeout` 초과 시 1, 다른 세션이 잡은 건뿐이면 3 — `--all`은 리뷰 중인 건 전부.
+  보낸 코멘트는 5초 뒤에 넘긴다 — 그 사이 화면의 '되돌리기'가 통하게),
   `resolve`는 코멘트를 '반영됨'으로 표시하고 화면 갱신 신호, `refresh`는 화면 갱신 신호만(서버 없으면 exit 1),
-  `lock`은 규칙 승격·하네스 코드 수정·변환의 한 건씩 잠금(`--why`, 다른 세션이 잡았으면 exit 3).
+  `lock`은 규칙 승격·하네스 코드 수정·변환의 한 건씩 잠금(`--why`, 다른 세션이 잡았으면 exit 3),
+  `sum`은 하네스 지문(서브에이전트 처리 전후 대조).
 - `scripts/md_view.py` — 리뷰어 문서 보기(초안 밖 md). 헤딩·문단·목록·표·코드·인용·research 출처 머리를 그리고 블록마다
   주소·줄 번호를 단다(모듈 — 서버가 부른다).
 - `scripts/render_review_html.py <20_draft.md>` — 게이트② 리뷰 HTML(`history/drafts/25_review.html`)과

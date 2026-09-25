@@ -153,3 +153,34 @@ def test_migration_relocates_derived_files(tmp_path):
         "40_prepared.md", "40_qa.md", "40_roundtrip.md", "43_convert_input.md"]
     kinds = [r["kind"] for r in index_rows(wd)]
     assert "revision" in kinds and kinds[-1] == "migration"
+
+
+# --- 앞 단계 문서 노후화 — 기록 동결 + 어긋남 표시 ('26.9.25) ---------------------------
+DRAFT_V2 = ("□ 개 요\n\n ㅇ 첫 판\n\n[ 처리시간 산식 비교 ]\n\n| 가 | 나 |\n|---|---|\n| 1 | 2 |\n\n"
+            "□ 추진 계획\n\n| 붙임 1 | | 과제 대장 |\n")
+
+
+def test_drift_counts_draft_structure_missing_from_outline(tmp_path):
+    """아웃라인은 초안의 절·캡션·붙임과 대조하고, 분석은 구조를 보지 않는다(오래됐는지만)."""
+    wd = build(tmp_path, draft=DRAFT_V2)
+    (wd / "10_outline.md").write_text("# 아웃라인\n\n1. 개요 — 논지\n", encoding="utf-8")
+    (wd / "05_analysis.md").write_text("# 분석\n", encoding="utf-8")
+    d = ar.drift(wd)
+    assert d["10_outline.md"]["missing"] == ["추진 계획", "처리시간 산식 비교", "붙임 1 과제 대장"]
+    assert d["05_analysis.md"]["n"] == 0
+    (wd / "20_draft.md").unlink()
+    assert ar.drift(wd) == {}                         # 초안이 없으면(게이트①) 기록이 아니다
+
+
+def test_seal_appends_machine_block_once_and_clears_drift(tmp_path):
+    """승인 때 반영 결과를 아웃라인 끝에 덧붙인다 — 다시 불러도 블록 하나, 사람이 쓴 부분은 그대로."""
+    wd = build(tmp_path, draft=DRAFT_V2)
+    human = "# 아웃라인\n\n1. 개요 — 논지\n"
+    (wd / "10_outline.md").write_text(human, encoding="utf-8")
+    r = ar.seal(wd)
+    assert r["sealed"] and r["added"] == ["추진 계획", "처리시간 산식 비교", "붙임 1 과제 대장"]
+    ar.seal(wd)
+    text = (wd / "10_outline.md").read_text(encoding="utf-8")
+    assert text.startswith(human) and text.count(ar.SEAL_START) == 1 and "[ 처리시간 산식 비교 ]" in text
+    assert ar.drift(wd)["10_outline.md"]["n"] == 0
+    assert [r["kind"] for r in index_rows(wd)].count("seal") == 2

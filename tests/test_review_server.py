@@ -349,6 +349,7 @@ def _post_code(url, body):
 
 def test_hub_lists_cases_and_docs_have_views_and_permissions(tmp_path):
     a = _case(tmp_path, "0900_가", extra={"10_outline.md": "# 아웃라인\n\n## 1. 절\n\n- 논지 하나\n\n두 줄\n문단\n",
+                                          "30_부속.md": "# 부속\n\n## 1. 절\n\n- 논지 하나\n\n두 줄\n문단\n",
                                           "00_context.md": "- 결정 하나\n", "research/20260101-0900_자료.md": "---\ntitle: t\n---\n\n본문\n"})
     _case(tmp_path, "0910_나")
     srv = rs.make_server(a)
@@ -364,17 +365,24 @@ def test_hub_lists_cases_and_docs_have_views_and_permissions(tmp_path):
         rv = json.loads(re.search(r"window\.__RV=(\{.*?\});</script>", outline).group(1))
         groups = {d["doc"]: d["group"] for d in rv["docs"]}
         assert groups["10_outline.md"] == "stage" and groups["research/20260101-0900_자료.md"] == "research"
-        assert rv["case"]["active"] and rv["perm"]["edit"] and not [d for d in rv["docs"] if d["doc"] == "00_context.md"][0]["perm"]["edit"]
+        docs = {d["doc"]: d for d in rv["docs"]}
+        assert rv["case"]["active"] and not docs["00_context.md"]["perm"]["edit"]
+        # 초안이 있으면 아웃라인은 앞 게이트의 기록 — 코멘트만, 초안과 어긋난 수를 단다('26.9.25)
+        assert rv["perm"] == {"comment": True, "edit": False, "approve": False} and docs["10_outline.md"]["record"]
+        assert docs["10_outline.md"]["drift"] == 1 and "앞 게이트의 기록" in outline      # 초안의 □ 개 요가 아웃라인에 없다
+        assert docs["30_부속.md"]["perm"]["edit"] and not docs["30_부속.md"]["record"]
         # 아웃라인 코멘트 — doc이 붙어 기록된다
         _post(srv.case_url + "api/feedback", {"doc": "10_outline.md", "addr": "§1.1-•1", "comment": "논지 보강"})
         got = rs.collect_pending(srv.log_path)
         assert got[0]["doc"] == "10_outline.md" and got[0]["addr"] == "§1.1-•1"
-        # 아웃라인 한 줄 직접 수정은 되고, 여러 줄 문단은 코멘트로
-        src = json.loads(_get(srv.case_url + "api/source?doc=10_outline.md&line=5"))
+        assert _post_code(srv.case_url + "api/edit", {"doc": "10_outline.md", "kind": "para", "line": 5,
+                                                      "raw": "- 논지 하나", "body": "x"})[0] == 403
+        # 문서 보기 한 줄 직접 수정은 되고(부속 문서), 여러 줄 문단은 코멘트로
+        src = json.loads(_get(srv.case_url + "api/source?doc=" + urllib.parse.quote("30_부속.md") + "&line=5"))
         assert src["prefix"] == "- " and src["body"] == "논지 하나"
-        r = _post(srv.case_url + "api/edit", {"doc": "10_outline.md", "kind": "para", "line": 5, "raw": src["raw"], "body": "논지 둘"})
-        assert r["changed"] and "- 논지 둘" in (a / "10_outline.md").read_text(encoding="utf-8")
-        code, err = _post_code(srv.case_url + "api/edit", {"doc": "10_outline.md", "kind": "para", "line": 7, "raw": "두 줄", "body": "x"})
+        r = _post(srv.case_url + "api/edit", {"doc": "30_부속.md", "kind": "para", "line": 5, "raw": src["raw"], "body": "논지 둘"})
+        assert r["changed"] and "- 논지 둘" in (a / "30_부속.md").read_text(encoding="utf-8")
+        code, err = _post_code(srv.case_url + "api/edit", {"doc": "30_부속.md", "kind": "para", "line": 7, "raw": "두 줄", "body": "x"})
         assert code == 400
         # 맥락은 코멘트만, research는 고칠 수 없다
         assert _post_code(srv.case_url + "api/edit", {"doc": "00_context.md", "kind": "para", "line": 1, "raw": "- 결정 하나", "body": "x"})[0] == 403
@@ -414,7 +422,7 @@ def test_left_rail_holds_navigation_not_top_bar():
     assert 'id="rv-docsel"' not in ov and 'id="rv-home"' not in ov
     rail = re.search(r'<nav id="rv-rail".*?</nav>', ov, re.S).group(0)
     assert re.findall(r'data-t="(\w+)"', rail) == ["nav", "hist"] and 'id="rv-general"' in rail
-    assert re.findall(r'<span class="lb">(\w+)</span>', rail) == ["탐색", "이력", "의견"]   # 아이콘만으로는 뜻이 안 읽힌다
+    assert re.findall(r'<span class="lb">(\w+)</span>', rail) == ["탐색", "이력", "의견", "단축키"]   # 아이콘만으로는 뜻이 안 읽힌다
     # 보고서 바꾸기는 서랍 안에 펼치지 않고 버튼 아래 떠 있는 목록(이중 스크롤·트리 밀림 방지)
     assert 'id="rv-cases" class="rv-cases" role="listbox"' in ov and ".rv-cases{position:absolute" in ov
     # 서랍은 넓은 화면에서 쪽을 밀어 본문을 덮지 않는다
@@ -465,11 +473,11 @@ def test_wait_refuses_a_case_held_by_another_session(tmp_path, monkeypatch, caps
         assert rs.lease_claim(rs._owner_path(tmp_path), rs.session_owner())[0]
         _post(base + "/api/feedback", {"addr": "□1", "comment": "하나"})
         _as(monkeypatch, "B")
-        assert rs.wait(tmp_path, timeout=0.3) == 3
+        assert rs.wait(tmp_path, timeout=0.3, grace=0) == 3
         assert "다른 세션" in capsys.readouterr().out
         assert [x["status"] for x in rs.items(srv.log_path)] == ["sent"]           # B는 가져가지 않았다
         _as(monkeypatch, "A")
-        assert rs.wait(tmp_path, timeout=2) == 0
+        assert rs.wait(tmp_path, timeout=2, grace=0) == 0
         assert json.loads(capsys.readouterr().out)["items"][0]["comment"] == "하나"
         rs.lease_release(rs._owner_path(tmp_path))
         _as(monkeypatch, "B", _dead_pid())                                          # 세션 프로세스가 끝난 임대는 빈 것
@@ -542,7 +550,7 @@ def test_wait_all_takes_every_open_case(tmp_path, monkeypatch, capsys):
         _post(srv.case_url + "api/feedback", {"addr": "□1", "comment": "가 코멘트"})
         _post(url_b + "/api/feedback", {"addr": "□1", "comment": "나 코멘트"})
         _as(monkeypatch, "A")
-        assert rs.wait(all_cases=True, port=srv.server_address[1], timeout=3) == 0
+        assert rs.wait(all_cases=True, port=srv.server_address[1], timeout=3, grace=0) == 0
         got = json.loads(capsys.readouterr().out)["items"]
         assert {(x["case"], x["comment"]) for x in got} == {("20260101/0900_가", "가 코멘트"), ("20260101/0910_나", "나 코멘트")}
         assert all(pathlib.Path(x["work_dir"]).is_dir() for x in got)
@@ -563,3 +571,60 @@ def test_harness_lock_is_one_case_at_a_time(tmp_path, monkeypatch, capsys):
     rs.harness_lock("release", state_dir=tmp_path)
     _as(monkeypatch, "B")
     assert rs.harness_lock("acquire", "1523 변환", tmp_path) == 0
+
+
+def test_view_only_case_leaves_no_files(tmp_path):
+    """보기 전용으로 연 건에는 아무것도 쓰지 않는다 — 리뷰 사본(25_review.html)은 리뷰를 연 건만('26.9.25)."""
+    a = _case(tmp_path, "0900_가")
+    b = _case(tmp_path, "0910_나")
+    srv = rs.make_server(a)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    host = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        url_b = host + "/r/20260101/" + urllib.parse.quote("0910_나")
+        assert "window.__RV" in _get(url_b + "/d/20_draft.md")
+        _get(url_b + "/api/state")
+        assert not (b / "history").exists()
+        _get(srv.case_url + "d/20_draft.md")
+        assert (a / "history/drafts/25_review.html").is_file()                      # 리뷰를 연 건은 사본을 남긴다
+    finally:
+        srv.shutdown()
+
+
+def test_harness_sum_changes_only_when_harness_or_rules_change(tmp_path):
+    """서브에이전트 전후 대조용 지문 — 같은 상태면 같고, 운영 규칙이 바뀌면 달라진다."""
+    (tmp_path / "rules.md").write_text("- R001 [draft] 규칙\n", encoding="utf-8")
+    a, b = rs.harness_sum(tmp_path), rs.harness_sum(tmp_path)
+    assert a == b and a["files"] > 10
+    (tmp_path / "rules.md").write_text("- R001 [draft] 규칙 바뀜\n", encoding="utf-8")
+    assert rs.harness_sum(tmp_path)["sum"] != a["sum"]
+
+
+def test_sent_comment_is_held_for_grace_so_it_can_be_undone(tmp_path):
+    """보낸 코멘트는 5초 뒤에 넘긴다 — 그 사이 '되돌리기'(withdraw)가 통한다. 승인 같은 결정은 바로 넘긴다."""
+    srv, base = _start(tmp_path)
+    try:
+        f = _post(base + "/api/feedback", {"addr": "□1", "comment": "잠깐"})
+        assert rs.collect_pending(srv.log_path, grace=5) == []                      # 아직 5초 전
+        assert _post(base + "/api/withdraw", {"id": f["id"]}) == {"ok": True}         # 되돌리기 통함
+        _post(base + "/api/decision", {"decision": "approved"})
+        assert [x["type"] for x in rs.collect_pending(srv.log_path, grace=5)] == ["decision"]
+        _post(base + "/api/feedback", {"addr": "□1", "comment": "남는다"})
+        lines = srv.log_path.read_text(encoding="utf-8").splitlines()
+        e = json.loads(lines[-1]); e["at"] = "2000-01-01T00:00:00"; lines[-1] = json.dumps(e, ensure_ascii=False)
+        srv.log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        assert [x["comment"] for x in rs.collect_pending(srv.log_path, grace=5)] == ["남는다"]
+    finally:
+        srv.shutdown()
+
+
+def test_overlay_interactive_components():
+    """보고서 밖 화면의 인터랙티브 요소('26.9.25) — 빠른 이동·단축키 도움말·되돌리기 알림·진행 단계·
+    가장자리 코멘트 위치, 그리고 운영체제 '동작 줄이기' 설정 존중."""
+    ov = rs.overlay()
+    for need in ('id="rv-cmd"', 'id="rv-cmd-q"', 'id="rv-cmd-open"', 'id="rv-help"', 'id="rv-help-btn"', 'id="rv-mini"',
+                 "function undoable(", "function drawMini(", "function showCmd(", "class=\"rv-track\"",
+                 "prefers-reduced-motion: reduce", "#rv-drawer.on{visibility:visible"):
+        assert need in ov, need
+    assert "#rv-cmd,#rv-help" in re.search(r"const inUI=.*", ov).group(0)       # 새 창의 클릭은 문서 클릭이 아니다
+

@@ -19,6 +19,7 @@ lifetime — Send Feedback·Approve·Close 모두) 화면이 잠기고, 수정�
     refresh <work_dir>                          열린 화면을 지금 새로 그린다(수정 끝 신호)
     stop    <work_dir>                          이 건 리뷰 닫기(처리 세션 임대도 푼다)
     lock    acquire|release|status [--why 사유] 규칙 승격·하네스 코드 수정·변환은 한 번에 한 건만
+    sum                                         하네스 지문 — 서브에이전트에 코멘트 처리를 넘긴 전후 대조
 
 여러 보고서를 함께 열 때의 안전장치('26.9.25 사용자 선택): 건마다 **처리 세션 임대**
 (`history/drafts/.review_owner.json` — 다른 세션이 잡은 건은 wait가 exit 3으로 거부해 같은 코멘트를 두 번
@@ -75,7 +76,8 @@ HARNESS_LOCK = ".harness_lock.json"   # 규칙·하네스 코드 수정·변환 
 LEASE_SEC = 1800             # 임대 유지 — 마지막 신호 뒤 이 시간이 지나고 세션 프로세스도 없으면 빈 것으로 본다
 BEAT_SEC = 20                # wait가 기다리는 동안 남기는 신호 간격
 WAITING_FRESH_SEC = 60       # 이 안에 신호가 있으면 '대기 중'
-CLI_WATCH_SEC = 3            # 서버가 건별 CLI 상태를 다시 보는 간격(바뀔 때만 화면에 보낸다)
+CLI_WATCH_SEC = 3
+GRACE_SEC = 5                # 보낸 코멘트는 이 시간 뒤에 CLI로 넘긴다 — 그 사이 화면에서 되돌릴 수 있다('26.9.25)            # 서버가 건별 CLI 상태를 다시 보는 간격(바뀔 때만 화면에 보낸다)
 STATUS_LABEL = {"sent": "보냄", "delivered": "확인 중", "resolved": "반영됨", "withdrawn": "취소됨"}
 
 
@@ -159,13 +161,21 @@ def _xlock(path, timeout=5.0):
         lock.unlink(missing_ok=True)
 
 
-def collect_pending(log):
+def _age(x):
+    try:
+        return (datetime.datetime.now() - datetime.datetime.fromisoformat(x.get("at", ""))).total_seconds()
+    except ValueError:
+        return float("inf")
+
+
+def collect_pending(log, grace=0):
     """아직 Claude에 넘기지 않은 코멘트·결정 → 'delivered'로 표시하고 돌려준다(wait의 본체).
-    읽기와 표시를 프로세스 사이 잠금으로 묶는다 — 같은 코멘트가 두 번 넘어가지 않는다."""
+    읽기와 표시를 프로세스 사이 잠금으로 묶는다 — 같은 코멘트가 두 번 넘어가지 않는다.
+    grace초가 안 된 코멘트는 남겨 둔다 — CLI가 1초 안에 가져가 '보내기 취소'가 거의 통하지 않았다."""
     if not log:
         return []
     with _xlock(log):
-        pending = [x for x in items(log) if x["status"] == "sent"]
+        pending = [x for x in items(log) if x["status"] == "sent" and (x.get("type") != "feedback" or _age(x) >= grace)]
         for x in pending:
             append_event(log, {"type": "status", "id": x["id"], "status": "delivered"})
     return pending
@@ -341,15 +351,24 @@ def doc_mode(doc):
     return "form" if doc == DRAFT else "doc"
 
 
-def doc_perm(doc, active):
-    """코멘트는 리뷰가 열린 건(active)만. 직접 수정은 결정 기록(00)·research(원문 발췌)를 뺀 문서만."""
-    edit = active and doc not in COMMENT_ONLY and not doc.startswith("research/")
+def is_record(work_dir, doc):
+    """초안이 생긴 뒤의 아웃라인·분석 — 앞 게이트의 기록(archive_revision.RECORDS). 직접 고치지 않는다."""
+    return doc in archive_revision.RECORDS and (pathlib.Path(work_dir) / DRAFT).is_file()
+
+
+def doc_perm(doc, active, record=False):
+    """코멘트는 리뷰가 열린 건(active)만. 직접 수정은 결정 기록(00)·research(원문 발췌)·앞 게이트 기록을 뺀 문서만."""
+    edit = active and not record and doc not in COMMENT_ONLY and not doc.startswith("research/")
     return {"comment": bool(active), "edit": bool(edit), "approve": bool(active and doc == DRAFT)}
 
 
-def _doc_note(doc, active):
+def _doc_note(doc, active, drift=None):
     if not active:
         return "보기 전용 — 리뷰가 열린 건(serve로 등록)만 코멘트를 받습니다."
+    if drift is not None:
+        n = drift.get("n", 0)
+        return ("앞 게이트의 기록 — 초안이 생긴 뒤에는 20_draft.md가 기준입니다. 직접 고치지 않고, 코멘트는 초안에 반영합니다."
+                + (f" 초안과 어긋남 {n}곳 — 게이트② 승인 때 '반영 결과'가 이 문서 끝에 덧붙습니다." if n else ""))
     if doc in COMMENT_ONLY:
         return "결정 기록 — 직접 고치지 않고 코멘트로 정정을 요청하면 CLI가 새 줄로 덧붙입니다."
     if doc.startswith("research/"):
@@ -365,7 +384,8 @@ def snapshot(work_dir, doc=DRAFT, active=True):
         return snapshot_text(text, wd)
     with _RENDER_LOCK:
         reload_renderers()
-        parts = md_view.render_parts(text, doc_meta(wd, doc)["title"], _doc_note(doc, active))
+        drift = archive_revision.drift(wd).get(doc) if is_record(wd, doc) else None
+        parts = md_view.render_parts(text, doc_meta(wd, doc)["title"], _doc_note(doc, active, drift))
     return parts, _fingerprint(parts)
 
 
@@ -463,7 +483,9 @@ class Live:
         return self.case.active if self.case else True
 
     def _write_static(self, parts):
-        if doc_mode(self.doc) == "form":
+        # 사본은 리뷰를 연 건만 — 보기 전용으로 열기만 해도 인도 끝난 건 폴더에 history/drafts와 사본이 생겼다
+        # ('26.9.25 실측 4건). HTML은 파이프라인 산출물이 아니라 게이트①·②의 보기 화면이다.
+        if doc_mode(self.doc) == "form" and self._active():
             (_drafts(self.wd) / "25_review.html").write_text(render_review_html.document(parts), encoding="utf-8")
 
     def _snap(self):
@@ -478,12 +500,15 @@ class Live:
 
     def page(self):
         parts, ver = self.current()
+        drift = archive_revision.drift(self.wd)
         base = self.case.prefix if self.case else ""
-        rv = {"ver": ver, "boot": self.boot, "base": base, "doc": self.doc, "mode": doc_mode(self.doc),
-              "perm": doc_perm(self.doc, self._active()),
+        rv = {"ver": ver, "boot": self.boot, "base": base, "doc": self.doc, "mode": doc_mode(self.doc), "grace": GRACE_SEC,
+              "perm": doc_perm(self.doc, self._active(), is_record(self.wd, self.doc)),
               "case": dict(zip(("title", "time"), case_title(self.wd.name)), date=self.wd.parent.name,
                            name=self.wd.name, active=self._active(), stage=_stage(self.wd)),
-              "docs": [dict(doc_meta(self.wd, d), doc=d, group=doc_group(d), perm=doc_perm(d, self._active()))
+              "docs": [dict(doc_meta(self.wd, d), doc=d, group=doc_group(d),
+                            perm=doc_perm(d, self._active(), is_record(self.wd, d)),
+                            record=is_record(self.wd, d), drift=drift.get(d, {}).get("n", 0))
                        for d in list_docs(self.wd)]}
         mod = render_review_html if doc_mode(self.doc) == "form" else md_view
         doc_html = mod.document(parts)
@@ -677,7 +702,7 @@ def make_server(work_dir, port=0):
 
     def state(case, doc):
         return {"boot": hub.boot, "ui": ui_version(), "version": case.live(doc).current()[1], "items": case.items(),
-                "perm": doc_perm(doc, case.active), "cli": case.cli()}
+                "perm": doc_perm(doc, case.active, is_record(case.wd, doc)), "cli": case.cli()}
 
     def watch_cli():
         """건별 CLI 상태가 바뀌면(wait 시작·끝, 세션 종료, 임대 만료) 열린 탭에 알린다 — 브라우저는 묻지 않는다."""
@@ -785,7 +810,7 @@ def make_server(work_dir, port=0):
                 doc = self._doc(case, body.get("doc"))
             except ValueError as e:
                 return self._json(400, {"error": str(e)})
-            perm = doc_perm(doc, case.active)
+            perm = doc_perm(doc, case.active, is_record(case.wd, doc))
             kind = body.get("kind", "수정")
             comment = str(body.get("comment", "")).strip()
             if name == "feedback" and kind in KINDS and (comment or kind in ("삭제", "좋음")):
@@ -1075,7 +1100,7 @@ def _hub_active(port):
     return [pathlib.Path(c["wd"]) for c in hub["cases"] if c.get("active") and c.get("wd")]
 
 
-def wait(work_dir=None, timeout=None, all_cases=False, port=DEFAULT_PORT):
+def wait(work_dir=None, timeout=None, all_cases=False, port=DEFAULT_PORT, grace=GRACE_SEC):
     """새 코멘트·결정이 올 때까지 기다린다 → JSON 출력 후 종료.
 
     건마다 **처리 세션 임대**를 잡는다 — 다른 세션이 잡은 건은 넘기고(모두 남의 것이면 exit 3), 같은 코멘트를
@@ -1116,7 +1141,7 @@ def wait(work_dir=None, timeout=None, all_cases=False, port=DEFAULT_PORT):
         while True:
             got, hit = [], []
             for wd in owned.values():
-                pending = collect_pending(_log_path(wd))
+                pending = collect_pending(_log_path(wd), grace)
                 if pending:
                     hit.append(wd)
                     got += [dict(x, case=f"{wd.parent.name}/{wd.name}", work_dir=str(wd)) if all_cases else x
@@ -1211,6 +1236,19 @@ def harness_lock(action, why="", state_dir=None):
     return 0
 
 
+def harness_sum(state_dir=None):
+    """하네스 지문 — 스킬 폴더(스크립트·참조·자산)와 운영 규칙(rules.md). 서브에이전트에 코멘트 처리를 넘기기
+    전후로 대조해, 데이터만 고치라는 경계를 지켰는지 결정론으로 확인한다('26.9.25 분담: 데이터는 에이전트,
+    하네스·규칙은 메인). 저장소 밖(플러그인 설치 환경)에서도 git 없이 쓸 수 있다."""
+    skill = pathlib.Path(__file__).resolve().parent.parent
+    rules = pathlib.Path(state_dir or load_config()["state_dir"]) / "rules.md"
+    files = sorted(p for p in skill.rglob("*") if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc")
+    h = hashlib.sha256()
+    for p, name in [(p, str(p.relative_to(skill))) for p in files] + ([(rules, "rules.md")] if rules.is_file() else []):
+        h.update(name.encode("utf-8") + b"\0" + p.read_bytes())
+    return {"sum": h.hexdigest()[:16], "files": len(files) + rules.is_file()}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="게이트② 라이브 리뷰 서버")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1225,6 +1263,7 @@ def main(argv=None):
     t = sub.add_parser("stop"); t.add_argument("work_dir")
     k = sub.add_parser("lock"); k.add_argument("action", choices=("acquire", "release", "status"))
     k.add_argument("--why", default="", help="잠그는 까닭(건·작업)")
+    sub.add_parser("sum", help="하네스 지문 — 서브에이전트 처리 전후 대조")
     a = ap.parse_args(argv)
     if a.cmd == "serve":
         return serve(a.work_dir, a.port, not a.no_open)
@@ -1234,6 +1273,9 @@ def main(argv=None):
         return wait(a.work_dir, a.timeout, a.all_cases, a.port)
     if a.cmd == "lock":
         return harness_lock(a.action, a.why)
+    if a.cmd == "sum":
+        print(json.dumps(harness_sum(), ensure_ascii=False))
+        return 0
     if a.cmd == "resolve":
         return resolve(a.work_dir, a.ids)
     if a.cmd == "refresh":
