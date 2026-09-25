@@ -124,7 +124,11 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 
 1. `{cwd}/reports/{YYYYMMDD}/{HHMM}_{슬러그}/` 작업폴더 생성
 2. `{cwd}/.report-harness/` 상태 폴더 생성
-3. `rules-seed.md`(R001~R071)가 `.report-harness/rules.md`로 복사되어 복리축적 시드가 됨
+3. `rules-seed.md`(현재 R001~R094)가 `.report-harness/rules.md`로 복사되어 복리축적 시드가 됨
+
+플러그인을 갱신한 뒤에는 첫 요청 때 `sync_rules.py --apply`가 **새로 온 규칙만** 운영 `rules.md` 끝에
+덧붙인다. 직접 쌓거나 고친 규칙은 건드리지 않고, 시드와 본문이 달라진 규칙은 번호만 알려 준다.
+`/report-doctor`의 '규칙 동기화' 항목으로 상태를 볼 수 있다.
 
 경로를 바꾸고 싶으면 [8. 설정](#8-설정-선택)을 보면 된다.
 
@@ -140,6 +144,8 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 | hwpx 서식이 양식과 다르다 | 후처리 누락 가능성 | `40_qa.md` 확인. `postprocess_hwpx.py`가 exit 1(대상 0건)이면 원인 규명 필요 |
 | 내부망 자료교환에서 반입 거부 (octet-stream·미등록 확장자) | ① 후처리 전 hwpx는 version.xml 등 필수 멤버가 없어 판별 실패 ② 한글 재저장본은 확장자 없는 JScript 스텁(`Scripts/headerScripts`)이 삽입돼 내부 검사에 반려 | `postprocess_hwpx.py <파일> --spacing`을 다시 돌리면 패키지 정합(R043)이 두 경우 모두 소급 적용된다(멱등). `validate_hwpx.py structural`이 `errors: []`이면 정상 |
 | `"이어서 해줘"` 했더니 새 폴더가 생겼다 | 슬러그 부분일치 실패 | 건명을 함께 말한다 — `"AI성과측정 건 이어서 해줘"` |
+| 초안을 저장할 때마다 "초안 규칙 위반"으로 막힌다 | 플러그인 초안 린트 훅(`hooks/lint_draft_hook.py`)이 `20_draft.md`의 린트·감사 위반을 막음 | 메시지의 규칙·줄 번호대로 고친다(경고는 막지 않는다). 되읽기 기록 등 다른 md는 검사하지 않는다 |
+| 갱신한 뒤에도 새 규칙이 안 보인다 | 운영 `rules.md`가 옛 시드 그대로 | `/report-doctor`의 '규칙 동기화' 확인 후 `sync_rules.py --apply`(파이프라인 첫 단계가 자동 실행) |
 
 ## 7. 제거
 
@@ -171,7 +177,7 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 | 키 | 없을 때 기본값 | 역할 |
 |---|---|---|
 | `reports_dir` | `{cwd}/reports` | 건별 작업폴더 루트(`{reports_dir}/{YYYYMMDD}/{HHMM}_{슬러그}/`) |
-| `state_dir` | `{cwd}/.report-harness` (자동 생성) | `rules.md`·`lessons.jsonl` 위치. 첫 실행 시 `rules-seed.md`(R001~R071)를 복사 |
+| `state_dir` | `{cwd}/.report-harness` (자동 생성) | `rules.md`·`lessons.jsonl` 위치. 첫 실행 시 `rules-seed.md`를 복사하고, 갱신 뒤에는 새 규칙만 덧붙인다 |
 | `knowledge_vault` | 없음 → vault 기능(사전지식 조회·적재) 생략 | 개인 지식 vault 루트 |
 | `template_hwpx` | 없음 → 번들 기본 서식 사용 | 기관 레터헤드·스타일 템플릿 병합용 |
 | `font_dirs` | 없음 → OS 기본 폰트 폴더만 탐색 | 이미지 도식(`render_diagram.py`)이 맑은 고딕을 찾을 추가 폴더. 못 찾으면 대체 서체로 그리고 `font_fallback`으로 알린다 |

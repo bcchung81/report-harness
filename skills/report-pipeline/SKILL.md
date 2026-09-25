@@ -29,8 +29,16 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
      0건이면 새 건으로 취급한다.
 3. `{work_dir}/00_context.md`가 없으면 생성, 있으면 이번 요청 내용으로 갱신(요구사항·이번
    세션에서 결정된 사항 append).
-4. `state_dir`에 `rules.md`가 없으면 `"$SKILL_DIR/references/rules-seed.md"`를 그대로 복사해
-   첫 실행 시드로 삼고, `rules-history.md`도 같은 방식으로 시드한다(있으면 손대지 않는다).
+4. 규칙을 시드와 맞춘다 — `rules.md`가 없으면 시드를 복사하고, 있으면 **시드에만 있는 규칙(플러그인 갱신으로
+   새로 온 규칙)을 끝에 덧붙인다**. 설치자가 쌓은 규칙·고친 규칙은 건드리지 않는다('26.9.25 — 종전에는 첫 실행
+   시드에 고정돼 새 규칙이 설치자에게 도달하지 않았다):
+
+   ```
+   python3 "$SKILL_DIR/scripts/sync_rules.py" --apply
+   ```
+
+   출력 `changed`(양쪽 본문이 다른 규칙)가 있으면 사용자에게 번호만 1줄로 알린다 — 시드 정정인지 설치자 수정인지는
+   사람이 판단한다. `rules-history.md`는 없을 때만 시드에서 복사한다.
 5. 지금부터 실행할 단계의 태그(`[research]`/`[analyze]`/`[draft]`/`[export]`)에 해당하는
    규칙만 프리플라이트에 반영한다. 규칙은 1줄 1건이므로 파일 전체를 읽지 말고 태그로 거른다:
 
@@ -493,8 +501,14 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 1줄 append한다:
 
 ```json
-{"date":"2026-07-22","case":"{work_dir 슬러그}","gate":"research|analyze|outline|draft|factcheck|convert","feedback":"...","fix":"...","promoted":false}
+{"date":"2026-07-22","case":"{work_dir 슬러그}","gate":"research|analyze|outline|draft|factcheck|convert","kind":"content|defect|feature|preference","feedback":"...","fix":"...","promoted":false}
 ```
+
+`kind`는 교훈의 종류다('26.9.25 스키마 — 섞여 있어 자가진단이 끝난 조치까지 '미조치'로 셌다):
+`content`(보고서 내용·문체 교훈 — 2회 반복이면 규칙 승격 후보), `defect`(하네스가 규칙대로 못 만든 결함),
+`feature`(하네스 기능 요청), `preference`(사용자 선호 — 메모리 대상). 결함·기능은 고친 뒤 같은 줄에
+`"resolved_by":"{커밋 해시 또는 R0NN}"`을 단다 — `doctor.py`가 resolved_by 없는 결함·기능만 '미조치'로 센다.
+옛 `"harness_defect": true`는 `kind:"defect"`와 같게 읽는다.
 
 `gate`는 이 6값 enum 중 하나만 쓴다. `rules.md`의 `[research]`/`[analyze]`/`[draft]`/`[export]`
 같은 **단계 태그는 rules.md 항목 표기 전용**이며 `feedback` 문자열 안에 중복 삽입하지 않는다 —
@@ -539,6 +553,8 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   아웃라인(§2 설계 점검)·초안 자가감사(§3 점검표)에 읽는다. 문장 규칙과 부딪히면 style-guide가 이긴다. 따로 부르는 입구는
   `report-writing` 스킬.
 - `scripts/check_craft.py {context|outline} <work_dir>` — 설계 칸 검사(R094). 칸의 존재만 본다. exit 0/1(빠진 칸)/2.
+- `scripts/sync_rules.py [--apply] [--state …] [--seed …]` — 시드에만 있는 규칙을 운영 규칙에 덧붙인다(§0-4).
+  본문이 다른 규칙은 보고만(`changed`), 운영본에만 있는 규칙은 보존(`local_only`). exit 0/2.
 - `references/factcheck.md` — §A 전수 팩트체크 절차(게이트②·export의 "전수" 선택 시)·
   §B 이미지 차용 기준(게이트① 이미지 배치 판정 시). 해당 시점에 읽는다.
 - `references/format-profile.kca.md` — KCA 기본 양식 프로파일(폰트·계층·줄바꿈). 프리플라이트·

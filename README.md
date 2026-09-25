@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.4.0-green.svg)
+![version](https://img.shields.io/badge/version-0.5.0-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -167,7 +167,9 @@ flowchart LR
 ```
 
 규칙에는 단계 태그(`[research]`/`[analyze]`/`[draft]`/`[export]`)가 붙고, 각 단계는 자기 태그만
-읽는다. 첫 실행 때 시드 70건이 복사돼 출발점이 된다.
+읽는다. 첫 실행 때 시드(현재 88건)가 복사돼 출발점이 되고, 플러그인을 갱신하면 새로 온 규칙만 운영본 끝에
+덧붙는다 — 설치자가 쌓은 규칙은 건드리지 않는다(`sync_rules.py`). 교훈에는 종류(`kind` — 내용·결함·기능·선호)가
+붙어, 규칙 승격은 내용 교훈만 타고 결함·기능은 고친 커밋(`resolved_by`)이 붙을 때까지 자가진단에 남는다.
 
 다만 쌓기만 하면 안 된다는 걸 겪었다. 규칙이 두 달에 43건까지 늘자 길어서 안 읽히고, 안 읽히니
 안 지켜지고, 그래서 같은 실수가 또 박제되는 순환이 생겼다. 지금은 세 장치가 물려 있다.
@@ -219,36 +221,43 @@ report-harness/
 │   │   │   ├── md-profile.md           변환 가능한 마크다운 규격 + 린트 15종
 │   │   │   ├── format-profile.kca.md   기관 양식 실측 프로파일
 │   │   │   ├── hwpx-recipe.md          변환 절차서
-│   │   │   ├── rules-seed.md           회귀 방지 규칙 70건 (복리축적 시드)
-│   │   │   ├── diagram-pool.md         표 기반 도식 패턴
+│   │   │   ├── rules-seed.md           회귀 방지 규칙 88건 (복리축적 시드)
+│   │   │   ├── report-craft.md         보고서 설계 지침 — 목적·결론·근거 구조 (R094)
+│   │   │   ├── diagram-pool.md         도식 패턴 — 표 도식·인용 차트·외부 인용
 │   │   │   └── table-pool.md           표 부품 카탈로그
 │   │   ├── scripts/         ← 결정론 도구 (판단이 끼면 안 되는 것)
 │   │   │   ├── postprocess_hwpx.py     ★ 양식 정합 후처리
 │   │   │   ├── validate_hwpx.py        구조·대조·수치 검증
 │   │   │   ├── lint_md_profile.py      초안 규격 검사
 │   │   │   ├── prep_report_md.py       변환 전 정규화
+│   │   │   ├── audit_style.py          문체 감사 — 종결어미·쉬운 말·도식 문장·출처 줄
+│   │   │   ├── diagram_table.py        도식 명세 → 한글 표 (흐름·비교·체계·일정)
+│   │   │   ├── review_server.py        라이브 리뷰어·허브 (게이트①·② 코멘트 → CLI)
+│   │   │   ├── check_craft.py          보고 설계·설계 점검 칸 검사
+│   │   │   ├── sync_rules.py           규칙 시드 → 운영본 동기화
 │   │   │   ├── consolidate_rules.py    규칙 통폐합 lint
 │   │   │   ├── doctor.py               자가진단
 │   │   │   └── …                       설정·이미지 규격·프로파일 추출
 │   │   └── assets/          기관 양식 원본 · 도식 Pool · 머리말 배너
 │   ├── report-research/     ① 조사 — 방법은 자유, 산출 계약만 강제
+│   ├── report-writing/      보고서 설계 지침 입구 — report-craft.md를 따로 부른다
 │   ├── cross-verify/        교차검증 — 다중 CLI 패널 + 수치 근거 대조
 │   │   └── scripts/verify_claims.py   패널이 지어낸 수치·오귀속 검출
 │   └── humanizer/           윤문 — AI 문체 흔적 제거 (MIT © DaleSeo)
 │
 ├── commands/                슬래시 커맨드 6종
-├── hooks/                   hwpx 검증 강제 훅 — 검증 우회 산출 차단 안전망
+├── hooks/                   안전망 훅 2종 — hwpx 검증 우회 차단 · 초안(20_draft.md) 린트
 │
 ├── webapp/kca-report-hwpx/  ★ 웹앱 배포판 원본 — MCP 없이 자립
 │   ├── SKILL.md             ③초안 게이트 최대 3회 → ④변환 자동
 │   ├── NOTICE.md            서드파티 고지
 │   ├── scripts/             md2hwpx(생성) · assert_postprocess(침묵실패 차단)
 │   │                        · roundtrip_md(되읽기) + 하네스 복사본 4종
-│   ├── references/          하네스 참조 5종 + humanizer 번들
+│   ├── references/          하네스 참조 사본(보고서 설계 지침 포함) + humanizer 번들
 │   └── assets/              동결 스타일 정본 · 머리말 배너
 │
 ├── docs/                    설치·라이선스·개발자 문서
-├── scripts/                 배포 가드 + 3플랫폼 패키지 빌드
+├── scripts/                 배포 가드 + 5플랫폼 패키지 빌드 (claude·chatgpt·gemini·codex·antigravity)
 └── tests/                   pytest 회귀 스위트 — CI가 매 push 실행
 ```
 
@@ -298,7 +307,12 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 | `"이어서 해줘"` | 마지막 작업폴더를 찾아 그 지점부터 |
 
 단계를 직접 짚고 싶으면 `/report-research` · `/report-analyze` · `/report-draft` ·
-`/report-export`를 쓴다. 진단은 `/report-doctor`.
+`/report-export`를 쓴다. 진단은 `/report-doctor`. 보고서 짜임새만 점검하고 싶으면 `"이 아웃라인 설계 점검해줘"` —
+`report-writing` 스킬이 목적·결론·근거 구조 지침(`report-craft.md`)으로 본다.
+
+게이트①·②의 아웃라인과 초안은 **라이브 리뷰어**(`http://127.0.0.1:3333`)에서 본다. 한글 양식에 가깝게(쪽 경계·예상
+쪽수) 그려진 문서에서 문단을 골라 코멘트를 남기면 CLI가 받아 고치고, 고친 항목만 화면에 다시 그린다. 외부로 나가는
+전송은 없다.
 
 ## 시작하기
 

@@ -99,49 +99,74 @@ def checks():
     # ⑧ 조치 예고된 미승격 lesson — 잊히는 경로를 눈에 보이게 한다
     out.append(pending_lessons_check())
 
+    # ⑨ 규칙 시드 동기화 — 플러그인이 갱신한 규칙이 운영본에 들어왔는가(설치자 환경)
+    try:
+        r = subprocess.run([sys.executable, str(SCRIPTS / "sync_rules.py")], capture_output=True, text=True, timeout=30)
+        res = json.loads(r.stdout)
+        added, changed = res.get("added", []), res.get("changed", [])
+        out.append({"항목": "규칙 동기화", "상태": WARN if added else OK,
+                    "값": (f"시드에만 있는 규칙 {len(added)}건" if added else "시드와 일치")
+                          + (f" · 본문 다른 규칙 {len(changed)}건" if changed else ""),
+                    "조치": "sync_rules.py --apply" if added else ""})
+    except Exception:
+        out.append({"항목": "규칙 동기화", "상태": WARN, "값": "점검 실패", "조치": ""})
+
     return out
 
 
-# fix란이 '앞으로 고치겠다'로 읽히는 표현. 완료형 서술("… 신설 — 적용")과 가르는 신호다.
+# fix란이 '앞으로 고치겠다'로 읽히는 표현 — kind 필드가 없는 옛 기록('26.9.25 이전)을 참고로만 셀 때 쓴다.
 PLEDGE = ("항구 대책", "보강", "필요", "검토", "해야", "추가 검토")
+OPEN_KINDS = ("defect", "feature")      # 하네스 코드로 고칠 일 — 해결되면 resolved_by(커밋·R번호)를 단다
 
 
-def pending_lessons_check():
-    """게이트 피드백 중 **코드 조치를 예고해 놓고 승격되지 않은 것**을 센다.
+def classify_lessons(rows):
+    """(미해결 결함·기능, 옛 기록의 조치 예고 문구) — 두 목록.
 
-    규칙 승격 경로(2회 반복 → R0NN)는 문체·구성 교훈을 위한 것이라, fix란에
-    "…하도록 보강" 같은 코드 조치를 적어 둔 lesson은 어디에도 걸리지 않고 잊힌다.
-    실제로 '26.9.8 미승격 7건 중 둘이 '26.9.10 전수 검증에서 그대로 재현됐다
-    (em대시 미검출·＊ 0건 문서에서 후처리 전면 중단). 강제하지 않고 세어서 보여만 준다 —
-    판단은 사람이 한다.
-    """
-    try:
-        cfg = json.loads(subprocess.run([sys.executable, str(SCRIPTS / "harness_config.py")],
-                                        capture_output=True, text=True, timeout=20).stdout)
-        path = pathlib.Path(cfg["state_dir"]) / "lessons.jsonl"
-    except Exception:
-        return {"항목": "미조치 lesson", "상태": OK, "값": "확인 불가 — 설정 해석 실패", "조치": ""}
+    lesson에는 kind(content·defect·feature·preference)가 붙는다('26.9.25 스키마). 결함·기능은 규칙 승격 경로
+    (2회 반복 → R0NN)를 타지 않아 잊히기 쉬우니 resolved_by가 없는 것을 센다. kind가 없는 옛 기록은
+    harness_defect 표시만 결함으로 보고, 나머지는 fix란 키워드로 '참고' 목록에만 올린다 — 키워드는 끝난 조치
+    ("…하도록 보강 — 적용")까지 세어 '26.9.25 자가진단의 '미조치 43건'이 부풀었다."""
+    open_, legacy = [], []
+    for row in rows:
+        if row.get("resolved_by") or row.get("promoted"):
+            continue
+        kind = row.get("kind")
+        if kind in OPEN_KINDS or (kind is None and row.get("harness_defect")):
+            open_.append(row)
+        elif kind is None and any(k in (row.get("fix") or "") for k in PLEDGE):
+            legacy.append(row)
+    return open_, legacy
+
+
+def pending_lessons_check(path=None):
+    """미해결 하네스 결함·기능 요청을 센다 — 강제하지 않고 보여만 준다(판단은 사람이 한다).
+
+    실제로 '26.9.8 미승격 7건 중 둘이 '26.9.10 전수 검증에서 그대로 재현됐다(em대시 미검출·＊ 0건 문서에서
+    후처리 전면 중단). 경로를 주지 않으면 설정의 state_dir/lessons.jsonl을 쓴다."""
+    if path is None:
+        try:
+            cfg = json.loads(subprocess.run([sys.executable, str(SCRIPTS / "harness_config.py")],
+                                            capture_output=True, text=True, timeout=20).stdout)
+            path = pathlib.Path(cfg["state_dir"]) / "lessons.jsonl"
+        except Exception:
+            return {"항목": "미조치 lesson", "상태": OK, "값": "확인 불가 — 설정 해석 실패", "조치": ""}
+    path = pathlib.Path(path)
     if not path.exists():
         return {"항목": "미조치 lesson", "상태": OK, "값": "축적본 없음 — 신규 설치", "조치": ""}
-    pending = []
+    rows = []
     for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
         try:
-            row = json.loads(line)
+            rows.append(json.loads(line)) if line.strip() else None
         except ValueError:
             continue
-        if row.get("promoted"):
-            continue
-        fix = row.get("fix") or ""
-        if any(k in fix for k in PLEDGE):
-            pending.append(row)
-    if not pending:
-        return {"항목": "미조치 lesson", "상태": OK, "값": "조치 예고분 없음", "조치": ""}
-    oldest = min(r.get("date", "") for r in pending)
+    open_, legacy = classify_lessons(rows)
+    note = f" · 옛 기록 조치 예고 문구 {len(legacy)}건(참고)" if legacy else ""
+    if not open_:
+        return {"항목": "미조치 lesson", "상태": OK, "값": "미해결 결함·기능 없음" + note, "조치": ""}
+    oldest = min(r.get("date", "") for r in open_)
     return {"항목": "미조치 lesson", "상태": WARN,
-            "값": f"코드 조치 예고분 {len(pending)}건 (가장 오래된 것 {oldest})",
-            "조치": "lessons.jsonl에서 promoted=false + fix에 조치 예고가 있는 건을 훑어 처리하거나 사유를 남긴다"}
+            "값": f"미해결 결함·기능 {len(open_)}건 (가장 오래된 것 {oldest}){note}",
+            "조치": "lessons.jsonl에서 kind=defect·feature이고 resolved_by가 없는 건을 고치고 resolved_by(커밋·R번호)를 단다"}
 
 
 def main():
