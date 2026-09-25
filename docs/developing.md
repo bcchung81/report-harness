@@ -50,6 +50,15 @@ bash scripts/package_check.sh
 `.claude-plugin/plugin.json`·`marketplace.json`의 버전을 함께 올리고(`test_plugin_structure.py`가 둘의 일치를 본다)
 CHANGELOG에 절을 단다.
 
+릴리스는 플러그인 규약 태그(`{이름}--v{버전}`)로 만든다 — `claude plugin tag`가 plugin.json과 마켓플레이스 항목의
+버전 일치를 확인한 뒤 태그를 단다. 첫 릴리스는 `report-harness--v0.5.1`('26.9.25).
+
+```bash
+claude plugin tag . -m "report-harness %s — 한 줄 요약"
+git push origin refs/tags/report-harness--v{버전} && git push deploy refs/tags/report-harness--v{버전}
+gh release create report-harness--v{버전} -R kca-deep/report-harness --notes-file <CHANGELOG 해당 절> dist/kca-report-hwpx-*
+```
+
 설치·갱신 경로를 사용자 설정을 건드리지 않고 재현하려면:
 
 ```bash
