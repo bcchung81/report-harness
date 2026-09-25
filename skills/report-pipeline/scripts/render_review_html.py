@@ -497,8 +497,11 @@ def document(parts, now=None):
     stamp = (now or datetime.datetime.now()).strftime("%Y-%m-%d %H:%M")
     body = "\n".join(page_html(p) for p in parts["pages"])
     # 상단 안내 띠는 두지 않는다('26.9.24 사용자 지시 — 불필요). 생성 시각은 보이지 않는 meta로만 남긴다.
+    # 쪽은 한글 종이처럼 흰 바탕이어야 한다 — 'only light'로 브라우저 강제 다크(Chrome Auto Dark)의 반전을 막는다
+    # (운영 교훈 '26.8.7: color-scheme 미선언 페이지가 강제 다크에서 배경만 반전돼 글자가 안 보였다)
     doc = (f'<!doctype html>\n<html lang="ko"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
+           f'<meta name="color-scheme" content="only light">'
            f'<meta name="generated" content="{stamp}">'
            f'<title>{html.escape(parts["title"])} — 리뷰</title><style>{parts["css"]}</style></head>\n'
            f'<body>\n{body}\n</body></html>\n')

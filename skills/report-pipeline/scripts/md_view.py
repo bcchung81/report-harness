@@ -203,4 +203,5 @@ def document(parts):
     body = "\n".join(page_html(p) for p in parts["pages"])
     return (f'<!doctype html>\n<html lang="ko"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">'
+            f'<meta name="color-scheme" content="only light">'   # 강제 다크 반전 방지 — render_review_html과 같다
             f'<title>{html.escape(parts["title"])} — 리뷰</title><style>{parts["css"]}</style></head>\n<body>\n{body}\n</body></html>\n')
