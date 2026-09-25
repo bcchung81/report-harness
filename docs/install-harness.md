@@ -147,6 +147,15 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 | 초안을 저장할 때마다 "초안 규칙 위반"으로 막힌다 | 플러그인 초안 린트 훅(`hooks/lint_draft_hook.py`)이 `20_draft.md`의 린트·감사 위반을 막음 | 메시지의 규칙·줄 번호대로 고친다(경고는 막지 않는다). 되읽기 기록 등 다른 md는 검사하지 않는다 |
 | 갱신한 뒤에도 새 규칙이 안 보인다 | 운영 `rules.md`가 옛 시드 그대로 | `/report-doctor`의 '규칙 동기화' 확인 후 `sync_rules.py --apply`(파이프라인 첫 단계가 자동 실행) |
 
+## 6-1. 업데이트
+
+새 버전(예: 0.5.0)을 받으려면 `/plugin` 메뉴에서 `report-harness` 마켓플레이스를 업데이트한 뒤(명령으로는
+`/plugin marketplace update report-harness`) Claude Code를 재시작한다. 버전 표시는 `/plugin` 메뉴의 설치 목록에서 본다.
+
+갱신 뒤 첫 요청에서 파이프라인이 `sync_rules.py --apply`로 **새로 온 규칙만** 운영 `rules.md`에 덧붙이고, 시드가
+'대체됨·정정됨'으로 바꾼 규칙은 그 줄을 고친다. 직접 쌓은 규칙은 그대로 둔다 — 로컬 규칙은 R9NN 대역을 쓰면 시드
+번호와 겹치지 않는다. 상태는 `/report-doctor`의 '규칙 동기화'에서 본다. 바뀐 내용은 [CHANGELOG](../CHANGELOG.md).
+
 ## 7. 제거
 
 ```
