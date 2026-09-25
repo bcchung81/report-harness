@@ -103,11 +103,16 @@ def checks():
     try:
         r = subprocess.run([sys.executable, str(SCRIPTS / "sync_rules.py")], capture_output=True, text=True, timeout=30)
         res = json.loads(r.stdout)
-        added, changed = res.get("added", []), res.get("changed", [])
-        out.append({"항목": "규칙 동기화", "상태": WARN if added else OK,
-                    "값": (f"시드에만 있는 규칙 {len(added)}건" if added else "시드와 일치")
-                          + (f" · 본문 다른 규칙 {len(changed)}건" if changed else ""),
-                    "조치": "sync_rules.py --apply" if added else ""})
+        added, sup, col, changed = (res.get(k, []) for k in ("added", "superseded", "collision", "changed"))
+        if res.get("missing"):
+            out.append({"항목": "규칙 동기화", "상태": OK, "값": "운영 규칙 없음 — 첫 실행 때 시드를 복사한다", "조치": ""})
+        else:
+            parts = [f"새 규칙 {len(added)}건" if added else "", f"대체·정정 {len(sup)}건" if sup else "",
+                     f"번호 충돌 {len(col)}건({', '.join(col[:3])})" if col else "",
+                     f"본문 다른 규칙 {len(changed)}건" if changed else ""]
+            val = " · ".join(x for x in parts if x) or "시드와 일치"
+            out.append({"항목": "규칙 동기화", "상태": WARN if (added or sup or col) else OK, "값": val,
+                        "조치": ("로컬 규칙을 R9NN으로 옮긴 뒤 " if col else "") + ("sync_rules.py --apply" if (added or sup or col) else "")})
     except Exception:
         out.append({"항목": "규칙 동기화", "상태": WARN, "값": "점검 실패", "조치": ""})
 

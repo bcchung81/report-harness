@@ -268,3 +268,13 @@ def test_literal_markup_ignores_verbatim_quote_block_text(tmp_path):
     path = make_zip(tmp_path, xml)
     assert vh.literal_markup(path) != []                                  # 인용 줄을 모르면 잡는다
     assert vh.literal_markup(path, vh.quote_texts(src)) == []             # 원문 인용 줄이면 뺀다
+
+
+def test_short_quote_line_does_not_exempt_other_text(tmp_path):
+    """인용 줄이 짧아도(예: '1') 그 글자를 포함한 다른 문단의 잔재까지 면제하지 않는다('26.9.25 코드 리뷰)."""
+    import validate_hwpx as vh
+    src = "□ 붙임\n\n```text\n1\n```\n"
+    hp = "http://www.hancom.co.kr/hwpml/2011/paragraph"
+    xml = (f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run>"
+           f"<hp:t>**남은 기호** 문장 1</hp:t></hp:run></hp:p></hs:sec>").encode()
+    assert [i["mark"] for i in vh.literal_markup(make_zip(tmp_path, xml), vh.quote_texts(src))] == ["**"]

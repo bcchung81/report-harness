@@ -37,8 +37,9 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
    python3 "$SKILL_DIR/scripts/sync_rules.py" --apply
    ```
 
-   출력 `changed`(양쪽 본문이 다른 규칙)가 있으면 사용자에게 번호만 1줄로 알린다 — 시드 정정인지 설치자 수정인지는
-   사람이 판단한다. `rules-history.md`는 없을 때만 시드에서 복사한다.
+   시드가 '대체됨·정정됨' 표기를 단 규칙은 운영본 줄도 바꾼다(`superseded`). `collision`(번호만 같고 내용이 다른 규칙 —
+   설치자 로컬 규칙이 시드 번호를 선점)과 `changed`(본문이 조금 다른 규칙)는 바꾸지 않고 번호만 1줄로 알린다 — 로컬
+   규칙은 R9NN 대역에 둔다. `rules-history.md`는 없을 때만 시드에서 복사한다.
 5. 지금부터 실행할 단계의 태그(`[research]`/`[analyze]`/`[draft]`/`[export]`)에 해당하는
    규칙만 프리플라이트에 반영한다. 규칙은 1줄 1건이므로 파일 전체를 읽지 말고 태그로 거른다:
 

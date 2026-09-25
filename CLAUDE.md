@@ -80,7 +80,8 @@ SKILL.md 안의 모든 스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태�
 - 마지막 통합 마커(`<!-- consolidated-at: R0NN -->`) 이후 10건이 늘면
   `test_consolidate_rules.py`가 실패한다. 자동 병합은 하지 않는다.
 - 설치자 환경에서는 운영 `rules.md`가 첫 실행 시드에 고정되지 않도록 `sync_rules.py --apply`(SKILL §0-4)가
-  **시드에만 있는 규칙을 끝에 덧붙인다** — 설치자 규칙은 보존, 본문이 다른 규칙은 보고만.
+  **시드에만 있는 규칙을 끝에 덧붙이고**, 시드가 대체·정정 표기를 단 규칙은 그 줄을 바꾼다. 번호만 같은 다른 규칙
+  (설치자 로컬 규칙의 번호 선점)과 본문이 조금 다른 규칙은 보고만 한다. 설치자 로컬 규칙은 R9NN 대역을 쓴다.
 - lesson에는 `kind`(content·defect·feature·preference)를 붙이고, 결함·기능은 고친 뒤 `resolved_by`(커밋·R번호)를
   단다. 규칙 승격은 content만 타고, `doctor.py`는 resolved_by 없는 결함·기능만 '미조치'로 센다.
 

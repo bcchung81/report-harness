@@ -297,10 +297,11 @@ def compare_texts(src, rt):
     if lost:
         issues.append({"rule": "numbers-lost", "values": sorted(lost)[:20]})
     src_pieces = content_pieces(src)
+    src_set = frozenset(src_pieces)
     first = next((l for l in src.splitlines() if l.strip()), "")
     title = _piece(first) if not first.strip().startswith("|") else None
     for i, line in enumerate(rt.splitlines(), 1):
-        if not line.strip().startswith("|") and has_markdown_leftover(line, title, frozenset(src_pieces)):
+        if not line.strip().startswith("|") and has_markdown_leftover(line, title, src_set):
             issues.append({"rule": "markdown-leftover", "line": i, "text": line.strip()[:80]})
     # 문장 자체가 바뀐 경우 — 개수·수치가 맞으면 통과하던 구멍을 막는다('26.9.10 신설).
     # 개수 대조는 "몇 개인가"만 보므로 문장이 통째로 갈려도 총량이 같으면 지나갔다.
@@ -417,7 +418,7 @@ def literal_markup(hwpx_path, allowed=()):
             for t in root.iter("{http://www.hancom.co.kr/hwpml/2011/paragraph}t"):
                 text = "".join(t.itertext())
                 norm = _quote_norm(text)
-                if norm and any(norm in a or a in norm for a in allowed):
+                if norm and any(norm in a for a in allowed):   # 글자 조각이 인용 줄 안에 있을 때만 — 역방향은 짧은 인용 줄이 다 면제한다
                     continue
                 for mark in LITERAL_MARKS:
                     if mark in text:

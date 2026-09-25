@@ -27,11 +27,12 @@ TABLE = re.compile(r"^\s*\|")
 BAD_ENDING = re.compile(r"(?:함|임|음|됨)$")
 ENDING_EXEMPT = re.compile(r"(?:하여야\s*함|답변함|질의함|설명함|보고함)$")
 # 명사 자체가 함·임·음으로 끝나는 말은 종결어미가 아니다('26.9.1 교훈 — '위임'·'책임'을 위반으로 오검출).
-# 2음절 한자어(포함·위임·책임·모임)는 줄기가 한 글자라 '~하다' 활용일 수 없다. 단 '것임'·'뿐임'처럼 의존명사 뒤
-# 서술격은 그대로 위반이고, '없음'·'같음' 같은 형용사 명사형도 위반이다(음은 목록에 든 명사만 통과).
-NOUN_ENDING_OK = {"포함", "위임", "책임", "모임", "부임", "선임", "연임", "재임", "겸임", "전임", "후임", "신임",
-                  "일임", "방임", "불포함", "재위임", "처음", "다음", "마음", "소음", "녹음", "발음", "모음"}
-BOUND_NOUN = set("것뿐수중바터때")
+# 목록에 든 명사만 통과시킨다 — '정함·전함·급함'(한 글자 줄기 ~하다 활용)·'안임'(명사 + 서술격)은 모양이 같아
+# 음절 수로는 가를 수 없다('26.9.25 코드 리뷰). 목록 밖의 명사는 어순을 바꾸거나 목록에 더한다.
+NOUN_ENDING_OK = {
+    "포함", "불포함", "결함", "위임", "재위임", "책임", "모임", "부임", "선임", "연임", "재임", "겸임", "전임", "후임",
+    "신임", "일임", "방임", "소임", "직임", "퇴임", "취임", "이임", "사임", "해임", "담임", "보임",
+    "게임", "프레임", "타임", "처음", "다음", "마음", "소음", "녹음", "발음", "모음"}
 
 
 def bad_ending(body):
@@ -40,11 +41,7 @@ def bad_ending(body):
         return False
     m = ENDING_WORD.search(body)
     word = m.group(1) if m else ""
-    if word in NOUN_ENDING_OK:
-        return False
-    if len(word) == 2 and word[1] in "함임" and word[0] not in BOUND_NOUN:
-        return False                      # 포함·위임·책임 — 2음절 한자어 명사
-    return True
+    return word not in NOUN_ENDING_OK
 # 인용부호 안에서 끝나는 경우(원문 인용)는 대상이 아니다.
 QUOTED_TAIL = re.compile(r"[\"”』」]\s*$")
 
@@ -284,6 +281,8 @@ def audit_text(text: str):
                     break
                 if HIER_LEAD.match(s) or ANNEX_BANNER.match(s):
                     break
+                if s.startswith("※") and EXTERNAL_CUE.search(s):   # 다음 인용이 시작됐다 — 그 출처 줄은 이 인용 것이 아니다
+                    break
             if not sourced:
                 w.append({"line": i, "rule": "source-line-missing",
                           "text": f"외부 자료 인용에 출처 줄 없음 — 아래에 '※ 자료: 기관, 「자료명」(연도), 쪽'(R092): {stripped[:40]}"})
@@ -345,8 +344,9 @@ def _card_texts(node):
     heads, bodies = [], []
     if isinstance(node, dict):
         if "body" in node:
-            body = node["body"]
-            bodies += [body] if isinstance(body, str) else [b for b in body if isinstance(b, str)]
+            body = node["body"]           # 명세 오류(null·숫자)로 감사 전체가 멈추지 않게 — 문자열만 모은다
+            bodies += [body] if isinstance(body, str) else \
+                [b for b in body if isinstance(b, str)] if isinstance(body, (list, tuple)) else []
         heads += [node[k] for k in ("head", "arrow") if isinstance(node.get(k), str)]
         for k, v in node.items():
             if k != "body":
@@ -401,7 +401,10 @@ if __name__ == "__main__":
         print(json.dumps({"skeleton": skeleton(src)}, ensure_ascii=False, indent=1))
         sys.exit(0)
     viol, warn = audit_text(src)
-    warn += audit_figures(args[0], src)
+    try:
+        warn += audit_figures(args[0], src)
+    except Exception as e:                # 도식 명세 결함이 본문 감사 결과까지 삼키지 않게
+        warn.append({"line": 0, "rule": "figure-audit-error", "text": f"도식 명세 감사 실패: {e}"[:120]})
     print(json.dumps({"violations": viol, "warnings": warn},
                      ensure_ascii=False, indent=1))
     sys.exit(1 if viol else 0)

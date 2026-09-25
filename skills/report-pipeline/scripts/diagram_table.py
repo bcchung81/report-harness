@@ -235,9 +235,10 @@ def _compare(spec, W):
     lx, bx, hx, rx = (0, cw), (cw, cw + sw), (cw + sw, cw + sw + hw), (cw + sw + hw, W)
     hh = max(paras_height([("C", "head", n.get("head", ""))], cw) for n in (left, right))
     bh = max(paras_height(card_items(rd._items(n)), cw) for n in (left, right))
+    # 카드가 화살표보다 낮으면 화살표를 자르지 않고 카드 본문을 늘린다 — 자르면 머리 비율(ARROW_HEAD_ASPECT)과 칸 폭이
+    # 어긋나고 라벨 칸이 라벨보다 낮아져 한글이 행을 키우며 격자가 틀어진다('26.9.25 코드 리뷰)
+    bh = max(bh, head_h + 200 - hh)
     T = hh + bh
-    head_h = min(head_h, T - 200)
-    shaft = min(shaft, head_h)
     mid = T // 2
     cv = Canvas(W)
     cv.box(*lx, 0, hh, T, left.get("head", ""), rd._items(left), head_fill=rd.HEAD_OLD, head_style="old_head", line=DASH)

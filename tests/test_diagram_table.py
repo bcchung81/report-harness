@@ -276,3 +276,17 @@ def test_compare_arrow_follows_label_not_card_height():
     assert long_[3] == short[3] and long_[2] == short[2]      # 카드가 세 배 길어져도 머리는 그대로
     assert sum(g2["heights"]) > 2 * long_[3]                  # 머리는 카드 높이의 절반도 안 된다
     assert g1["widths"][0] > (W - 5200 - 1800) // 2           # 종전 고정 폭(몸통 5200 + 머리 1800)보다 카드가 넓다
+
+
+def test_short_compare_cards_grow_instead_of_clipping_the_arrow():
+    """카드가 화살표보다 낮으면 카드 본문을 늘린다 — 자르면 머리 비율·칸 폭이 어긋나고 라벨 칸이 라벨보다 낮아진다
+    ('26.9.25 코드 리뷰)."""
+    spec = dict(SPECS["비교"], arrow="착시 차단", left={"head": "종전", "body": ["가"]}, right={"head": "이번", "body": ["나"]})
+    g = dt.layout(spec, W)
+    shaft_cell = [x for x in g["cells"] if x["fill"] == dt.rd.BLUE_FILL][0]
+    shaft_h = sum(g["heights"][shaft_cell["r"]:shaft_cell["r"] + shaft_cell["rs"]])
+    head = [p for x in g["cells"] for p in x["paras"] if p[0] == "tri"][0]
+    label = dt.arrow_label(spec["arrow"])
+    assert shaft_h >= dt.paras_height(label, g["widths"][1], (200, 200, 100, 100))     # 라벨이 칸에 다 들어간다
+    assert sum(g["heights"]) >= head[3] + 200                                          # 머리가 카드 안에 온전히
+    assert abs(head[2] / head[3] - dt.ARROW_HEAD_ASPECT) < 0.02 or head[2] == 700      # 머리 비율 유지

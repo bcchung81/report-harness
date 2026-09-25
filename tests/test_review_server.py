@@ -697,3 +697,20 @@ def test_requests_from_other_origins_are_refused(tmp_path):
         assert [x["comment"] for x in rs.items(srv.log_path)] == ["외부에서 넣은 지시"]        # 정상 요청 1건만 기록
     finally:
         srv.shutdown()
+
+
+def test_same_process_does_not_take_over_a_waiting_lease(tmp_path, monkeypatch):
+    """같은 프로세스라도 상대 세션이 지금 기다리는 중이면 넘겨받지 않는다 — 한 프로세스를 여러 세션이 나눠 쓰는
+    호스트에서 두 세션이 같은 코멘트를 처리하지 않게('26.9.25 코드 리뷰)."""
+    path = rs._owner_path(tmp_path)
+    _as(monkeypatch, "session-a", rs.os.getpid())
+    assert rs.lease_claim(path, rs.session_owner(), waiting=True)[0]
+    _as(monkeypatch, "session-b", rs.os.getpid())
+    assert rs.lease_claim(path, rs.session_owner())[0] is False
+
+
+def test_pagination_skips_when_a_page_is_not_laid_out():
+    """높이 0인 쪽이 하나라도 있으면 쪽수 계산을 건너뛴다 — 한 쪽만 빼고 세면 본문·붙임 쪽수가 밀린다."""
+    ov = rs.overlay()
+    body = ov[ov.index("function paginate(){"):ov.index("// 갱신 — 주기 요청 없이")]
+    assert "meas.some(m=>!m.H)" in body and "if(!H)return" not in body

@@ -225,8 +225,9 @@ def lease_claim(path, me, waiting=False, **extra):
     with _xlock(path):
         cur = lease_state(path)
         # 같은 프로세스의 새 세션(`/clear` 뒤 세션 ID만 바뀜)은 제 임대를 넘겨받는다 — 종전에는 남의 임대로 보고
-        # exit 3을 내 최대 30분 코멘트를 받지 못했다('26.9.25 실측). pid를 모르면(None) 넘겨받지 않는다.
-        same_process = me.get("pid") and cur.get("pid") == me["pid"]
+        # exit 3을 내 최대 30분 코멘트를 받지 못했다('26.9.25 실측). 단 상대가 지금 기다리는 중(waiting)이면 살아 있는
+        # 다른 세션이 한 프로세스를 나눠 쓰는 것이라 넘겨받지 않는다('26.9.25 코드 리뷰). pid를 모르면(None)도 안 넘긴다.
+        same_process = me.get("pid") and cur.get("pid") == me["pid"] and cur["state"] != "waiting"
         if cur["state"] != "none" and cur.get("owner") != me["owner"] and not same_process:
             return False, cur
         now = time.time()

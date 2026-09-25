@@ -277,3 +277,31 @@ def test_question_documents_use_their_own_title_and_section_vocab():
            "ㅇ **(절차 확인)** 웹스토어 결제로 국가계약법 절차를 갈음할 수 있는지 확인\n")
     v, w = audit_text(doc)
     assert "title-no-suffix" not in rules(v) and "section-title-offpool" not in rules(w)
+
+
+def test_one_syllable_stem_endings_are_still_forbidden():
+    """'정함·전함·급함'(한 글자 줄기 ~하다)·'안임'(명사 + 서술격)은 명사 목록 밖이라 위반이다('26.9.25 코드 리뷰)."""
+    for bad in ("평가 기준을 새로 정함", "개선 방향을 전함", "수요가 급함", "이것이 최종 안임"):
+        v, _ = audit_text(BASE + f"ㅇ **(측정 기준)** {bad}\n")
+        assert "ending-forbidden" in rules(v), bad
+
+
+def test_broken_figure_spec_does_not_swallow_body_audit(tmp_path):
+    """도식 명세가 깨져도(body: null) 본문 위반은 그대로 나온다 — 종전에는 TypeError로 감사가 통째로 멈췄다."""
+    import json, subprocess
+    (tmp_path / "figures").mkdir()
+    (tmp_path / "figures" / "x.json").write_text(json.dumps({"type": "flow", "steps": [{"head": "x", "body": None}]}),
+                                                 encoding="utf-8")
+    md = tmp_path / "20_draft.md"
+    md.write_text(BASE + "ㅇ **(현황 진단)** 자료가 흩어져 과제 수행이 불가함\n\n도해: x\n", encoding="utf-8")
+    script = Path(__file__).resolve().parents[1] / "skills/report-pipeline/scripts/audit_style.py"
+    out = json.loads(subprocess.run([sys.executable, str(script), str(md)], capture_output=True, text=True).stdout)
+    assert "ending-forbidden" in rules(out["violations"])
+
+
+def test_later_citation_source_does_not_cover_earlier_citation():
+    """뒤 인용의 '※ 자료:' 줄이 앞의 출처 없는 인용을 덮지 않는다('26.9.25 코드 리뷰)."""
+    text = (BASE + "※ 영국 정부 실험에서 설문 절감만 보고\n\n※ OECD 통계로 본 도입률 비교\n\n"
+            "※ 자료: OECD, 「AI 도입 통계」('24), 12쪽\n")
+    w = [x for x in audit_text(text)[1] if x["rule"] == "source-line-missing"]
+    assert len(w) == 1 and "영국" in w[0]["text"]

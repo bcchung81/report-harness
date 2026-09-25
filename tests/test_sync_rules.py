@@ -9,7 +9,8 @@ STATE = "# rules\n\n- R001 [draft] 첫 규칙\n- R002 [export] 둘째 규칙\n- 
 
 
 def test_plan_separates_new_changed_and_local_rules():
-    assert sr.plan(STATE, SEED) == {"added": ["R003"], "changed": ["R002"], "local_only": ["R901"]}
+    assert sr.plan(STATE, SEED) == {"added": ["R003"], "superseded": [], "collision": [], "changed": ["R002"],
+                                    "local_only": ["R901"]}
 
 
 def test_apply_appends_only_seed_only_rules(tmp_path, capsys):
@@ -26,11 +27,30 @@ def test_apply_appends_only_seed_only_rules(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["added"] == []
 
 
-def test_first_run_copies_seed(tmp_path, capsys):
+def test_first_run_copies_seed_only_with_apply(tmp_path, capsys):
+    """점검(--apply 없음)은 아무것도 쓰지 않는다 — 자가진단이 상태를 바꾸면 안 된다('26.9.25 코드 리뷰)."""
     state, seed = tmp_path / "new" / "rules.md", tmp_path / "seed.md"
     seed.write_text(SEED, encoding="utf-8")
     assert sr.main(["--state", str(state), "--seed", str(seed)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["missing"] is True and out["seeded"] is False and not state.exists()
+    assert sr.main(["--apply", "--state", str(state), "--seed", str(seed)]) == 0
     assert state.read_text(encoding="utf-8") == SEED and json.loads(capsys.readouterr().out)["seeded"] is True
+
+
+def test_superseded_marks_reach_installers_and_collisions_are_reported(tmp_path, capsys):
+    """시드가 '대체됨' 표기를 단 규칙은 운영본 줄도 바꾸고, 번호만 같은 다른 규칙(설치자 로컬 선점)은 알리기만 한다."""
+    seed = ("- R001 [draft] **[대체됨 → R003]** 첫 규칙\n- R002 [export] 시드의 새 표 규칙 — 열 폭 하한은 실폭 기준\n"
+            "- R003 [draft] 첫 규칙 개정\n")
+    state = "- R001 [draft] 첫 규칙\n- R002 [export] 설치자가 붙인 발표자료 색상 규칙\n- R003 [draft] 첫 규칙 개정\n"
+    plan = sr.plan(state, seed)
+    assert plan["superseded"] == ["R001"] and plan["collision"] == ["R002"] and plan["changed"] == []
+    sp, dp = tmp_path / "rules.md", tmp_path / "seed.md"
+    sp.write_text(state, encoding="utf-8")
+    dp.write_text(seed, encoding="utf-8")
+    assert sr.main(["--apply", "--state", str(sp), "--seed", str(dp)]) == 0
+    text = sp.read_text(encoding="utf-8")
+    assert "**[대체됨 → R003]**" in text and "설치자가 붙인 발표자료 색상 규칙" in text     # 충돌 규칙은 보존
 
 
 def test_real_seed_parses_every_rule():
