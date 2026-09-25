@@ -37,3 +37,16 @@ def test_explicit_null_falls_back_to_default(tmp_path):
     cfg = hc.load_config(path=p)
     assert cfg["knowledge_vault"] is None
     assert cfg["reports_dir"] == pathlib.Path.cwd() / "reports"
+
+
+def test_config_path_env_isolates_trial_runs(tmp_path, monkeypatch):
+    """REPORT_HARNESS_CONFIG로 설정 파일을 바꾼다 — 시험 실행·평가가 운영 산출 폴더를 건드리지 않게('26.9.25).
+    없는 경로면 설정 없이 cwd 기준 기본값으로 돈다."""
+    import json
+    cfg = tmp_path / "trial.json"
+    cfg.write_text(json.dumps({"reports_dir": str(tmp_path / "trial-reports")}), encoding="utf-8")
+    monkeypatch.setenv("REPORT_HARNESS_CONFIG", str(cfg))
+    assert hc.load_config()["reports_dir"] == tmp_path / "trial-reports"
+    monkeypatch.setenv("REPORT_HARNESS_CONFIG", str(tmp_path / "없음.json"))
+    monkeypatch.chdir(tmp_path)
+    assert hc.load_config()["reports_dir"] == tmp_path / "reports"

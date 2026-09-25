@@ -4,13 +4,22 @@
 배포 환경(웹앱 등 홈 디렉토리가 휘발성인 곳)에서도 산출물·복리 state가 프로젝트
 폴더와 함께 남도록 한다. 로컬 사용자는 설정 파일로 절대경로를 주입해 오버라이드한다.
 """
-import json, pathlib, datetime
+import json, os, pathlib, datetime
 
 DEFAULT_CONFIG_PATH = pathlib.Path.home() / ".claude" / "report-harness.json"
+# 설정 파일 경로를 바꾼다 — 시험 실행·평가(A/B)가 운영 산출 폴더(reports_dir)·규칙(state_dir)을 건드리지 않게 떼어 놓는다.
+# 없는 경로를 주면 설정 없이(cwd 기준 기본값으로) 돈다('26.9.25).
+CONFIG_ENV = "REPORT_HARNESS_CONFIG"
+
+
+def config_path():
+    env = os.environ.get(CONFIG_ENV)
+    return pathlib.Path(env).expanduser() if env else DEFAULT_CONFIG_PATH
+
 ASSETS_DIR = pathlib.Path(__file__).resolve().parent.parent / "assets"
 
 def load_config(path=None):
-    path = pathlib.Path(path) if path else DEFAULT_CONFIG_PATH
+    path = pathlib.Path(path) if path else config_path()
     raw = {}
     if path.is_file():
         raw = json.loads(path.read_text(encoding="utf-8"))

@@ -181,7 +181,9 @@ Claude Code 안에서는 `/plugin` 메뉴에서 같은 일을 한다. 설치된 
 ## 8. 설정 (선택)
 
 **설정 파일이 없어도 전 기능이 동작한다.** 첫 인도 시 안내를 1줄만 출력한다.
-경로를 고정하고 싶으면 `~/.claude/report-harness.json`에 아래 키를 채운다(전부 선택).
+경로를 고정하고 싶으면 `~/.claude/report-harness.json`에 아래 키를 채운다(전부 선택). 설정 파일 위치는 환경변수
+`REPORT_HARNESS_CONFIG`로 바꿀 수 있다 — 시험 실행이 운영 폴더를 건드리지 않게 할 때 쓰며, 없는 경로를 주면 설정 없이
+(실행 위치 기준 기본값으로) 돈다.
 
 ```json
 {
@@ -196,7 +198,7 @@ Claude Code 안에서는 `/plugin` 메뉴에서 같은 일을 한다. 설치된 
 | 키 | 없을 때 기본값 | 역할 |
 |---|---|---|
 | `reports_dir` | `{cwd}/reports` | 건별 작업폴더 루트(`{reports_dir}/{YYYYMMDD}/{HHMM}_{슬러그}/`) |
-| `state_dir` | `{cwd}/.report-harness` (자동 생성) | `rules.md`·`lessons.jsonl` 위치. 첫 실행 시 `rules-seed.md`를 복사하고, 갱신 뒤에는 새 규칙만 덧붙인다 |
+| `state_dir` | `{cwd}/.report-harness` (자동 생성) | `rules.md`·`rules-history.md`·`lessons.jsonl` 위치. 첫 실행 시 시드를 복사하고, 갱신 뒤에는 `sync_rules.py`가 시드와 맞춘다 |
 | `knowledge_vault` | 없음 → vault 기능(사전지식 조회·적재) 생략 | 개인 지식 vault 루트 |
 | `template_hwpx` | 없음 → 번들 기본 서식 사용 | 기관 레터헤드·스타일 템플릿 병합용 |
 | `font_dirs` | 없음 → OS 기본 폰트 폴더만 탐색 | 이미지 도식(`render_diagram.py`)이 맑은 고딕을 찾을 추가 폴더. 못 찾으면 대체 서체로 그리고 `font_fallback`으로 알린다 |

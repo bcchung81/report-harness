@@ -49,3 +49,11 @@ def test_installed_copy_check_flags_stale_or_missing_files(tmp_path):
     (inst / "report-pipeline" / "references" / "factcheck.md").write_text("x", encoding="utf-8")
     assert doctor.installed_copy_check(repo, inst, files)["상태"] == doctor.OK
     assert doctor.installed_copy_check(repo, tmp_path / "없음", files) is None                  # 사본 없는 환경(플러그인)
+
+
+def test_harness_version_comes_from_plugin_manifest(tmp_path):
+    """자가진단은 하네스 버전을 보인다 — 매니페스트가 없으면(스킬 사본) None."""
+    import json as _json
+    root = pathlib.Path(__file__).resolve().parents[1]
+    assert doctor.harness_version() == _json.loads((root / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+    assert doctor.harness_version(tmp_path) is None

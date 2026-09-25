@@ -1,6 +1,6 @@
 {
   "name": "report-harness",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "기관보고서 하네스 — 자료조사·분석·초안(개조식)·hwpx 변환 4단계 파이프라인. 복리축적(lessons→rules)·시간예산 30분·게이트 3회.",
   "author": {
     "name": "bcchung81"

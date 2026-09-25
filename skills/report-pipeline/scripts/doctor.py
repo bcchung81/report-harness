@@ -34,8 +34,22 @@ def _v(cmd):
         return ""
 
 
+def harness_version(root=None):
+    """하네스 버전 — 플러그인 매니페스트에서 읽는다. 문의·버그 보고 때 먼저 묻는 값이다('26.9.25). 스킬 사본으로 돌면
+    매니페스트가 없어 None."""
+    try:
+        return json.loads(((root or ROOT) / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def checks():
     out = []
+
+    # ⓪ 하네스 버전 — 갱신은 버전으로 판단된다(같은 버전이면 claude plugin update가 새 커밋을 받지 않는다)
+    ver = harness_version()
+    out.append({"항목": "하네스 버전", "상태": OK, "값": ver or "알 수 없음(스킬 사본 — 플러그인 매니페스트 없음)",
+                "조치": ""})
 
     # ① 파이썬 — 스크립트 실행 주체
     ok = sys.version_info >= (3, 9)
