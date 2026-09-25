@@ -74,6 +74,7 @@ POLL_SEC = 1.0
 OWNER = ".review_owner.json"   # 건별 처리 세션 임대(history/drafts/)
 HARNESS_LOCK = ".harness_lock.json"   # 규칙·하네스 코드 수정·변환 잠금(state_dir/)
 LEASE_SEC = 1800             # 임대 유지 — 마지막 신호 뒤 이 시간이 지나고 세션 프로세스도 없으면 빈 것으로 본다
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")   # 이 서버가 받아 주는 Host·Origin 호스트 — 나머지는 403
 BEAT_SEC = 20                # wait가 기다리는 동안 남기는 신호 간격
 WAITING_FRESH_SEC = 60       # 이 안에 신호가 있으면 '대기 중'
 CLI_WATCH_SEC = 3
@@ -722,6 +723,25 @@ def make_server(work_dir, port=0):
         def log_message(self, *a):          # 콘솔 소음 제거
             pass
 
+        def _local(self):
+            """로컬 화면·CLI가 보낸 요청인가 — 다른 웹페이지가 브라우저를 통해 보내는 요청을 막는다('26.9.25 보안 점검).
+
+            127.0.0.1 서버라도 사용자가 연 아무 페이지나 여기로 POST를 보낼 수 있다(CSRF) — 코멘트는 CLI가 사용자
+            지시로 처리하므로 주입 경로가 되고, 초안 줄 수정·서버 종료도 된다. DNS 리바인딩이면 보고서 내용까지 읽힌다.
+            ① Host가 로컬 주소여야 하고(리바인딩 방어) ② Origin이 있으면 같은 로컬 출처여야 한다(CSRF 방어).
+            CLI(urllib)는 Origin을 보내지 않고 Host는 127.0.0.1로 보내므로 그대로 통한다."""
+            host = urllib.parse.urlsplit("//" + (self.headers.get("Host") or "")).hostname
+            if host not in LOCAL_HOSTS:
+                return False
+            origin = self.headers.get("Origin")
+            if origin is None:
+                return True
+            o = urllib.parse.urlsplit(origin)
+            try:
+                return o.hostname in LOCAL_HOSTS and o.port == self.server.server_address[1]
+            except ValueError:
+                return False
+
         def _send(self, code, body, ctype="application/json; charset=utf-8", extra=None):
             data = body.encode("utf-8") if isinstance(body, str) else body
             self.send_response(code)
@@ -753,6 +773,8 @@ def make_server(work_dir, port=0):
             return doc
 
         def do_GET(self):
+            if not self._local():
+                return self._json(403, {"error": "로컬 화면에서만 열 수 있다 — 다른 출처 요청 거부"})
             u = urllib.parse.urlparse(self.path)
             if u.path in ("/", "/index.html"):           # 목록 화면은 두지 않는다 — 보고서·문서는 왼쪽 탐색 서랍이 맡는다
                 act = [c for c in hub.cases.values() if c.active] or [primary]
@@ -788,6 +810,8 @@ def make_server(work_dir, port=0):
             self._json(404, {"error": "not found"})
 
         def do_POST(self):
+            if not self._local():
+                return self._json(403, {"error": "로컬 화면에서만 보낼 수 있다 — 다른 출처 요청 거부"})
             n = int(self.headers.get("Content-Length") or 0)
             try:
                 body = json.loads(self.rfile.read(n) or b"{}")

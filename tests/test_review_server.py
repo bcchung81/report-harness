@@ -667,3 +667,33 @@ def test_same_process_new_session_takes_over_its_own_lease(tmp_path, monkeypatch
     assert rs.lease_state(path)["owner"] == "after-clear"
     _as(monkeypatch, "other-terminal")
     assert rs.lease_claim(path, rs.session_owner())[0] is False                      # 살아 있는 다른 프로세스는 막는다
+
+
+def test_requests_from_other_origins_are_refused(tmp_path):
+    """다른 웹페이지가 브라우저를 통해 로컬 리뷰 서버에 보내는 요청을 막는다('26.9.25 보안 점검) — 코멘트는 CLI가
+    사용자 지시로 처리하므로 교차 출처 POST는 주입 경로다. DNS 리바인딩(Host가 외부 이름)이면 읽기도 막는다."""
+    import http.client
+    srv, base = _start(tmp_path)
+    port = srv.server_address[1]
+
+    def call(method, path, headers, body=None):
+        c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        c.request(method, path, body=body, headers=headers)
+        r = c.getresponse()
+        r.read()
+        c.close()
+        return r.status
+
+    fb = json.dumps({"addr": "□1", "comment": "외부에서 넣은 지시"}).encode()
+    try:
+        # 교차 출처 POST(CSRF) — 코멘트가 들어가지 않는다
+        assert call("POST", "/api/feedback", {"Origin": "https://evil.example", "Content-Type": "text/plain"}, fb) == 403
+        assert call("POST", "/api/exit", {"Origin": "http://127.0.0.1:1"}, b"{}") == 403          # 다른 포트도 다른 출처
+        # DNS 리바인딩 — Host가 외부 이름이면 읽기도 거부
+        assert call("GET", "/api/hub", {"Host": f"rebind.example:{port}"}) == 403
+        # 정상: 같은 로컬 출처의 화면, Origin 없는 CLI
+        assert call("POST", "/api/feedback", {"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json"}, fb) == 200
+        assert call("GET", "/api/hub", {"Host": f"localhost:{port}"}) == 200
+        assert [x["comment"] for x in rs.items(srv.log_path)] == ["외부에서 넣은 지시"]        # 정상 요청 1건만 기록
+    finally:
+        srv.shutdown()
