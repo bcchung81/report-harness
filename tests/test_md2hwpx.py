@@ -219,9 +219,8 @@ def test_roundtrip_fallback_without_pyhwpx(converted):
     assert r.returncode == 0, r.stderr
     cmp_ = run([SCRIPTS / "validate_hwpx.py", "compare", d / "prepared.md", rt])
     issues = json.loads(cmp_.stdout)["issues"]
-    # 머리말 배너 1이 정상 가산되는 표 수 차이 외에는 없어야 한다 — 제목 박스는 1칸 상자라 세지 않는다('26.9.25)
-    assert [i["rule"] for i in issues] == ["count-mismatch:tables"], issues
-    assert issues[0]["roundtrip"] - issues[0]["src"] == 1, issues
+    # 차이가 하나도 없어야 한다 — 제목 박스는 1칸 상자, 머리말 배너는 글자 없는 배치 표라 표 수에 넣지 않는다('26.9.25)
+    assert issues == [], issues
 
 
 def test_roundtrip_fallback_detects_literal_markers(tmp_path):

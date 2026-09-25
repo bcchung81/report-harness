@@ -134,8 +134,9 @@ def _table_groups(lines):
 
 def _is_box(cols, rows):
     """1칸 상자(산식 박스 등) — 되읽기가 표 대신 문단으로 돌려주는 경우가 있어 표로 세지 않는다('26.9.24 r02 실측).
-    글자는 문장 대조(content-dropped)가 따로 본다."""
-    return cols == 1 and rows <= 1
+    글자는 문장 대조(content-dropped)가 따로 본다. 글자가 한 칸도 없는 표(rows 0)는 배치용이다 — 웹앱 되읽기는
+    머리말 배너를 그림이 빠진 빈 2칸 표로 돌려줘 표 수가 매번 1 늘었다('26.9.25)."""
+    return rows == 0 or (cols == 1 and rows <= 1)
 
 
 def profile_counts(text):
@@ -145,7 +146,7 @@ def profile_counts(text):
     lines = _strip_preamble(text.splitlines())
     groups = [(c, r) for c, r in _table_groups(lines) if not _is_box(c, r)]
     tables = len(groups)
-    html = [(w, cells) for w, cells in html if not _is_box(w, len(cells))]
+    html = [(w, cells) for w, cells in html if not _is_box(w, len([c for c in cells if c]))]
     return {
         "sections": sum(l.strip().startswith("□") for l in lines),
         "points": sum(l.strip()[:1] in ("ㅇ", "○") for l in lines),
