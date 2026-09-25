@@ -150,8 +150,15 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 
 ## 6-1. 업데이트
 
-새 버전(예: 0.5.0)을 받으려면 `/plugin` 메뉴에서 `report-harness` 마켓플레이스를 업데이트한 뒤(명령으로는
-`/plugin marketplace update report-harness`) Claude Code를 재시작한다. 버전 표시는 `/plugin` 메뉴의 설치 목록에서 본다.
+새 버전을 받으려면 마켓플레이스를 갱신한 뒤 플러그인을 갱신하고 Claude Code를 재시작한다. 터미널에서:
+
+```
+claude plugin marketplace update report-harness
+claude plugin update report-harness@report-harness
+```
+
+Claude Code 안에서는 `/plugin` 메뉴에서 같은 일을 한다. 설치된 버전은 `claude plugin list`로 본다. 갱신은 **버전이
+올라갔을 때만** 받아진다 — "already at the latest version"이면 새 판이 아직 나오지 않은 것이다.
 
 갱신 뒤 첫 요청에서 파이프라인이 `sync_rules.py --apply`로 새로 온 규칙을 운영 `rules.md`에 덧붙이고, 손대지 않은
 옛 규칙은 새 문구로 바꾸며(폐지된 규칙은 지운다) 경위 로그·통합 마커도 맞춘다. 직접 쌓거나 고친 규칙은 그대로 둔다 —

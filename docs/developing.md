@@ -38,7 +38,27 @@ bash scripts/package_check.sh
 - `git ls-files`로 `form/`·`docs/analysis/`·`report/`가 추적 중인지 확인(추적 중이면 즉시 실패).
 - `scripts/pii_scan.py`로 `skills/`·`commands/`·`webapp/`·`hooks/`·`scripts/`·`docs/`를 스캔해
   전화번호·이메일 잔존을 검사한다(`tests/` 픽스처는 의도적 PII 예시를 포함하므로 제외).
+- 배포 원격(`deploy/main`)이 있는 노트북에서는 **버전 가드**도 본다 — 플러그인 내용이 배포 저장소와 다른데
+  `plugin.json` 버전이 같으면 `WARN`을 낸다(실패는 아니다).
 - 모두 통과하면 `package check OK`를 출력한다.
+
+### 배포할 때는 버전을 올린다
+
+설치본은 **버전으로** 갱신을 판단한다. 격리 설정 폴더(`CLAUDE_CONFIG_DIR`)로 배포 저장소를 설치한 뒤 새 커밋을 푸시하고
+`claude plugin update report-harness@report-harness`를 돌리면, 버전이 같을 때는 `already at the latest version`으로
+끝나고 설치본은 옛 커밋에 머문다('26.9.25 재현). 배포 저장소(`kca-deep/report-harness`)로 내보내는 묶음마다
+`.claude-plugin/plugin.json`·`marketplace.json`의 버전을 함께 올리고(`test_plugin_structure.py`가 둘의 일치를 본다)
+CHANGELOG에 절을 단다.
+
+설치·갱신 경로를 사용자 설정을 건드리지 않고 재현하려면:
+
+```bash
+export CLAUDE_CONFIG_DIR=$(mktemp -d)
+claude plugin marketplace add kca-deep/report-harness
+claude plugin install report-harness@report-harness
+claude plugin details report-harness@report-harness      # 스킬·훅·MCP 구성과 상시 토큰 비용
+claude plugin validate . --strict                        # 저장소 매니페스트 검증(루트 CLAUDE.md 경고는 의도 — 개발자용 문서)
+```
 
 ## 웹앱 스킬 빌드
 
