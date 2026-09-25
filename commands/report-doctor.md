@@ -30,7 +30,7 @@ python3 "${CLAUDE_PLUGIN_ROOT:-.}/skills/report-pipeline/scripts/doctor.py"
 **미연결 시 증상** — 파이프라인이 ③ draft까지는 정상 동작하고 **④ export에서 hwpx 없이
 md만 남는다.** 처음 쓰는 사람은 이걸 실패로 인지하지 못하므로 반드시 여기서 잡는다.
 
-**복구** — 터미널에서 `npx -y kordoc mcp`를 직접 실행해 오류를 확인한다. 네트워크 차단이나
+**복구** — 터미널에서 `npx -y kordoc@4.15.3 mcp`(플러그인 `.mcp.json`에 고정된 버전)를 직접 실행해 오류를 확인한다. 네트워크 차단이나
 Node 버전 문제가 대부분이다. 복구 후 `"hwpx로 변환해줘"`로 ④단계만 재실행하면 된다.
 
 ## 3. 결과 보고

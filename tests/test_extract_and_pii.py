@@ -52,3 +52,11 @@ def test_pii_scan_skips_dependency_trees(tmp_path):
 def test_pii_scan_no_false_positive_on_dates(tmp_path):
     (tmp_path / "a.md").write_text("사업기간 2026.01.13 ~ 2026.12.31, 예산 349,850,000원")
     assert scan_dir(tmp_path) == []
+
+
+def test_pii_scan_ignores_package_version_pins(tmp_path):
+    """`kordoc@4.15.3` 같은 패키지 버전 지정은 이메일이 아니다 — 도메인은 영문 TLD로 끝나야 한다('26.9.25)."""
+    (tmp_path / "a.md").write_text("npx -y kordoc@4.15.3 mcp\n", encoding="utf-8")
+    assert scan_dir(tmp_path) == []
+    (tmp_path / "b.md").write_text("문의: someone@example.co.kr\n", encoding="utf-8")
+    assert [h["kind"] for h in scan_dir(tmp_path)] == ["email"]

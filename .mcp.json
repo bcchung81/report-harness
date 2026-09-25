@@ -3,8 +3,8 @@
     "kordoc": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "kordoc", "mcp"],
-      "note": "필수. hwp·hwpx·pdf·docx 파싱과 최종 hwpx 생성·검증을 담당한다. API 키 불필요."
+      "args": ["-y", "kordoc@4.15.3", "mcp"],
+      "note": "필수. hwp·hwpx·pdf·docx 파싱과 최종 hwpx 생성·검증을 담당한다. API 키 불필요. 버전 고정 — 새 판은 실전 점검(scripts/smoke_pipeline.py)을 통과한 뒤에만 올린다('26.9.25: 4.15.3으로 실변환·점검 3회 통과, 그 사이 4.15.4가 나왔다)."
     },
     "korean-law": {
       "type": "stdio",

@@ -34,6 +34,15 @@ def _v(cmd):
         return ""
 
 
+def kordoc_package(root=None):
+    """플러그인이 띄우는 kordoc 패키지 지정(`kordoc@버전`) — `.mcp.json`이 단독 출처다. 못 읽으면 `kordoc`."""
+    try:
+        args = json.loads(((root or ROOT) / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]["kordoc"]["args"]
+        return next(a for a in args if a == "kordoc" or a.startswith("kordoc@"))
+    except (OSError, ValueError, KeyError, TypeError, StopIteration):
+        return "kordoc"
+
+
 def harness_version(root=None):
     """하네스 버전 — 플러그인 매니페스트에서 읽는다. 문의·버그 보고 때 먼저 묻는 값이다('26.9.25). 스킬 사본으로 돌면
     매니페스트가 없어 None."""
@@ -245,7 +254,7 @@ def main():
             if c["조치"]:
                 print(f"    → {c['조치']}")
         print("\n  ※ kordoc MCP 연결은 스크립트가 확인할 수 없다(모델만 호출 가능) —")
-        print("     `/mcp`로 kordoc이 connected인지 보고, 아니면 `npx -y kordoc mcp`를")
+        print(f"     `/mcp`로 kordoc이 connected인지 보고, 아니면 `npx -y {kordoc_package()} mcp`를")
         print("     터미널에서 직접 실행해 오류를 확인한다. 미연결 시 hwpx 없이 md만 나온다.")
     fatal = sum(1 for c in res if c["상태"] == FATAL)
     warn = sum(1 for c in res if c["상태"] == WARN)

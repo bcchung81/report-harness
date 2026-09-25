@@ -187,3 +187,72 @@ def test_header_banner_matches_hwpx_header():
     assert "134.37pt 17.88pt" in c and "95.87pt 25.56pt" in c     # 로고·슬로건 13437×1788 · 9587×2556
     doc, _ = rr.render(DRAFT)
     assert ".page::before" in doc
+
+
+# '26.9.25 하네스 실전 점검 3회차(가상 자료)의 실제 kordoc 변환 초안 — 후처리 estimate_layout이 인도본에서
+# 698pt·1쪽·문단 21줄·표 행 9개로 보고했다. 초안 쪽 추정은 같은 식이라 같은 값이어야 한다.
+REAL_CONVERTED = """AI 초안 도우미 시범운영 결과와 확대 조건 보고
+
+< '26. 9. 25.(금), OO본부 OO팀 >
+
+□ 개 요
+
+ ㅇ **(시범운영 결과)** 'AI 문서 초안 도우미'가 검수를 포함해도 보도자료 1건당 작성시간을 45분 줄였으나, 개인정보 입력 차단 기능을 갖춘 뒤 확대 필요
+   - '26.7월 ~ 8월 3개 부서 42명이 초안 1,260건(1인당 월평균 15건)을 생성했으며, 사용료는 월 180만 원(총 360만 원) 소요
+
+□ 추진 성과
+
+ ㅇ **(작성시간 절감)** 검수시간을 더해도 보도자료 1건당 45분이 줄었고, 설문 응답자의 81%가 **계속 사용을 희망**해 현업 수용성 확인
+
+[ 시범운영 실측 결과 ]
+
+| 구 분 | 결 과 | 측정 기준 |
+|---|---|---|
+| **작성 시간** | 보도자료 초안 95분 → 38분(60% 단축) | 20건 표본 실측 |
+| **순절감 시간** | 건당 45분 | 검수 12분 추가 반영 |
+| **이용 만족도** | 계속 사용 희망 30명(81%) | 설문 응답 37명 |
+| **초안 오류** | 수치·인용 오류 7건 | 초안 100건 중, 검수에서 전량 수정 |
+
+※ 작성시간은 보도자료 20건 표본 실측값으로, 다른 문서 유형은 별도 측정 필요
+
+□ 검토 결과
+
+ ㅇ **(확대 대상 문서)** 시범 부서 의견대로 효과가 큰 회의록·결과보고 등 반복 문서부터 확대하고, 효과가 작은 정책 판단 문서는 후순위로 조정
+ ㅇ **(개인정보 보호)** 도우미에 개인정보 입력을 막는 기능이 없어, 이용자가 늘기 전에 차단 기능을 먼저 도입 필요
+ ㅇ **(초안 검수 유지)** 수치·인용 오류(초안 100건 중 7건)가 검수 단계에서 모두 수정된 만큼, 확대 후에도 검수를 필수 절차로 유지
+
+□ 향후 계획
+
+ ㅇ **(경영회의 상정)** 확대 인원 기준 사용료와 차단 기능 도입 방식을 산정해 '26.10월 경영회의에 전사 확대와 차단 기능 도입을 안건으로 상정
+"""
+
+
+def test_draft_estimate_matches_postprocess_on_a_real_conversion():
+    """리뷰 서버 없이도 게이트② 전에 예상 쪽수를 본다 — 변환 뒤 후처리가 보고하는 값과 같은 식(실측 짝 대조)."""
+    e = rr.estimate_layout(rr.parse(REAL_CONVERTED))
+    assert (e["est_pt"], e["est_pages"], e["paragraph_lines"], e["table_rows"]) == (698, 1, 21, 9)
+
+
+def test_draft_estimate_tracks_postprocess_on_generated_hwpx(tmp_path):
+    """웹앱 생성기(md2hwpx)로 만든 hwpx의 후처리 추정과 쪽수가 같고, 차이는 두 줄(48pt) 이내다."""
+    import re as _re
+    root = pathlib.Path(__file__).resolve().parents[1]
+    fixture = _re.search(r'FIXTURE = """(.*?)"""', (root / "tests/test_md2hwpx.py").read_text(encoding="utf-8"), _re.S).group(1)
+    web = root / "webapp/kca-report-hwpx/scripts"
+    (tmp_path / "draft.md").write_text(fixture, encoding="utf-8")
+    run = lambda *a: subprocess.run([sys.executable, *map(str, a)], capture_output=True, text=True)
+    assert run(web / "prep_report_md.py", tmp_path / "draft.md", "-o", tmp_path / "p.md").returncode == 0
+    assert run(web / "md2hwpx.py", tmp_path / "p.md", "-o", tmp_path / "o.hwpx").returncode == 0
+    real = json.loads(run(web / "postprocess_hwpx.py", tmp_path / "o.hwpx", "--all").stdout)["layout"]
+    est = rr.estimate_layout(rr.parse((tmp_path / "p.md").read_text(encoding="utf-8")))
+    assert est["est_pages"] == real["est_pages"] and est["pages_by_part"] == real["pages_by_part"]
+    assert abs(est["est_pt"] - real["est_pt"]) <= 48, (est["est_pt"], real["est_pt"])
+
+
+def test_render_cli_reports_estimated_pages(tmp_path, capsys):
+    """render_review_html CLI 출력에 예상 쪽수가 있다 — SKILL 게이트②가 게이트⓪ 분량과 대조한다."""
+    d = tmp_path / "20_draft.md"
+    d.write_text(REAL_CONVERTED, encoding="utf-8")
+    assert rr.main([str(d), "-o", str(tmp_path / "r.html")]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["est_pages"] == 1 and out["pages_by_part"] == [1]

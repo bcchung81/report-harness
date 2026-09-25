@@ -319,6 +319,12 @@ python3 "$SKILL_DIR/scripts/render_review_html.py" {work_dir}/20_draft.md
 외부 URL이 없는 정적 페이지다. 파생물이라 루트가 아니라 `history/drafts/`에 쓰고(R087), 같은
 경로를 덮어써 리뷰 도구가 회차 간 변경을 비교하게 한다.
 
+출력의 `est_pages`·`pages_by_part`(본문·붙임별)는 변환 뒤 후처리가 보고하는 예상 쪽수(R067)와 같은 식이다(실변환
+짝 대조 — 쪽수 일치, pt 오차 0~3%). **게이트⓪ 분량을 넘으면 게이트② 제시 때 1줄로 알리고 줄일 곳(절·표 지정 / 붙임
+이관 / 그대로 둠)을 선택지로 묻는다** — 승인 뒤에는 줄이지 않는다(④ 인도 참조). 리뷰 서버 없이 정적 페이지만 쓸 때
+분량 초과를 변환 뒤에야 알던 것을 당긴다('26.9.25 하네스 실전 점검). `figures_estimated`가 1 이상이면 그림으로 그리는
+도식 높이를 기본값으로 셌다는 뜻이다.
+
 **라이브 리뷰 서버로 보여 준다**('26.9.24 사용자 선택) — 창 하나를 끝까지 열어 두고, 코멘트를 여러 번
 보내도 잠기지 않으며, 초안을 고치면 브라우저가 스크롤을 유지한 채 다시 그리고 바뀐 항목을 표시한다.
 127.0.0.1 전용·표준 라이브러리·외부 전송 없음.
@@ -652,5 +658,5 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   `sum`은 하네스 지문(서브에이전트 처리 전후 대조).
 - `scripts/md_view.py` — 리뷰어 문서 보기(초안 밖 md). 헤딩·문단·목록·표·코드·인용·research 출처 머리를 그리고 블록마다
   주소·줄 번호를 단다(모듈 — 서버가 부른다).
-- `scripts/render_review_html.py <20_draft.md>` — 게이트② 리뷰 HTML(`history/drafts/25_review.html`)과
+- `scripts/render_review_html.py <20_draft.md>` — 예상 쪽수(`est_pages`, 후처리 R067과 같은 식)와 게이트② 리뷰 HTML(`history/drafts/25_review.html`)과
   리뷰 결과 JSON 경로를 만든다. 절 주소 ID·양식 근사 CSS, 정적 페이지.

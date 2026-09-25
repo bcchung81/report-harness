@@ -57,3 +57,9 @@ def test_harness_version_comes_from_plugin_manifest(tmp_path):
     root = pathlib.Path(__file__).resolve().parents[1]
     assert doctor.harness_version() == _json.loads((root / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
     assert doctor.harness_version(tmp_path) is None
+
+
+def test_kordoc_recovery_command_uses_the_pinned_version(tmp_path):
+    """자가진단의 복구 명령은 `.mcp.json`에 고정된 kordoc 버전을 쓴다 — 못 읽으면 버전 없이."""
+    assert doctor.kordoc_package().startswith("kordoc@")
+    assert doctor.kordoc_package(tmp_path) == "kordoc"

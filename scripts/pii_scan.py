@@ -2,7 +2,8 @@
 import sys, re, pathlib
 
 PHONE = re.compile(r"(?<!\d)0\d{1,2}[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")
-EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+# 도메인은 영문 최상위 도메인(TLD)으로 끝난다 — 숫자로 끝나는 `패키지@버전`(kordoc@4.15.3)을 이메일로 잡지 않는다('26.9.25)
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b")
 SCAN_SUFFIXES = {".md", ".json", ".txt", ".py", ".csv", ".jsonl", ".yml", ".yaml"}
 # 배포물에 실리지 않는 의존성·캐시 트리는 스캔 대상이 아니다 — npm install 한 번에 패키지
 # 메타의 관리자 이메일로 오탐이 수십 건 터지고, 그러면 배포 전 가드가 상시 빨간불이 되어

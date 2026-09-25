@@ -1,3 +1,4 @@
+import re
 import json, pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -23,7 +24,8 @@ def test_mcp_bundle_valid():
     mcp = json.loads((ROOT / ".mcp.json").read_text())
     servers = mcp["mcpServers"]
     assert set(servers) == {"kordoc", "korean-law"}, set(servers)
-    assert "kordoc" in servers["kordoc"]["args"]
+    # kordoc은 버전을 고정한다 — 떠다니는 최신판은 검증 전에 팀원에게 간다('26.9.25 사용자 결정)
+    assert any(re.fullmatch(r"kordoc@\d+\.\d+\.\d+", a) for a in servers["kordoc"]["args"]), servers["kordoc"]["args"]
     # 키는 환경변수 참조만 허용 — 실제 값이 커밋되면 공개 저장소에 유출된다
     law_oc = servers["korean-law"]["env"]["LAW_OC"]
     assert law_oc.startswith("${") and law_oc.endswith("}"), f"LAW_OC 실값 유출 의심: {law_oc}"
@@ -109,3 +111,16 @@ def test_report_writing_skill_points_to_single_craft_source():
     assert (ROOT / "skills/report-pipeline/references/report-craft.md").is_file()
     p = (ROOT / "skills/report-pipeline/SKILL.md").read_text(encoding="utf-8")
     assert p.count("report-craft.md") >= 3 and 'check_craft.py" context' in p and 'check_craft.py" outline' in p
+
+
+
+def test_kordoc_version_in_docs_matches_mcp_pin():
+    """문서·커맨드·스킬에 적힌 `kordoc@버전`은 `.mcp.json` 고정 버전과 같아야 한다 — 올릴 때 한 곳만 고치면 안내가 틀린다."""
+    pin = next(a for a in json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["kordoc"]["args"]
+               if a.startswith("kordoc@"))
+    seen = {}
+    for g in ("docs/*.md", "commands/*.md", "skills/*/SKILL.md", "skills/*/references/*.md", "README.md", "CLAUDE.md"):
+        for p in ROOT.glob(g):
+            for m in re.findall(r"kordoc@\d+\.\d+\.\d+", p.read_text(encoding="utf-8")):
+                seen.setdefault(m, []).append(p.name)
+    assert set(seen) <= {pin}, {k: v for k, v in seen.items() if k != pin}

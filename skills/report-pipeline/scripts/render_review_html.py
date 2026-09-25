@@ -22,6 +22,7 @@
 """
 import sys
 import re
+import math
 import json
 import html
 import base64
@@ -36,7 +37,8 @@ from postprocess_hwpx import (                                  # noqa: E402  (�
     FORM_SIZES_PT, TITLE_BOX_SIZE_PT, TITLE_TEXT_WIDTH_HU, fit_title, SENDER_SIZE_PT, HIGHLIGHT_SHADE, PAGE_MARGINS,
     LINE_FIT_KINDS, fit_line, word_lens, _weighted_len, MIN_RATIO, MIN_SPACING, transition_for, column_shares,
     HEADER_SPLIT, DITTO, LABEL_FILL, FIT_PAGE_SLACK, QUOTE_FACE, QUOTE_SIZE_PT, QUOTE_LINE_SPACING,
-    QUOTE_FILL, QUOTE_BORDER, curly)
+    QUOTE_FILL, QUOTE_BORDER, curly, _weighted_len, ROW_LINE_HU, ROW_PAD_HU, BANNER_ROW_HEIGHT,
+    TITLE_BOX_BAND_HEIGHT, TITLE_BOX_TITLE_HEIGHT, _cell_width_hu, image_pixels, figure_display)
 import render_diagram                                           # noqa: E402  (도식 조각 단독 출처)
 import diagram_table                                            # noqa: E402  (표 도식 격자 단독 출처 — R089)
 from lint_md_profile import FENCE                               # noqa: E402  (인용 블록 경계 단독 출처)
@@ -447,6 +449,147 @@ table.formula {{ border:0.4mm solid #000; background:#DFE6F7; }} table.formula t
 """ + header_banner_css()
 
 
+# ---------------------------------------------------------------------------
+# 조판 부피 추정 — 후처리 `estimate_layout`(R067)과 같은 식을 초안에서 계산한다
+# ---------------------------------------------------------------------------
+# 리뷰 서버 없이(정적 25_review.html) 게이트②를 하면 예상 쪽수를 볼 수 없어, 1쪽 분량 초과를 승인 뒤 변환
+# 단계에서야 알았다('26.9.25 하네스 실전 점검 2·3회차 교훈). 변환 뒤 후처리가 보고하는 값과 같은 식 —
+# 문단 줄 수 × 가장 큰 글자 × 160% + 표·그림 높이, 붙임마다 새 쪽(700pt) — 을 초안에서 미리 낸다.
+LAYOUT_BLOCK_PT = 700.0                  # A4 본문 247mm ≈ 700pt (후처리와 같다)
+LAYOUT_LINE_SPACING = 1.6                # 본문 줄간격 160%
+TABLE_INNER_LR_HU = 1020                 # 표 안여백 좌우 510×2 (kordoc 산출 실측 — 후처리 row_fit 기본값)
+FIGURE_DEFAULT_PT = 170.0                # 렌더 전에는 높이를 모르는 그림 도식(≈60mm) — 개수를 따로 알린다
+TEXT_KIND_PT = {"sending": float(SENDER_SIZE_PT), "cham": 13.0, "star": 13.0}
+TEXT_KIND_HANG = {"dae": "dae", "yo": "yo", "dash": "dash", "cham": "cham", "star": "star"}
+
+
+def _banner_height_pt():
+    """문서 머리말 배너(기관 로고·슬로건) 표 높이 — 후처리가 넣는 자산의 값."""
+    try:
+        m = re.search(r'<hp:sz[^>]*height="(\d+)"', (HEADER_BANNER_DIR / "fragment.xml").read_text(encoding="utf-8"))
+        return int(m.group(1)) / 100.0 if m else 0.0
+    except OSError:
+        return 0.0
+
+
+def _table_rows_height(rows, width_hu):
+    """GFM 표 행 높이 합(pt) — 후처리 `apply_row_fit`과 같은 식(최종 열 폭에서 칸 글자가 접히는 줄 수).
+    `A > B` 머리글은 두 줄, `〃` 칸은 위 칸과 합쳐져 그 행 높이를 정하지 않는다."""
+    head, *body = rows
+    two_level = any(HEADER_SPLIT in c for c in head)
+    plain = [[curly(BOLD.sub(r"\1", HIGHLIGHT.sub(r"\1", c))).strip() for c in r] for r in rows]
+    cols = max(len(r) for r in rows)
+    shares = column_shares(plain, width_hu) if cols > 1 else [1.0]
+    shares = shares or [1.0 / cols] * cols
+    widths = [max(1.0, width_hu * sh - TABLE_INNER_LR_HU) for sh in shares]
+    total = 0.0
+    header_rows = [[c.split(HEADER_SPLIT, 1)[0] for c in plain[0]], [c.split(HEADER_SPLIT, 1)[-1] for c in plain[0]]] \
+        if two_level else [plain[0]]
+    for r in header_rows + plain[1:]:
+        need = 1
+        for ci, c in enumerate(r[:len(widths)]):
+            if c == DITTO or not c:
+                continue
+            need = max(need, math.ceil(_cell_width_hu(c) / widths[ci]))
+        total += ROW_PAD_HU + ROW_LINE_HU * need
+    return total / 100.0, len(header_rows) + len(plain) - 1
+
+
+def _figure_height_pt(slug, work_dir, width_hu):
+    """도해 (높이 pt, 표 행 수, 추정 여부) — 표로 조립하는 도식은 격자 높이, 그림 참조는 표시 크기, 나머지는 기본값."""
+    try:
+        spec = json.loads((pathlib.Path(work_dir) / "figures" / f"{slug}.json").read_text(encoding="utf-8"))
+        if diagram_table.wants_table(spec):
+            heights = diagram_table.layout(spec, width_hu)["heights"]
+            return sum(heights) / 100.0, len(heights), False
+        if spec.get("type") == "image":
+            w, h, dpi = image_pixels((pathlib.Path(work_dir) / spec["src"]).read_bytes())
+            return figure_display(w, h, dpi, render_diagram.DEFAULT_WIDTH_MM)["h_mm"] * 72 / 25.4, 0, False
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return FIGURE_DEFAULT_PT, 0, True
+
+
+def _caption_embedded(nxt, work_dir):
+    """캡션 다음 블록이 표로 들어가는가 — 본문 표·산식 상자, 그리고 표로 조립하는 도식(R089). 그림으로 남는 도식의
+    캡션은 문단으로 남는다('26.9.25 1127 실변환 대조)."""
+    if nxt["kind"] in ("table", "formula"):
+        return True
+    m = MARKER.match(nxt.get("text", "")) if nxt["kind"] == "marker" else None
+    if not (m and m.group(1) == "도해" and work_dir):
+        return False
+    try:
+        spec = json.loads((pathlib.Path(work_dir) / "figures" / f"{m.group(2).strip()}.json").read_text(encoding="utf-8"))
+        return diagram_table.wants_table(spec)
+    except (OSError, ValueError):
+        return False
+
+
+def estimate_layout(blocks, work_dir=None):
+    """초안의 조판 부피 → {est_pt, est_pages, pages_by_part, paragraph_lines, table_rows, over_two_lines,
+    figures_estimated}. 후처리 `estimate_layout`과 같은 식이라 변환 뒤 보고되는 쪽수와 같게 나온다(오차는 도식
+    그림·캡션 배치 정도). 게이트② 전에 게이트⓪ 분량과 대조하는 용도다."""
+    width = TEXT_WIDTH_PT
+    tbl_w = TABLE_WIDTH_HU - FIT_PAGE_SLACK
+    lines = over2 = guessed = 0
+    line_h = 0.0
+    tbl_h = _banner_height_pt()
+    rows = 1 if tbl_h else 0                       # 표 행 수는 후처리처럼 머리말 배너·제목 상자·도식 표까지 센다
+    parts = []
+    for i, b in enumerate(blocks):
+        k = b["kind"]
+        if k == "title":
+            tbl_h += (TITLE_BOX_BAND_HEIGHT * 2 + TITLE_BOX_TITLE_HEIGHT) / 100.0
+            rows += 3
+            continue
+        if k == "banner":                          # 붙임은 새 쪽에서 시작한다
+            parts.append((lines, tbl_h))
+            tbl_h += BANNER_ROW_HEIGHT / 100.0
+            rows += 1
+            continue
+        if k in ("table", "formula"):
+            h, n = _table_rows_height(b["rows"], tbl_w)
+            tbl_h += h
+            rows += n
+            continue
+        if k == "caption" and i + 1 < len(blocks) and _caption_embedded(blocks[i + 1], work_dir):
+            continue                               # 표·표 도식 캡션은 표 안(hp:caption)으로 들어간다(R034)
+        if k == "quote":
+            for q in b["lines"]:
+                n = max(1, math.ceil(_weighted_len(q) * QUOTE_SIZE_PT / max(1.0, width - 11.3)))
+                tbl_h += n * QUOTE_SIZE_PT * QUOTE_LINE_SPACING / 100.0
+            continue
+        if k == "marker":
+            m = MARKER.match(b.get("text", ""))
+            if m and m.group(1) == "도해" and work_dir:
+                h, n, est = _figure_height_pt(m.group(2).strip(), work_dir, tbl_w)
+                tbl_h += h
+                rows += n
+                guessed += est
+            continue
+        text = curly(BOLD.sub(r"\1", HIGHLIGHT.sub(r"\1", b.get("text", "")))).strip()
+        if not text:
+            continue
+        size = TEXT_KIND_PT.get(k, float(FORM_SIZES_PT.get(k, FORM_SIZES_PT["yo"])))
+        indent = HIERARCHY_HANG.get(TEXT_KIND_HANG.get(k, ""), 0) / HU_PER_PT
+        wl = _weighted_len(text)
+        ratio, spacing = 100, 0
+        if k in LINE_FIT_KINDS:
+            ratio, spacing = fit_line(wl, width - indent, size, 100, 0, words=word_lens(text)) or (MIN_RATIO, MIN_SPACING)
+        adv = size * (ratio / 100.0 + spacing / 100.0)
+        n = math.ceil(wl / max(1.0, (width - indent) / max(adv, 0.1)))
+        lines += n
+        line_h = max(line_h, size)
+        if k in LINE_FIT_KINDS and n > 2:
+            over2 += 1
+    marks = [(0, 0.0)] + parts + [(lines, tbl_h)]
+    by_part = [max(1, math.ceil(((l1 - l0) * line_h * LAYOUT_LINE_SPACING + (t1 - t0)) / LAYOUT_BLOCK_PT))
+               for (l0, t0), (l1, t1) in zip(marks, marks[1:])]
+    return {"est_pt": round(lines * line_h * LAYOUT_LINE_SPACING + tbl_h), "est_pages": sum(by_part),
+            "pages_by_part": by_part, "paragraph_lines": lines, "table_rows": rows, "over_two_lines": over2,
+            "figures_estimated": guessed}
+
+
 def render_parts(text, work_dir=None):
     """화면 조각 — 쪽마다 항목(주소·줄·HTML) 목록. 라이브 리뷰 서버가 바뀐 항목만 골라 보내는 단위다."""
     blocks = address(parse(text))
@@ -466,6 +609,7 @@ def render_parts(text, work_dir=None):
         pages.append(cur)
     counts = {k: sum(1 for b in blocks if b["kind"] == k) for k in ("dae", "yo", "dash", "table", "banner")}
     counts["figure"] = sum(1 for b in blocks if b.get("figure"))
+    counts.update(estimate_layout(blocks, work_dir))      # 예상 쪽수 — 리뷰 서버 없이도 게이트② 전에 분량을 본다
     title = next((b["text"] for b in blocks if b["kind"] == "title"), "초안")
     return {"title": title, "css": css(), "pages": pages, "counts": {"blocks": len(blocks), **counts}}
 
