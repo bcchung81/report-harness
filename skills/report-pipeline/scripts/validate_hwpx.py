@@ -101,19 +101,51 @@ def _html_tables(text):
     return out
 
 
+def _strip_preamble(lines):
+    """되읽기 머리 블록 — MCP 되읽기의 `📑 문서 구조:` 목록(`- {제목}` 줄)은 본문이 아니다.
+    대시로 세면 `count-mismatch:subs`가 매번 1 늘어난다('26.9.3 실측)."""
+    out, skip = [], False
+    for l in lines:
+        s = l.strip()
+        if s.startswith("📑"):
+            skip = True
+            continue
+        if skip and (not s or s.startswith("-")):
+            if not s:
+                skip = False
+            continue
+        skip = False
+        out.append(l)
+    return out
+
+
+def _table_groups(lines):
+    """연속된 `|` 줄 묶음마다 (열 수, 구분선 뺀 행 수)."""
+    groups, cur = [], []
+    for l in lines + [""]:
+        if l.strip().startswith("|"):
+            cur.append(l.strip())
+        elif cur:
+            rows = [r for r in cur if not set(r) <= set("|- :")]
+            groups.append((max(len(r.strip("|").split("|")) for r in cur), len(rows)))
+            cur = []
+    return groups
+
+
+def _is_box(cols, rows):
+    """1칸 상자(산식 박스 등) — 되읽기가 표 대신 문단으로 돌려주는 경우가 있어 표로 세지 않는다('26.9.24 r02 실측).
+    글자는 문장 대조(content-dropped)가 따로 본다."""
+    return cols == 1 and rows <= 1
+
+
 def profile_counts(text):
     html = _html_tables(text)
     numbers_src = re.sub(r"<[^>]+>", " ", text)          # 표 안 숫자도 센다 — 태그만 지운다
     text = HTML_TABLE.sub("", text)
-    lines = text.splitlines()
-    tbl_rows = [l for l in lines if l.strip().startswith("|")]
-    tables = 0
-    prev = False
-    for l in lines:
-        cur = l.strip().startswith("|")
-        if cur and not prev:
-            tables += 1
-        prev = cur
+    lines = _strip_preamble(text.splitlines())
+    groups = [(c, r) for c, r in _table_groups(lines) if not _is_box(c, r)]
+    tables = len(groups)
+    html = [(w, cells) for w, cells in html if not _is_box(w, len(cells))]
     return {
         "sections": sum(l.strip().startswith("□") for l in lines),
         "points": sum(l.strip()[:1] in ("ㅇ", "○") for l in lines),
@@ -121,7 +153,7 @@ def profile_counts(text):
         "footnotes": sum(l.strip().startswith("＊") for l in lines),
         "tables": tables + len(html),
         "figures": _figure_count(lines),
-        "max_cols": max([len(r.strip().strip("|").split("|")) for r in tbl_rows] + [w for w, _ in html], default=0),
+        "max_cols": max([c for c, _ in groups] + [w for w, _ in html], default=0),
         "numbers": set(NUM.findall(numbers_src)),
     }
 
@@ -138,24 +170,34 @@ def normalize_num(s):
             t = t[:-1]
     return t
 
-def has_markdown_leftover(line):
+PAIRED_BOLD = re.compile(r"\*\*[^*\n]+?\*\*")
+
+
+def has_markdown_leftover(line, title=None, src_pieces=frozenset()):
+    """되읽기 줄에 마크다운 기호가 문자로 남았는가.
+
+    되읽기(kordoc)가 원래 그렇게 돌려주는 것은 잔재가 아니다('26.7~9월 같은 오탐 5회 — 매번 hwpx XML을 열어
+    무해 판정했다): ① 짝이 맞는 `**…**` — 글자 모양(charPr) 볼드를 마크다운으로 되쓴 것, ② 첫 줄 `# 제목` —
+    제목을 h1로 넘겨(R010) 제목 박스가 헤딩으로 돌아온 것(원문 제목과 같을 때만), ③ 원문에도 있는 ` - `
+    (산식 뺄셈 등). 실제 hwpx 안에 기호가 남았는지는 `compare --hwpx`의 `literal-markup`이 XML에서 직접 센다."""
     stripped = line.strip()
     if not stripped:
         return False
     if HR.match(stripped):
         return True
     if HEADING.match(stripped):
-        return True
+        return not (title and stripped.startswith("# ") and _piece(stripped) == title)
     body = LEAD.sub("", line, count=1)  # 항목 선두 합법 기호(-, ㅇ 등)는 잔재 판정에서 제외
+    plain = PAIRED_BOLD.sub(lambda m: m.group(0)[2:-2], body)
     if "`" in body:
         return True
-    if "**" in body:
+    if "**" in plain:                   # 짝 없는 `**`만 — 짝 맞는 것은 볼드 재직렬화
         return True
     if STRIKE.search(body):
         return True
-    if ITALIC.search(body):
+    if ITALIC.search(plain):
         return True
-    if INLINE_DASH.search(body):
+    if INLINE_DASH.search(body) and _piece(stripped) not in src_pieces:
         return True
     if "==" in body:  # 하이라이트 마커(R040) 잔존 — postprocess 치환 실패 검출
         return True
@@ -169,33 +211,48 @@ SENT_LEAD = re.compile(r"^\s*(?:[□ㅇ○▪·ㆍ＊※☞]|-|\*|\d+[.)])\s*")
 RIGHT_TAG = re.compile(r"</?right>")
 
 
+QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})
+HEAD_MARK = re.compile(r"^#{1,6}\s+")
+
+
+def _norm(x):
+    """대조 정규화 — 공백, 굽은 따옴표(되읽기가 곧은 따옴표를 ’로 바꾼다 — '26.9.24 가짜 손실 15건), 수치 표기
+    (1,234 ≡ 1234 · 23.70 ≡ 23.7 — numbers 대조와 같은 규칙이어야 한쪽만 오탐을 내지 않는다)."""
+    x = re.sub(r"\s+", " ", x.translate(QUOTES)).strip()
+    return NUM.sub(lambda m: normalize_num(m.group()), x)
+
+
+def _piece(line):
+    """표가 아닌 한 줄의 알맹이 — 헤딩·계층 기호·강조·정렬 래퍼·이스케이프를 벗긴다."""
+    s = UNESCAPE.sub(r"\1", RIGHT_TAG.sub("", line.strip()))
+    s = HEAD_MARK.sub("", s.replace("**", "").replace("`", "").replace("==", ""))
+    return _norm(SENT_LEAD.sub("", s))
+
+
 def content_pieces(text):
     """문장 단위 대조용 조각 — 계층 기호·강조·정렬 래퍼·이스케이프를 벗긴 알맹이.
 
     개조식 변환은 마크다운 `- `를 `ㅇ `·`□ `로 바꾸므로 선두 기호는 대조 대상이 아니다.
     표는 셀 단위로 펴서 행 구성이 달라져도 내용 손실만 잡는다.
     """
-    pieces = [re.sub(r"\s+", " ", c) for _, cells in _html_tables(text) for c in cells if c]
+    pieces = [_norm(c) for _, cells in _html_tables(text) for c in cells if c]
     text = HTML_TABLE.sub("", text)
-    for line in text.splitlines():
+    for line in _strip_preamble(text.splitlines()):
         s = line.strip()
         if not s or set(s) <= set("|- :") or RT_PREAMBLE.match(s) or FIG_MARKER.match(s):
             continue
-        s = UNESCAPE.sub(r"\1", RIGHT_TAG.sub("", s))
-        s = s.replace("**", "").replace("`", "").replace("==", "")
         if s.startswith("|"):
+            s = UNESCAPE.sub(r"\1", RIGHT_TAG.sub("", s)).replace("**", "").replace("`", "").replace("==", "")
             for cell in (c.strip() for c in s.strip("|").split("|")):
                 cell = re.sub(r"\s+", " ", cell)
                 if not cell or set(cell) <= set("- :") or cell == DITTO:
                     continue                          # `〃`는 위 칸과 병합돼 사라지는 표기
-                pieces.extend(x.strip() for x in cell.split(MERGE_SPLIT))   # `A > B` → 2단 머리행 두 칸
+                pieces.extend(_norm(x) for x in cell.split(MERGE_SPLIT))   # `A > B` → 2단 머리행 두 칸
             continue
-        s = re.sub(r"\s+", " ", SENT_LEAD.sub("", s)).strip()
+        s = _piece(s)
         if s:
             pieces.append(s)
-    # 수치 표기 정규화(1,234 ≡ 1234 · 23.70 ≡ 23.7)는 손실이 아니다 — numbers 대조와
-    # 같은 규칙을 태워야 한쪽만 오탐을 낸다
-    return [NUM.sub(lambda m: normalize_num(m.group()), x) for x in pieces]
+    return pieces
 
 
 def _quote_norm(line):
@@ -238,13 +295,16 @@ def compare_texts(src, rt):
     lost = a_num - b_num
     if lost:
         issues.append({"rule": "numbers-lost", "values": sorted(lost)[:20]})
+    src_pieces = content_pieces(src)
+    first = next((l for l in src.splitlines() if l.strip()), "")
+    title = _piece(first) if not first.strip().startswith("|") else None
     for i, line in enumerate(rt.splitlines(), 1):
-        if not line.strip().startswith("|") and has_markdown_leftover(line):
+        if not line.strip().startswith("|") and has_markdown_leftover(line, title, frozenset(src_pieces)):
             issues.append({"rule": "markdown-leftover", "line": i, "text": line.strip()[:80]})
     # 문장 자체가 바뀐 경우 — 개수·수치가 맞으면 통과하던 구멍을 막는다('26.9.10 신설).
     # 개수 대조는 "몇 개인가"만 보므로 문장이 통째로 갈려도 총량이 같으면 지나갔다.
     have = set(content_pieces(rt))
-    dropped = [x for x in content_pieces(src) if x not in have] + quote_lost
+    dropped = [x for x in src_pieces if x not in have] + quote_lost
     if dropped:
         issues.append({"rule": "content-dropped", "count": len(dropped),
                        "values": [x[:120] for x in dropped[:10]]})
@@ -334,8 +394,26 @@ def freshness_check(draft_text, prepared_text):
              "values": [x[:120] for x in drifted[:10]]}]
 
 
+LITERAL_MARKS = ("**", "==", "`", "~~")
+
+
+def literal_markup(hwpx_path):
+    """hwpx 본문 글자(<hp:t>)에 마크다운 기호가 문자 그대로 남았는가 — 되읽기의 볼드 재직렬화와 달리 이것은
+    진짜 잔재다(postprocess 치환 실패 등). 되읽기만으로는 둘을 가를 수 없어 XML에서 직접 센다."""
+    found = {}
+    with zipfile.ZipFile(hwpx_path) as z:
+        for name in sorted(n for n in z.namelist() if re.match(r"Contents/section\d+\.xml$", n)):
+            root = ET.fromstring(z.read(name))
+            for t in root.iter("{http://www.hancom.co.kr/hwpml/2011/paragraph}t"):
+                text = "".join(t.itertext())
+                for mark in LITERAL_MARKS:
+                    if mark in text:
+                        found.setdefault(mark, []).append(text.strip()[:60])
+    return [{"rule": "literal-markup", "mark": m, "count": len(v), "values": v[:5]} for m, v in found.items()]
+
+
 USAGE = ("usage: validate_hwpx.py structural <path.hwpx> | "
-         "validate_hwpx.py compare <src.md> <rt.md> | "
+         "validate_hwpx.py compare <src.md> <rt.md> [--hwpx <path.hwpx>] | "
          "validate_hwpx.py numbers <draft.md> <research_dir> | "
          "validate_hwpx.py freshness <draft.md> <prepared.md>")
 
@@ -354,6 +432,8 @@ if __name__ == "__main__":
             src = open(sys.argv[2], encoding="utf-8").read()
             rt = open(sys.argv[3], encoding="utf-8").read()
             issues = compare_texts(src, rt)
+            if "--hwpx" in sys.argv[4:]:
+                issues += literal_markup(sys.argv[sys.argv.index("--hwpx") + 1])
             print(json.dumps({"issues": issues}, ensure_ascii=False, indent=1))
             sys.exit(1 if issues else 0)
         elif mode == "freshness":

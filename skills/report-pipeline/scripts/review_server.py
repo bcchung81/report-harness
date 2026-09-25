@@ -223,7 +223,10 @@ def lease_claim(path, me, waiting=False, **extra):
     path = pathlib.Path(path)
     with _xlock(path):
         cur = lease_state(path)
-        if cur["state"] != "none" and cur.get("owner") != me["owner"]:
+        # 같은 프로세스의 새 세션(`/clear` 뒤 세션 ID만 바뀜)은 제 임대를 넘겨받는다 — 종전에는 남의 임대로 보고
+        # exit 3을 내 최대 30분 코멘트를 받지 못했다('26.9.25 실측). pid를 모르면(None) 넘겨받지 않는다.
+        same_process = me.get("pid") and cur.get("pid") == me["pid"]
+        if cur["state"] != "none" and cur.get("owner") != me["owner"] and not same_process:
             return False, cur
         now = time.time()
         row = dict(extra, owner=me["owner"], pid=me["pid"], waiting=bool(waiting), seen=now,

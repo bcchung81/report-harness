@@ -2552,3 +2552,18 @@ def test_title_24pt_fits_one_line():
     r, s, over = ph.fit_title("AI 도입 전후 효과 분석 체계 마련 방안 요약 보고", avail)
     assert not over and (r, s) != (100, 0) and r >= ph.MIN_RATIO and s >= ph.MIN_SPACING
     assert ph.fit_title("아주 긴 제목이 들어가서 한 줄에 절대로 들어가지 못하는 경우의 보고서 제목 예시", avail)[2] is True
+
+
+def test_short_label_column_keeps_one_line_width_when_floors_overflow():
+    """하한 합이 천장을 넘어 비례로 줄일 때도 '구 분' 같은 짧은 라벨 열은 한 줄 폭을 지킨다('26.9.24 6열 표: 5.9%로
+    눌려 '구/분'·'유/지'로 쪼개짐 — 하한 0.085가 번호 열 보호 기준 0.08을 살짝 넘었다)."""
+    rows = [["구 분", "지 표", "'25년 실적", "'26년 목표", "산 식", "포괄 범위"],
+            ["유지", "업무시간 단축률(%)", "75.1", "50", "순절감 시간 ÷ Σ(도입 전 건당 처리시간 × 처리 건수) × 100",
+             "업무시간 절감형 8건"],
+            ["추가", "AI 처리율(%)", "-", "시범 실측 후 확정", "수정 없이 채택·종결된 AI 처리 건수 ÷ 대상 업무 총 건수 × 100",
+             "절감형 8건·상담형 3건"]]
+    total = 47906
+    shares = ph.column_shares(rows, total)
+    need = (ph._cell_width_hu("구 분") + ph.COL_FIT_CELL_PAD) / total
+    assert shares[0] >= need - 1e-9
+    assert abs(sum(shares) - 1.0) < 1e-9

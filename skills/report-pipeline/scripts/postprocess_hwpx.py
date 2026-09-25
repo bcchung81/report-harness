@@ -2271,6 +2271,8 @@ COL_FIT_CELL_PAD = 1020    # 셀 좌우 안여백 — kordoc 산출 표 inMargin
 COL_FIT_FLOOR_MAX = 0.25   # 열 하나의 하한 상한(표 폭 대비) — 긴 서술 열이 하한을 독식하지 않게
 COL_FIT_FLOOR_CAP = 0.80   # 하한 합이 표 폭을 잠식하지 않도록 두는 천장(합 기준)
 COL_FIT_TINY = 0.08        # 이 이하 하한(번호·No 같은 짧은 열)은 천장 비례 축소에서 뺀다
+COL_FIT_SHORT_HU = 4800    # 가장 긴 셀이 이 폭(12pt 한글 4자) 이하인 라벨 열도 축소에서 뺀다 — '구 분'·'유지'처럼 짧은 말은
+                           # 줄을 바꿀 자리가 없어 한 글자씩 쪼개진다('26.9.24 6열 표 실측: 하한 0.085가 5.9%로 눌려 '구/분')
 COL_FIT_TOLERANCE = 0.001  # 사실상 항상 맞춘다 — 같은 글자면 같은 폭이 나와 멱등은 식이 보장한다. 종전 0.05는 kordoc 폭을
                            # 남겨 리뷰 화면(column_shares)과 최대 5%p 어긋났다('26.9.24 시험 변환 대조)
 
@@ -2302,13 +2304,16 @@ def column_shares(rows_text, total):
     for r in rows_text:
         for i, t in enumerate(r):
             weights[i] = max(weights[i], _weighted_len(t))
+    widths = []
     for i in range(cols):
         widest = max((_cell_width_hu(r[i].strip()) for r in rows_text if i < len(r)), default=0)
+        widths.append(widest)
         floors.append(min((widest + COL_FIT_CELL_PAD) / total, COL_FIT_FLOOR_MAX))
     if sum(floors) > COL_FIT_FLOOR_CAP:
-        # 하한 합이 넘치면 비례로 줄이되 아주 좁은 열(`No`·번호, 하한 COL_FIT_TINY 이하)은 그대로 둔다 — 함께
-        # 줄이면 제 글자 폭보다 좁아져 `N`/`o`로 쪼개진다('26.9.24 붙임 대장 실측: No 열 3%)
-        tiny = [i for i, f in enumerate(floors) if f <= COL_FIT_TINY]
+        # 하한 합이 넘치면 비례로 줄이되 짧은 열(`No`·번호처럼 하한 COL_FIT_TINY 이하, 또는 '구 분'처럼 가장 긴 셀이
+        # COL_FIT_SHORT_HU 이하인 라벨 열)은 그대로 둔다 — 함께 줄이면 제 글자 폭보다 좁아져 `N`/`o`·`구`/`분`으로
+        # 쪼개진다('26.9.24 붙임 대장 No 열 3%, 6열 표 라벨 열 5.9% 실측)
+        tiny = [i for i, f in enumerate(floors) if f <= COL_FIT_TINY or widths[i] <= COL_FIT_SHORT_HU]
         rest = sum(f for i, f in enumerate(floors) if i not in tiny)
         room = COL_FIT_FLOOR_CAP - sum(floors[i] for i in tiny)
         if rest > 0 and room > 0:

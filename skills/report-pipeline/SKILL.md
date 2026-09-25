@@ -438,10 +438,12 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
    recipe §3-1 — 흐름·비교·체계·일정 도식 그림을 같은 명세의 한글 표로 바꾼다, R089)** →
    **양식 정합 후처리(`postprocess_hwpx.py`, 아래 2-1 — 그림 표시 크기·가운데 정렬도 여기서)** →
    `validate_hwpx.py structural` → 왕복 되읽기 → `validate_hwpx.py compare {work_dir}/20_draft.md
-   {판본폴더}/40_roundtrip.md`(대조 기준은 **초안** — prepared는 초안의 결정론 파생이라 결과가
+   {판본폴더}/40_roundtrip.md --hwpx {인도본}`(대조 기준은 **초안** — prepared는 초안의 결정론 파생이라 결과가
    같고, 기준을 초안에 두면 인도본이 초안과 맞는지가 곧바로 드러난다) — 불일치는 최대
    2회 재변환 루프, 그래도 잔존하면 목록을 사용자에게 명시 보고하고 `20_draft.md`(SSOT)를
-   그대로 인도한다. `compare`는 개수·수치뿐 아니라 **문장 자체**를 대조한다(`content-dropped`).
+   그대로 인도한다. `compare`는 개수·수치뿐 아니라 **문장 자체**를 대조한다(`content-dropped`). 되읽기의 볼드
+   재직렬화·제목 `#`·따옴표 차이·1칸 상자는 스스로 걸러 내므로 XML을 열어 무해 판정하지 않는다 — 진짜 기호 잔재는
+   `--hwpx`의 `literal-markup`이 인도본 글자에서 센다(recipe §4-3).
    **개정 건은 착수 전에 `archive_revision.py status {work_dir}`로 초안↔인도본 대응을
    확인한다(R085·R087)** — `draft_ahead`면 인도본이 지금 초안과 다른 판이라는 뜻이므로
    재변환이 필요하다. 이 검사를 건너뛰면 초안만 고치고 인도본은 옛 판인 상태가 조용히 남는다.

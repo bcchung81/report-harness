@@ -426,7 +426,7 @@ compare의 src는 **`20_draft.md`**(R087 — 정합 6건에서 prepared 기준�
 
 ```
 python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
-    compare {work_dir}/20_draft.md {판본폴더}/40_roundtrip.md
+    compare {work_dir}/20_draft.md {판본폴더}/40_roundtrip.md --hwpx {인도본 hwpx}
 ```
 
 - 대조 항목: □ 섹션 수·ㅇ/○ 요지 수·대시 상세 수·＊ 각주 수·표 개수·표 최대 열 수·수치 표본
@@ -435,6 +435,11 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
   남아있는지(AI 티 3중 장치 ③ — 변환기가 기호를 문자 그대로
   박아버리는 사고의 최종 검출선).
 - **되읽기 텍스트의 밑줄 이스케이프**(`generate_document` 등)는 kordoc 파서의 정상 재현 차이로 compare가 검출하지 않는다 — 알려진 무해 차이.
+- **되읽기가 원래 그렇게 돌려주는 것은 잔재로 세지 않는다**('26.9.25 — 같은 오탐 5회, 과거 판본 14건 재대조에서 잔재
+  1,000건 → 2건): 짝이 맞는 `**…**`(글자 모양 볼드의 재직렬화), 원문 제목과 같은 첫 줄 `# 제목`(R010), 원문에도 있는
+  ` - `(산식 뺄셈), 곧은/굽은 따옴표 차이, MCP 되읽기 머리의 `📑 문서 구조:` 목록, 1칸 상자(산식 박스)가 문단으로
+  되읽힌 것(표 수·최대 열 수에서 제외). 대신 **`--hwpx`로 인도본 XML 글자에 `**`·`==`·백틱·`~~`가 문자로 남았는지
+  직접 센다**(`literal-markup`) — 볼드 재직렬화와 진짜 잔재를 되읽기만으로는 가를 수 없어서다.
 - **도식 표(§3-1)**: `도해:` 마커가 그림 대신 표로 들어가면 되읽기 그림 수는 줄고 표 수는 늘어난다 — 이때는 표·그림을 **합으로** 대조하고(`count-mismatch:tables+figures`), 도식 표는 좌표 격자라 열이 많으므로 최대 열 수는 줄어든 경우만 본다.
 - exit 0(`{"issues": []}`): 일치. §7로 진행.
 - exit 1: `issues` 배열에 `count-mismatch:{항목}` / `numbers-lost` / `markdown-leftover` 등
@@ -484,7 +489,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 |---|---|---|---|---|
 | `prep_report_md.py` | `prep_report_md.py <src> -o <out>` | 정규화 성공, `<out>` 기록 | — (사용 안 함) | `PrepError`(모호한 입력 거부) |
 | `validate_hwpx.py structural` | `validate_hwpx.py structural <path.hwpx>` | 구조 정상(`errors:[]`) | 구조 손상 발견(파일 미존재·zip 손상, `errors` 목록에 담겨 exit 1로 재변환 루프) | 인자 부족 |
-| `validate_hwpx.py compare` | `validate_hwpx.py compare <20_draft.md> <40_roundtrip.md>` | 전항목 일치(`issues:[]`) | 불일치 발견 | 인자 부족(파일 접근 오류 시도 exit 2) |
+| `validate_hwpx.py compare` | `validate_hwpx.py compare <20_draft.md> <40_roundtrip.md> [--hwpx <인도본>]` | 전항목 일치(`issues:[]`) | 불일치 발견 | 인자 부족(파일 접근 오류 시도 exit 2) |
 | `validate_hwpx.py numbers` | `validate_hwpx.py numbers <draft.md> <research_dir>` | 초안 수치 전부 근거 있음(`issues:[]`) | 근거 없는 수치 발견(`numbers-unsourced`) | 인자 부족 |
 | `to_kordoc_input.py` | `to_kordoc_input.py <prepared.md> -o <out.md> [--figure 슬러그=파일\|캡션]` | 변환 성공 | 매핑 없는 도식 마커 잔존 | 파일 접근·인자 오류 |
 | `diagram_table.py` | `diagram_table.py <file.hwpx> --work-dir <작업폴더> --figures-json <41_figures.json>` | 처리 완료(JSON `replaced`·`kept_image`·`missing`) | — (사용 안 함) | 인자·파일·zip/xml 오류 |

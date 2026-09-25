@@ -209,3 +209,50 @@ def test_compare_accepts_merged_table_roundtrip():
     rt = ('<table>\n<tr><th rowspan="2">성과지표</th><th colspan="2">\'23년</th></tr>\n<tr><td>목표</td><td>실적</td></tr>\n'
           '<tr><td rowspan="2">건수</td><td>100</td><td>120</td></tr>\n<tr><td>50</td><td>60</td></tr>\n</table>\n')
     assert vh.compare_texts(src, rt) == []
+
+
+# ---------------------------------------------------------------- 되읽기 오탐 제거 ('26.9.25 — 같은 오탐 5회 반복)
+TITLE_SRC = "AI 성과 측정 체계 마련 방안\n\n< '26. 9. 24.(목), 경영기획본부 AI디지털심화팀 >\n\n□ 개 요\n\nㅇ **(측정 기준)** 18건을 4개 유형으로 분류\n"
+
+
+def _rules(issues):
+    return [i["rule"] for i in issues]
+
+
+def test_readback_bold_and_title_heading_are_not_leftovers():
+    """되읽기는 글자 모양 볼드를 `**…**`로, 제목 박스를 `# 제목`으로 돌려준다 — 원문과 같으면 잔재가 아니다."""
+    rt = ("# AI 성과 측정 체계 마련 방안\n\n< ’26. 9. 24.(목), 경영기획본부 AI디지털심화팀 >\n\n□ 개 요\n\n"
+          "ㅇ **(측정 기준)** 18건을 4개 유형으로 분류\n")
+    assert compare_texts(TITLE_SRC, rt) == []                          # 볼드·제목·굽은 따옴표 모두 무해
+
+
+def test_real_leftovers_still_caught():
+    assert "markdown-leftover" in _rules(compare_texts(TITLE_SRC, TITLE_SRC.replace("**(측정 기준)**", "**(측정 기준)")))
+    other = "# 다른 제목\n" + TITLE_SRC.split("\n", 1)[1]
+    assert "markdown-leftover" in _rules(compare_texts(TITLE_SRC, other))      # 원문 제목과 다른 헤딩
+
+
+def test_inline_dash_allowed_only_when_source_has_it():
+    src = "□ 산식\n\n| 개선율 = (도입 전 - 도입 후) ÷ 도입 전 × 100 |\n| --- |\n"
+    rt = "□ 산식\n\n개선율 = (도입 전 - 도입 후) ÷ 도입 전 × 100\n"             # 1칸 상자가 문단으로 되읽힘
+    assert compare_texts(src, rt) == []                                # 표 수·잔재·문장 모두 무해
+    assert "markdown-leftover" in _rules(compare_texts("ㅇ 총 502건 정비\n", "ㅇ 총 502건 정비 - 그대로 노출\n"))
+
+
+def test_readback_preamble_block_is_not_body():
+    """MCP 되읽기 머리의 `📑 문서 구조:` 목록은 본문 대시가 아니다('26.9.3 count-mismatch:subs 오탐)."""
+    rt = "📑 문서 구조:\n- AI 성과 측정 체계 마련 방안\n\n" + TITLE_SRC
+    assert compare_texts(TITLE_SRC, rt) == []
+    assert profile_counts(rt)["subs"] == profile_counts(TITLE_SRC)["subs"]
+
+
+def test_literal_markup_counts_marks_left_in_hwpx(tmp_path):
+    """되읽기의 `**`는 볼드 재직렬화일 수 있어 hwpx 글자에 기호가 문자로 남았는지는 XML에서 직접 센다."""
+    import validate_hwpx as vh
+    hp = "http://www.hancom.co.kr/hwpml/2011/paragraph"
+    xml = (f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run><hp:t>정상 문장</hp:t></hp:run></hp:p>"
+           f"<hp:p><hp:run><hp:t>**남은 기호** 문장</hp:t></hp:run></hp:p></hs:sec>").encode()
+    issues = vh.literal_markup(make_zip(tmp_path, xml))
+    assert [(i["rule"], i["mark"], i["count"]) for i in issues] == [("literal-markup", "**", 1)]
+    clean = f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run><hp:t>정상</hp:t></hp:run></hp:p></hs:sec>"
+    assert vh.literal_markup(make_zip(tmp_path, clean.encode())) == []

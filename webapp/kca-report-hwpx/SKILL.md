@@ -182,7 +182,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" structural "결과.hwpx"
 
 # 6) 왕복 대조 — python-hwpx가 있으면 그걸 쓰고, 없으면 stdlib 폴백으로 자동 전환된다
 python3 "$SKILL_DIR/scripts/roundtrip_md.py" "결과.hwpx" -o roundtrip.md
-python3 "$SKILL_DIR/scripts/validate_hwpx.py" compare prepared.md roundtrip.md
+python3 "$SKILL_DIR/scripts/validate_hwpx.py" compare prepared.md roundtrip.md --hwpx 출력.hwpx
 ```
 
 ### 판정 규칙
@@ -192,8 +192,9 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" compare prepared.md roundtrip.md
   방어선이다. 특히 `title_box.no_leading_blank`·`table.column_width_inverted`는 구조 검증과
   왕복 대조를 전부 통과하고 **한글로 열어야만 보이는** 결함이라, 여기서 못 잡으면 그대로
   인도된다('26.8.7 실제 재발 사례).
-- **6단계 compare의 `count-mismatch:tables`가 `+2`이면 정상이다** — 제목 박스 1개와 머리말
-  배너 1개가 정상 가산된 것이다. 그 외 항목 불일치나 `markdown-leftover`는 실패로 본다.
+- **6단계 compare의 `count-mismatch:tables`가 `+1`이면 정상이다** — 머리말 배너 1개가 정상 가산된
+  것이다(제목 박스는 1칸 상자라 세지 않는다). 그 외 항목 불일치나 `markdown-leftover`·`literal-markup`은
+  실패로 본다.
 - 2회 재시도 후에도 불일치가 남으면 **조용한 변환 손실을 만들지 않는다** — 잔존 목록을 명시
   보고하고 `draft.md`를 그대로 인도한다. hwpx 실패가 md 인도를 막지 않는다.
 

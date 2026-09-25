@@ -461,10 +461,27 @@ def test_doc_and_case_names_are_readable(tmp_path):
 
 
 # ---------------------------------------------------------------- 여러 보고서 동시 정리의 안전장치('26.9.25)
+_PIDS = {}
+
+
+def _session_pid(sid):
+    """세션마다 살아 있는 서로 다른 프로세스 — 다른 세션은 다른 Claude 프로세스다(같은 pid는 `/clear` 뒤 같은
+    프로세스의 새 세션이라 임대를 넘겨받는다). 첫 세션은 이 프로세스, 나머지는 잠든 보조 프로세스."""
+    if sid not in _PIDS:
+        if not _PIDS:
+            _PIDS[sid] = rs.os.getpid()
+        else:
+            import atexit, subprocess
+            p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(900)"])
+            atexit.register(p.kill)
+            _PIDS[sid] = p.pid
+    return _PIDS[sid]
+
+
 def _as(monkeypatch, sid, pid=None):
     """처리 세션 흉내 — Claude Code 세션 ID·프로세스."""
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", sid)
-    monkeypatch.setenv("CLAUDE_PID", str(pid or rs.os.getpid()))
+    monkeypatch.setenv("CLAUDE_PID", str(pid or _session_pid(sid)))
 
 
 def _dead_pid():
@@ -637,3 +654,16 @@ def test_overlay_interactive_components():
         assert need in ov, need
     assert "#rv-cmd,#rv-help" in re.search(r"const inUI=.*", ov).group(0)       # 새 창의 클릭은 문서 클릭이 아니다
 
+
+
+def test_same_process_new_session_takes_over_its_own_lease(tmp_path, monkeypatch):
+    """`/clear` 뒤 같은 Claude 프로세스의 새 세션은 제 임대를 넘겨받는다 — 종전에는 남의 임대로 보고 exit 3을 내
+    최대 30분 코멘트를 받지 못했다('26.9.25 실측). 다른 프로세스의 세션은 여전히 막힌다."""
+    path = rs._owner_path(tmp_path)
+    _as(monkeypatch, "before-clear", rs.os.getpid())
+    assert rs.lease_claim(path, rs.session_owner())[0]
+    _as(monkeypatch, "after-clear", rs.os.getpid())
+    assert rs.lease_claim(path, rs.session_owner())[0]
+    assert rs.lease_state(path)["owner"] == "after-clear"
+    _as(monkeypatch, "other-terminal")
+    assert rs.lease_claim(path, rs.session_owner())[0] is False                      # 살아 있는 다른 프로세스는 막는다

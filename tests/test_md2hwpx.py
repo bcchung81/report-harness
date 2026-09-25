@@ -219,13 +219,16 @@ def test_roundtrip_fallback_without_pyhwpx(converted):
     assert r.returncode == 0, r.stderr
     cmp_ = run([SCRIPTS / "validate_hwpx.py", "compare", d / "prepared.md", rt])
     issues = json.loads(cmp_.stdout)["issues"]
-    # 제목 박스 1 + 머리말 배너 1이 정상 가산되는 표 수 차이 외에는 없어야 한다
+    # 머리말 배너 1이 정상 가산되는 표 수 차이 외에는 없어야 한다 — 제목 박스는 1칸 상자라 세지 않는다('26.9.25)
     assert [i["rule"] for i in issues] == ["count-mismatch:tables"], issues
-    assert issues[0]["roundtrip"] - issues[0]["src"] == 2, issues
+    assert issues[0]["roundtrip"] - issues[0]["src"] == 1, issues
 
 
 def test_roundtrip_fallback_detects_literal_markers(tmp_path):
-    """폴백이 `**` 리터럴 잔재를 잡아내는지 — 이 검사가 죽으면 방어선이 사라진다."""
+    """`**` 리터럴 잔재를 잡아내는지 — 이 검사가 죽으면 방어선이 사라진다.
+
+    짝이 맞는 `**…**`는 되읽기의 볼드 재직렬화와 겉모습이 같아 되읽기 대조(compare_texts)만으로는 가를 수 없다
+    ('26.9.25 — 볼드 오탐 5회 반복 뒤 되읽기 판정에서 뺐다). 그래서 방어선은 hwpx 글자를 직접 세는 literal_markup이다."""
     sys.path.insert(0, str(SCRIPTS))
     import importlib
     rt = importlib.import_module("roundtrip_md")
@@ -242,9 +245,8 @@ def test_roundtrip_fallback_detects_literal_markers(tmp_path):
     md2hwpx.package(md2hwpx.render(blocks), blocks, bad)
     out_md = tmp_path / "rt.md"
     out_md.write_text(rt.read_stdlib(bad), encoding="utf-8")
-    issues = vh.compare_texts(src.read_text(encoding="utf-8"),
-                              out_md.read_text(encoding="utf-8"))
-    assert any(i["rule"] == "markdown-leftover" for i in issues), issues
+    issues = vh.literal_markup(bad)
+    assert [(i["rule"], i["mark"]) for i in issues] == [("literal-markup", "**")], issues
 
 
 def test_decode_assets_is_idempotent_noop(tmp_path):
