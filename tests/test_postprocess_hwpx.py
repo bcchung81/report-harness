@@ -2596,3 +2596,52 @@ def test_paren_small_splits_runs_with_inline_nbspace(tmp_path):
     assert "".join(flat).endswith("월 180만<nb>원씩 지출")                              # 순서 보존
     again = ph.process_file(str(p), star=False, spacing=True)["paren_small"]
     assert again["paren_spans"] == 0 and again["inline_runs_split"] == 0                # 멱등
+
+
+def _nbsp_section(body):
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"'
+            ' xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">\n'
+            f'  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>{body}</hp:t></hp:run></hp:p>\n</hs:sec>\n')
+
+
+def _flat_text(sec):
+    hp = "{http://www.hancom.co.kr/hwpml/2011/paragraph}"
+    out = []
+    for t in sec.iter(hp + "t"):
+        out.append(t.text or "")
+        out += ["<nb>" + (c.tail or "") for c in t]
+    return "".join(out)
+
+
+def test_superscript_star_keeps_text_after_inline_element(tmp_path):
+    """＊ 위첨자 처리가 run을 t.text만으로 다시 지어 nbSpace와 그 뒤 글자를 지웠다('26.9.25 코드 리뷰 #4 — 데이터 손실)."""
+    p = tmp_path / "star_nbsp.hwpx"
+    build_hwpx(str(p), header_xml=HEADER_WITH_BOLD,
+               section_xml=_nbsp_section("- 초안 도우미＊ 사용료 월 180만<hp:nbSpace/>원씩 지출"))
+    summary = ph.process_file(str(p), star=False, spacing=True)
+    assert summary["superscript_star"]["stars_superscripted"] == 1
+    with zipfile.ZipFile(str(p)) as z:
+        sec = ET.fromstring(z.read("Contents/section0.xml"))
+    assert _flat_text(sec).strip() == "- 초안 도우미＊ 사용료 월 180만<nb>원씩 지출"     # 앞 공백은 계층 들여쓰기
+
+
+def test_element_run_inside_paren_span_gets_small_size(tmp_path):
+    """괄호 안의 nbSpace만 든 run도 13pt — 안 그러면 괄호 안 공백만 15pt로 남는다(리뷰 #4)."""
+    p = tmp_path / "paren_nbsp_inside.hwpx"
+    build_hwpx(str(p), header_xml=HEADER_WITH_BOLD, section_xml=_nbsp_section("- 사용료(총 360만<hp:nbSpace/>원) 지출"))
+    ph.process_file(str(p), star=False, spacing=True)
+    with zipfile.ZipFile(str(p)) as z:
+        hdr = ET.fromstring(z.read("Contents/header.xml"))
+        sec = ET.fromstring(z.read("Contents/section0.xml"))
+    info = _charpr_info(hdr)
+    hp = "{http://www.hancom.co.kr/hwpml/2011/paragraph}"
+    elem_runs = [r for r in sec.iter(hp + "run") if r.find(hp + "t") is not None and len(r.find(hp + "t"))]
+    assert elem_runs and all(info[r.get("charPrIDRef")][0] == "1300" for r in elem_runs)
+
+
+def test_body_charpr_sums_characters_per_charpr():
+    """문단 본문 charPr은 charPr별 글자 수 합으로 — 본문이 nbSpace로 쪼개져 13pt 괄호 조각이 가장 긴 run이 돼도
+    본문 크기로 잰다(리뷰 #4: 줄 수를 적게 세 넘침 경고·쪽수 추정이 빠졌다)."""
+    mk = lambda cid: ET.Element("run", {"charPrIDRef": cid})
+    runs = [(mk("15"), "가" * 12), (mk("13"), "나" * 18), (mk("15"), "다" * 12)]
+    assert ph._body_charpr(runs) == "15"

@@ -138,6 +138,11 @@ python3 scripts/smoke_pipeline.py --score-only <결과 폴더>            # 다�
 오계수, 게이트② 승인 뒤 쪽수 맞추기 압축. 헤드리스 세션은 `--dangerously-skip-permissions`로 돌므로 이 스크립트의 가상
 자료로만 쓴다.
 
+주의 — 세션은 이 저장소가 아니라 **설치된 하네스**(`~/.claude/skills` 사본 또는 플러그인)를 읽는다. 사본이 저장소와
+다르면 도구가 멈추니(`--allow-stale`로 넘김) 커밋 뒤 사본을 교체하고 돌린다. 안전망 훅 2종은 플러그인으로 설치돼 있을
+때만 돈다. `--rules` 판본은 시드의 규칙 번호를 모두 담아야 한다 — 빠진 번호는 첫 단계 `sync_rules.py --apply`가 되살려
+A/B가 무효가 되므로 본문으로 줄이고, 실행 뒤 달라진 번호는 `rules_drift`로 보고된다.
+
 CI(`.github/workflows/test.yml`)는 새 클론에서 pytest 전량·배포 가드·웹앱 빌드를 돌린다. 설치하는 것은 테스트 러너
 pytest 하나뿐이다 — 이 설치를 빼 두었던 동안(8월~9월) CI가 매번 실패했다. 푸시 전 로컬에서 새 클론으로 한 번
 돌려 보면(`git clone . /tmp/x && cd /tmp/x && python3 -m pytest -q`) '로컬에서만 초록'을 미리 잡는다.

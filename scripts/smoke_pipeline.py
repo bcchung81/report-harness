@@ -13,6 +13,10 @@
 - 헤드리스 세션은 `claude -p … --dangerously-skip-permissions`로 돈다. 자기 하네스와 이 스크립트의 가상 자료로만
   쓰고, CI에서는 돌리지 않는다(로그인된 Claude Code와 kordoc MCP가 필요하다. 1회 약 10분·수 달러).
 - 게이트 질문은 요청문에 미리 답해 둔다 — 사람이 답할 수 없다.
+- 세션은 이 저장소가 아니라 설치된 하네스(`~/.claude/skills` 사본 또는 플러그인)를 읽는다 — 사본이 저장소와 다르면
+  멈춘다(`--allow-stale`로 넘김). 안전망 훅 2종은 플러그인으로 설치돼 있을 때만 돈다.
+- `--rules` 판본은 시드의 규칙 번호를 모두 담아야 한다 — 빠진 번호는 첫 단계(`sync_rules.py --apply`)가 되살려 A/B가
+  무효가 된다. 줄이는 것은 본문으로 하고, 실행 뒤 운영본이 판본과 달라진 번호를 `rules_drift`로 보고한다.
 
 exit 0: 모든 실행이 인도·검증 통과 | 1: 하나라도 실패 | 2: 인자·환경 오류
 """
@@ -29,6 +33,8 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "skills/report-pipeline/scripts"
+sys.path.insert(0, str(SCRIPTS))
+import sync_rules  # noqa: E402  (규칙 줄 파서 단독 출처)
 
 FIXTURE = """# 사내 생성형 AI 문서 초안 도우미 시범운영 결과 (가상 자료 — 하네스 점검용)
 
@@ -59,6 +65,10 @@ def _run(*args):
     return r.returncode, r.stdout
 
 
+def _rules(path):
+    return sync_rules.rules(pathlib.Path(path).read_text(encoding="utf-8")) if pathlib.Path(path).is_file() else {}
+
+
 def _json(text):
     try:
         return json.loads(text)
@@ -72,6 +82,11 @@ def score(run_dir):
     out = {"run": run_dir.name, "delivered": False}
     session = _json((run_dir / "session.json").read_text(encoding="utf-8")) if (run_dir / "session.json").exists() else {}
     out.update({k: session.get(k) for k in ("num_turns", "total_cost_usd", "duration_ms", "is_error")})
+    out["session_ok"] = bool(session) and session.get("is_error") is False
+    variant = run_dir / "rules_variant.md"
+    if variant.is_file():                      # A/B 판본이 세션 동안 바뀌었나 — 되살아난·고쳐진 번호
+        before, after = _rules(variant), _rules(run_dir / "state" / "rules.md")
+        out["rules_drift"] = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
     wds = sorted(p.parent for p in (run_dir / "reports").rglob("00_context.md"))
     out["work_dirs"] = len(wds)
     if len(wds) != 1:
@@ -93,22 +108,50 @@ def score(run_dir):
         rev = sorted(wd.glob("history/r*/"))
         rt = sorted(wd.glob("history/r*/40_roundtrip.md"))
         if rt and draft.exists():
-            cmp_ = _json(_run(SCRIPTS / "validate_hwpx.py", "compare", draft, rt[-1], "--hwpx", hwpx)[1])
+            rc, text = _run(SCRIPTS / "validate_hwpx.py", "compare", draft, rt[-1], "--hwpx", hwpx)
+            cmp_ = _json(text)
             out["compare_issues"] = [i.get("rule") for i in cmp_.get("issues", [])]
+            out["compare_ok"] = rc == 0            # 출력이 JSON이 아니어도(검사 자체가 깨져도) 통과로 세지 않는다
         post = sorted(wd.glob("history/r*/*postprocess*.json"))      # 이름은 실행마다 다르다(40_·42_)
         layout = _json(post[-1].read_text(encoding="utf-8")).get("layout", {}) if post else {}
         out["est_pages"] = layout.get("est_pages")
-        out["delivered"] = bool(out.get("structural_ok")) and out.get("compare_issues") == [] and bool(rev)
+        out["delivered"] = (out["session_ok"] and bool(out.get("structural_ok")) and bool(out.get("compare_ok"))
+                            and bool(rev))
     return out
+
+
+def preflight(rules=None, allow_stale=False):
+    """실행 전 확인 → 오류 문구 목록. 설치 사본이 저장소와 다르면 세션이 옛 하네스로 돌아 결과가 이 저장소를 말하지
+    않는다. 규칙 판본은 시드 번호를 모두 담아야 한다('26.9.25 코드 리뷰 #4)."""
+    errors = []
+    if shutil.which("claude") is None:
+        errors.append("claude CLI가 없다")
+    if rules:
+        if not rules.is_file():
+            errors.append(f"규칙 파일 없음 {rules}")
+        else:
+            missing = sorted(set(sync_rules.rules(sync_rules.SEED.read_text(encoding="utf-8"))) - set(_rules(rules)))
+            if missing:
+                errors.append(f"규칙 판본에 시드 번호 {len(missing)}개가 없다({', '.join(missing[:5])}…) — 첫 단계가 되살려"
+                              " A/B가 무효. 번호는 두고 본문을 줄인다")
+    if not allow_stale:
+        import doctor
+        copy = doctor.installed_copy_check(ROOT)
+        if copy and copy["상태"] != doctor.OK:
+            errors.append(f"설치 사본이 저장소와 다르다({copy['값']}) — 사본을 교체하거나 --allow-stale")
+    return errors
 
 
 def run_once(run_dir, rules=None, model=None, max_turns=150, timeout=2700):
     run_dir = pathlib.Path(run_dir)
+    if run_dir.exists() and any(run_dir.iterdir()):
+        raise FileExistsError(f"이미 결과가 있는 폴더 — 다른 --out을 준다: {run_dir}")
     for sub in ("cwd", "reports", "state"):
         (run_dir / sub).mkdir(parents=True, exist_ok=True)
     (run_dir / "cwd" / "자료.md").write_text(FIXTURE, encoding="utf-8")
     if rules:
-        shutil.copyfile(rules, run_dir / "state" / "rules.md")      # 판본 규칙 — sync_rules가 새 규칙만 보탠다
+        shutil.copyfile(rules, run_dir / "state" / "rules.md")      # 판본 규칙 — sync_rules가 빠진 번호를 되살린다
+        shutil.copyfile(rules, run_dir / "rules_variant.md")         # 채점 때 되살아난·고쳐진 번호를 본다
     cfg = run_dir / "config.json"
     cfg.write_text(json.dumps({"reports_dir": str(run_dir / "reports"), "state_dir": str(run_dir / "state")},
                               ensure_ascii=False), encoding="utf-8")
@@ -128,8 +171,8 @@ def run_once(run_dir, rules=None, model=None, max_turns=150, timeout=2700):
 
 
 def summarize(results):
-    keys = ("run", "delivered", "lint_ok", "audit_violations", "craft_missing", "compare_issues", "est_pages",
-            "revisions", "num_turns", "total_cost_usd")
+    keys = ("run", "delivered", "session_ok", "lint_ok", "audit_violations", "craft_missing", "compare_issues",
+            "est_pages", "revisions", "num_turns", "total_cost_usd", "rules_drift")
     lines = [" | ".join(keys)]
     for r in results:
         lines.append(" | ".join(str(r.get(k)) for k in keys))
@@ -144,20 +187,31 @@ def main(argv=None):
     ap.add_argument("--model")
     ap.add_argument("--max-turns", type=int, default=150)
     ap.add_argument("--timeout", type=int, default=2700)
-    ap.add_argument("--score-only", type=pathlib.Path, help="이미 돈 결과 폴더를 다시 채점")
+    ap.add_argument("--score-only", type=pathlib.Path, help="이미 돈 결과 폴더(또는 실행 폴더 하나)를 다시 채점")
+    ap.add_argument("--allow-stale", action="store_true", help="설치 사본이 저장소와 달라도 돌린다")
     a = ap.parse_args(argv)
     if a.score_only:
-        runs = sorted(p for p in a.score_only.iterdir() if p.is_dir() and (p / "reports").exists())
+        if not a.score_only.is_dir():
+            print(f"error: 폴더 없음 {a.score_only}", file=sys.stderr)
+            return 2
+        runs = ([a.score_only] if (a.score_only / "reports").is_dir() else
+                sorted(p for p in a.score_only.iterdir() if p.is_dir() and (p / "reports").exists()))
+        if not runs:
+            print(f"error: 채점할 실행 폴더(reports/ 포함)가 없다 {a.score_only}", file=sys.stderr)
+            return 2
         results = [score(p) for p in runs]
     else:
-        if shutil.which("claude") is None:
-            print("error: claude CLI가 없다", file=sys.stderr)
-            return 2
-        if a.rules and not a.rules.is_file():
-            print(f"error: 규칙 파일 없음 {a.rules}", file=sys.stderr)
+        errors = preflight(a.rules, a.allow_stale)
+        if errors:
+            for e in errors:
+                print(f"error: {e}", file=sys.stderr)
             return 2
         out = a.out or pathlib.Path(tempfile.gettempdir()) / "report-harness-smoke" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        results = [run_once(out / f"run{i + 1}", a.rules, a.model, a.max_turns, a.timeout) for i in range(a.runs)]
+        try:
+            results = [run_once(out / f"run{i + 1}", a.rules, a.model, a.max_turns, a.timeout) for i in range(a.runs)]
+        except FileExistsError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
         (out / "summary.json").write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"결과 폴더: {out}")
     print(summarize(results))

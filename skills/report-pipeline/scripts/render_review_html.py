@@ -36,7 +36,7 @@ from postprocess_hwpx import (                                  # noqa: E402  (�
     FORM_SIZES_PT, TITLE_BOX_SIZE_PT, TITLE_TEXT_WIDTH_HU, fit_title, SENDER_SIZE_PT, HIGHLIGHT_SHADE, PAGE_MARGINS,
     LINE_FIT_KINDS, fit_line, word_lens, _weighted_len, MIN_RATIO, MIN_SPACING, transition_for, column_shares,
     HEADER_SPLIT, DITTO, LABEL_FILL, FIT_PAGE_SLACK, QUOTE_FACE, QUOTE_SIZE_PT, QUOTE_LINE_SPACING,
-    QUOTE_FILL, QUOTE_BORDER)
+    QUOTE_FILL, QUOTE_BORDER, curly)
 import render_diagram                                           # noqa: E402  (도식 조각 단독 출처)
 import diagram_table                                            # noqa: E402  (표 도식 격자 단독 출처 — R089)
 from lint_md_profile import FENCE                               # noqa: E402  (인용 블록 경계 단독 출처)
@@ -76,19 +76,6 @@ CELL_PAD_PT = (1.41, 5.1)
 TABLE_LINE = 1.3
 TABLE_WIDTH_HU = A4_WIDTH_HU - int(PAGE_MARGINS["left"]) - int(PAGE_MARGINS["right"])
 KIND_MARK = {"yo": "ㅇ", "dash": "-", "cham": "※", "star": "＊"}
-
-
-APOS_NUM = re.compile(r"'(?=\d)")
-PAIR_SINGLE = re.compile(r"'([^'\n]+?)'")
-PAIR_DOUBLE = re.compile(r'"([^"\n]+?)"')
-
-
-def curly(text):
-    """곧은따옴표를 둥근따옴표로 — kordoc이 변환 때 같게 바꾼다('25년 → ’25년). 둥근따옴표는 한글 글꼴에서
-    전각이라 줄 수 계산도 이 글자로 해야 한글과 맞는다('26.9.24 □3-ㅇ2-1 — 곧은따옴표로 재서 화면 3줄)."""
-    text = APOS_NUM.sub("’", text)
-    text = PAIR_DOUBLE.sub(r"“\1”", PAIR_SINGLE.sub(r"‘\1’", text))
-    return text.replace("'", "’")
 
 
 def inline(text):

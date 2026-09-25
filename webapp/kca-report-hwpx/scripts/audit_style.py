@@ -51,10 +51,11 @@ def _title_overflows(title):
     알고 승인된 초안을 줄이던 것을 집필 단계로 당긴다('26.9.25 하네스 실전 점검: 37자 제목이 2줄로 넘쳐 1쪽 초과).
     후처리 모듈을 못 읽는 환경이면 검사를 건너뛴다."""
     try:
-        from postprocess_hwpx import fit_title, TITLE_TEXT_WIDTH_HU
+        from postprocess_hwpx import fit_title, curly, TITLE_TEXT_WIDTH_HU
     except Exception:
         return False
-    return fit_title(title.strip(), TITLE_TEXT_WIDTH_HU / 100.0)[2]
+    # 인도본 제목은 kordoc이 따옴표를 둥근따옴표(전각)로 바꾼 글자다 — 곧은따옴표(반각)로 재면 한 줄로 오판한다(리뷰 #4)
+    return fit_title(curly(title.strip()), TITLE_TEXT_WIDTH_HU / 100.0)[2]
 
 
 def _source_count(line):

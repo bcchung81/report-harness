@@ -1590,6 +1590,26 @@ def _text_runs(p):
     return out
 
 
+def _body_charpr(runs):
+    """문단 본문의 charPr — run 하나가 아니라 charPr별 글자 수 합이 가장 큰 것. nbSpace 등으로 본문이 여러 run으로
+    나뉘면 13pt 괄호 조각이 '가장 긴 run'이 되어 문단 전체를 13pt로 재 줄 수를 적게 셌다('26.9.25 코드 리뷰 #4)."""
+    total = {}
+    for run, text in runs:
+        cid = run.get("charPrIDRef")
+        total[cid] = total.get(cid, 0) + len(text)
+    return max(total, key=total.get) if total else None
+
+
+def _element_runs(p):
+    """글자 없이 인라인 요소(nbSpace·tab 등)만 든 run — 본문 사이 공백이라 본문과 함께 조이고 꾸민다."""
+    out = []
+    for run in p.findall(qn("hp", "run")):
+        kids = list(run)
+        if len(kids) == 1 and kids[0].tag == qn("hp", "t") and len(kids[0]) and not "".join(kids[0].itertext()):
+            out.append(run)
+    return out
+
+
 def _charpr_metrics(header_root, cid):
     for cp in header_root.iter(qn("hh", "charPr")):
         if cp.get("id") != cid:
@@ -1701,7 +1721,7 @@ def apply_line_fit(header_root, section_roots, max_lines=2):
             # 기준은 글자가 가장 많은 run(본문) — 첫 run은 부호 칸이라 kordoc 값과 다르다. 종전에는 첫
             # run 값으로 계산하고 첫 run과 같은 charPr만 조여, ㅇ 문단의 볼드 리드·본문이 그대로 남았다
             # ('26.9.24 시험 변환 실측 — 2줄로 보고한 ㅇ 16건 중 다수가 한글에서 3줄)
-            body_cid = max(runs, key=lambda r: len(r[1]))[0].get("charPrIDRef")
+            body_cid = _body_charpr(runs)
             if body_cid is None:
                 continue
             h, ratio0, sp0 = _charpr_metrics(header_root, body_cid)
@@ -1716,7 +1736,8 @@ def apply_line_fit(header_root, section_roots, max_lines=2):
                 overflow.append({"text": text[:40], "chars": len(text),
                                  "lines": lines_at(wl, avail, h, MIN_RATIO, MIN_SPACING, words)})
                 continue
-            for run, _ in runs:                   # 모든 글자 run을 조이되, 이미 더 조인 run은 그대로 둔다
+            # 모든 글자 run과 본문 사이 요소 run(nbSpace 등)을 조이되, 이미 더 조인 run은 그대로 둔다
+            for run in [r for r, _ in runs] + _element_runs(child):
                 cid = run.get("charPrIDRef")
                 _, r0, s0 = _charpr_metrics(header_root, cid)
                 target = (min(r0, chosen[0]), min(s0, chosen[1]))
@@ -1776,7 +1797,7 @@ def estimate_layout(header_root, section_roots):
             runs = _text_runs(child)
             if not runs:
                 continue
-            h, ratio, sp = _charpr_metrics(header_root, max(runs, key=lambda r: len(r[1]))[0].get("charPrIDRef") or "")
+            h, ratio, sp = _charpr_metrics(header_root, _body_charpr(runs) or "")
             line_h = max(line_h, h)
             indent = _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
             avail = width - indent
@@ -1919,9 +1940,10 @@ def apply_superscript_star(header_root, section_roots):
                 continue
             if STAR not in text:
                 continue
+            _explode_inline_runs(p)      # t.text만으로 다시 지으면 인라인 요소와 그 뒤 글자가 지워졌다('26.9.25 리뷰 #4)
             for run in list(p.findall(qn("hp", "run"))):
                 t = run.find(qn("hp", "t"))
-                if t is None or not t.text or STAR not in t.text or len(list(run)) != 1:
+                if t is None or not t.text or STAR not in t.text or len(list(run)) != 1 or len(t):
                     continue
                 base_cp = run.get("charPrIDRef")
                 if base_cp is None:
@@ -2041,6 +2063,10 @@ def apply_paren_small(header_root, section_roots, pt=13):
             spans += len(jobs)
             for info in infos:
                 if not info["text"]:
+                    # 구간 안쪽의 요소 run(nbSpace 등)도 같은 13pt로 — 안 그러면 괄호 안 공백만 15pt로 남는다(리뷰 #4)
+                    if info["run"].get("charPrIDRef") and any(s < info["start"] < e for s, e in jobs):
+                        info["run"].set("charPrIDRef", ensure_charpr_sized(
+                            header_root, info["run"].get("charPrIDRef"), height, cache))
                     continue
                 r_s, r_e, text = info["start"], info["end"], info["text"]
                 overlaps = [(max(s, r_s) - r_s, min(e, r_e) - r_s)
@@ -2134,6 +2160,10 @@ def apply_highlight(header_root, section_roots):
             highlights += len(jobs)
             for info in infos:
                 if not info["text"]:
+                    # 강조 내용 안쪽의 요소 run(nbSpace 등)도 같은 강조로 — 음영이 끊기지 않게(리뷰 #4)
+                    if info["run"].get("charPrIDRef") and any(cs < info["start"] < ce for _, _, cs, ce in jobs):
+                        info["run"].set("charPrIDRef", ensure_charpr_highlight(
+                            header_root, info["run"].get("charPrIDRef"), cache))
                     continue
                 r_s, r_e, text = info["start"], info["end"], info["text"]
                 marks = []  # run-로컬 (시작, 끝, 종류) — drop=마커 토큰, hl=하이라이트 내용
@@ -3192,6 +3222,20 @@ def apply_title_fit(header_root, section_roots):
             run.set("charPrIDRef", ensure_charpr_fitted(header_root, cid, ratio, spacing, cache))
             changed += 1
     return {"found": True, "ratio": ratio, "spacing": spacing, "overflow": overflow, "runs_changed": changed}
+
+
+APOS_NUM = re.compile(r"'(?=\d)")
+PAIR_SINGLE = re.compile(r"'([^'\n]+?)'")
+PAIR_DOUBLE = re.compile(r'"([^"\n]+?)"')
+
+
+def curly(text):
+    """곧은따옴표를 둥근따옴표로 — kordoc이 변환 때 같게 바꾼다('25년 → ’25년). 둥근따옴표는 한글 글꼴에서
+    전각이라 줄 수 계산도 이 글자로 해야 한글과 맞는다('26.9.24 □3-ㅇ2-1 — 곧은따옴표로 재서 화면 3줄).
+    리뷰 화면·문체 감사(제목 한 줄)가 함께 쓴다 — 웹앱에도 실리는 이 모듈이 단독 출처다('26.9.25 리뷰 #4)."""
+    text = APOS_NUM.sub("’", text)
+    text = PAIR_DOUBLE.sub(r"“\1”", PAIR_SINGLE.sub(r"‘\1’", text))
+    return text.replace("'", "’")
 
 
 def fit_title(text, avail_pt, size_pt=None):

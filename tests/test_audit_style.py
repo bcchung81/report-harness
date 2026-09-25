@@ -394,3 +394,11 @@ def test_result_report_flow_is_not_an_order_inversion():
                      for t in ("개 요", "추진 성과", "검토 결과", "향후 계획")))
     v, _ = audit_text(doc)
     assert "section-order" not in rules(v)
+
+
+def test_title_check_measures_curly_quotes_like_the_delivered_hwpx():
+    """제목 한 줄 검사는 kordoc이 바꾼 둥근따옴표(전각)로 잰다 — 곧은따옴표(반각)로 재면 인도본에서 2줄인 제목을
+    한 줄로 오판했다('26.9.25 코드 리뷰 #4)."""
+    body = "\n< '26. 9. 25.(금), 경영기획본부 AI디지털심화팀 >\n\n□ 개 요\n\nㅇ **(요지)** 검수 시간을 포함해도 건당 45분 절감을 확인\n"
+    _, w = audit_text("'26년 'AI 비서' 시범운영 결과와 확대 방안 보고" + body)
+    assert "title-two-lines" in rules(w)
