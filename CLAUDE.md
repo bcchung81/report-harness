@@ -85,7 +85,8 @@ SKILL.md 안의 모든 스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태�
   통합 마커·경위 로그(`rules-history.md`)도 맞춘다. '옛 시드 줄'은 계보(`references/rules-seed.lineage.json` —
   배포한 시드 줄 지문)로 가린다. **시드를 고치면 `python3 scripts/build_seed_lineage.py`로 계보를 갱신한다**
   (`test_sync_rules.py`가 강제 — 빠지면 다음 판에서 그 줄을 받은 설치자의 줄을 '고친 줄'로 오판한다). 설치자가 고친
-  줄·번호만 같은 다른 규칙은 보고만 한다. 설치자 로컬 규칙은 R9NN 대역을 쓰고, 통합 증가분에서 빠진다.
+  줄·번호만 같은 다른 규칙은 보고만 한다(고친 줄에 시드가 대체·정정 표기를 달면 본문은 두고 표기만 붙인다). 설치자
+  로컬 규칙은 R9NN 대역을 쓰고(`sync_rules.py --next-id`가 번호를 준다), 통합 증가분에서 빠진다.
 - lesson에는 `kind`(content·defect·feature·preference)를 붙이고, 결함·기능은 고친 뒤 `resolved_by`(커밋·R번호)를
   단다. 규칙 승격은 content만 타고, `doctor.py`는 resolved_by 없는 결함·기능만 '미조치'로 센다.
 

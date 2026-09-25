@@ -243,7 +243,8 @@ style-guide 기준)가 잡아야 한다.
    `[draft]`/`[export]` 같은 단계 태그는 rules 파일 전용이며 feedback 문자열에 중복 삽입하지
    않는다).
 2. **반복 관찰(동일 유형 2회 이상)**은 회고까지 기다리지 않고 그 자리에서 승격 후보로 제안 —
-   사용자 승인 시 `rules.md`에 `R0NN [draft]` 형태로 즉시 반영한다.
+   사용자 승인 시 `rules.md`에 새 번호(하네스는 `sync_rules.py --next-id` — 설치자 환경은 R9NN) `[draft]` 형태로
+   즉시 반영한다.
 3. **룰 추가**: 일반화 가능한 위반은 이 문서(§2 또는 §3)에 항목을 추가하고, 대응하는 정규식/
    조건을 `lint_md_profile.py`의 `LEAD`/`INLINE_BAD`/`NON_BOLD`/`HTML`/`TABLE` 등에 반영한다.
    룰 ID를 새로 만드는 경우 `tests/test_references_consistency.py`의 `RULES` 목록과

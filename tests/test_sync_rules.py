@@ -149,5 +149,56 @@ def test_old_release_seeds_upgrade_cleanly(tmp_path):
         sp.write_text(old, encoding="utf-8")
         p = sr.plan(old, seed)
         assert p["collision"] == [] and p["changed"] == [], rev[:7]
-        sr.apply(sp, seed, p["added"], p["updated"] + p["superseded"], p["retired"], p["marker"])
+        sr.apply(sp, seed, p["added"], p["updated"], p["retired"], p["marker"], p["superseded"])
         assert sr.rules(sp.read_text(encoding="utf-8")) == sr.rules(seed), rev[:7]
+
+
+def test_superseded_mark_keeps_installer_edits(tmp_path, capsys):
+    """설치자가 고친 줄에 시드가 정정 표기를 달면 본문은 지키고 표기만 붙인다 — 줄을 통째로 바꾸면 설치자가 덧붙인
+    내용이 말없이 사라졌다('26.9.25 코드 리뷰 #3)."""
+    seed = tmp_path / "seed.md"
+    seed.write_text("- R005 [draft] **[정정됨 → R095]** 표는 6열 이하, 병합 금지\n- R095 [draft] 표는 7열 이하\n",
+                    encoding="utf-8")
+    state = tmp_path / "rules.md"
+    state.write_text("- R005 [draft] 표는 6열 이하, 병합 금지 — 우리 부서는 8열까지 허용\n", encoding="utf-8")
+    assert sr.main(["--apply", "--state", str(state), "--seed", str(seed)]) == 0
+    assert json.loads(capsys.readouterr().out)["superseded"] == ["R005"]
+    text = state.read_text(encoding="utf-8")
+    assert "- R005 [draft] **[정정됨 → R095]** 표는 6열 이하, 병합 금지 — 우리 부서는 8열까지 허용" in text
+    assert "- R095 [draft] 표는 7열 이하" in text
+    assert sr.main(["--apply", "--state", str(state), "--seed", str(seed)]) == 0          # 멱등 — 표기를 두 번 달지 않는다
+    assert json.loads(capsys.readouterr().out)["superseded"] == []
+
+
+def test_next_id_uses_seed_band_for_author_and_local_band_for_installers(tmp_path):
+    """새 규칙 번호 — 설치자는 R9NN(시드 번호를 쓰면 다음 판 시드 규칙과 충돌), 저자 환경은 결번까지 건너뛴 시드 대역."""
+    inst = tmp_path / "proj" / ".report-harness" / "rules.md"
+    inst.parent.mkdir(parents=True)
+    inst.write_text("- R001 [draft] a\n", encoding="utf-8")
+    assert sr.next_id(inst) == {"next": "R901", "band": "local"}
+    inst.write_text("- R001 [draft] a\n- R903 [draft] b\n", encoding="utf-8")
+    assert sr.next_id(inst)["next"] == "R904"
+    repo = tmp_path / "repo"
+    ref = repo / "skills/report-pipeline/references"
+    ref.mkdir(parents=True)
+    (ref / "rules-seed.md").write_text("- R001 [draft] a\n- R002 [draft] b\n", encoding="utf-8")
+    (ref / "rules-history.md").write_text("## R003 [폐지]\n\n- 옛 규칙\n", encoding="utf-8")
+    op = repo / "report/_harness/rules.md"
+    op.parent.mkdir(parents=True)
+    op.write_text("- R001 [draft] a\n- R002 [draft] b\n", encoding="utf-8")
+    assert sr.next_id(op, ref / "rules-seed.md") == {"next": "R004", "band": "seed"}     # 결번 R003 재사용 안 함
+
+
+def test_lineage_builder_refuses_corrupt_file(tmp_path, monkeypatch):
+    """계보 파일이 깨졌으면 멈춘다 — 빈 계보로 넘겨 현재 시드 줄만으로 덮어쓰면 과거 지문을 말없이 잃는다(리뷰 #3)."""
+    import importlib.util, pytest
+    root = pathlib.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("build_seed_lineage", root / "scripts/build_seed_lineage.py")
+    bl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bl)
+    bad = tmp_path / "lineage.json"
+    bad.write_text('{"rules": {}}\n<<<<<<< HEAD\n', encoding="utf-8")
+    monkeypatch.setattr(bl.sr, "LINEAGE", bad)
+    with pytest.raises(SystemExit):
+        bl.build()
+    assert bad.read_text(encoding="utf-8").endswith("<<<<<<< HEAD\n")                 # 덮어쓰지 않았다

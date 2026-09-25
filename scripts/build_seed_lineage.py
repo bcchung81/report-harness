@@ -39,8 +39,19 @@ def git_versions():
             rev = None
 
 
+def load_strict():
+    """기존 계보 — 파일이 있는데 읽지 못하면 멈춘다. sync_rules.load_lineage()는 깨진 파일을 빈 계보로 넘기므로 여기서
+    쓰면 현재 시드 줄만으로 덮어써 과거 지문을 말없이 잃는다('26.9.25 코드 리뷰 #3)."""
+    if not sr.LINEAGE.exists():
+        return {}
+    try:
+        return {k: set(v) for k, v in json.loads(sr.LINEAGE.read_text(encoding="utf-8"))["rules"].items()}
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        sys.exit(f"계보 파일을 읽지 못했다({e}) — 고치거나 `--git`으로 git 이력에서 다시 모은다: {sr.LINEAGE}")
+
+
 def build(from_git=False):
-    lineage = {} if from_git else sr.load_lineage()
+    lineage = {} if from_git else load_strict()
     texts = list(git_versions()) if from_git else []
     texts.append((ROOT / SEED_REL).read_text(encoding="utf-8"))
     for text in texts:

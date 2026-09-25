@@ -353,3 +353,13 @@ def test_numbered_section_with_subtitle_uses_pool_word():
     _, w = audit_text("점검 결과 보고\n< '26. 9. 25.(금), 경영기획본부 AI디지털심화팀 >\n\n□ 작성 개요\n\n"
                       "ㅇ **(판단)** 두 제품의 인증 요건이 같아 추가 시험 없이 도입 가능\n")
     assert "section-title-offpool" in rules(w)
+
+
+def test_korean_name_with_acronym_and_method_titles_are_external():
+    """한글 이름 + 괄호 원어·약칭(맥킨지(McKinsey)·진흥원(NIA))은 외부 주체이고, '방법·기법'으로 끝나는 자료명은
+    법령이 아니다('26.9.25 코드 리뷰 #3 — 두 신호 전환 뒤 놓치던 줄)."""
+    for line in ("※ 맥킨지(McKinsey) 보고서는 생산성 향상 폭을 최대 40%로 추정",
+                 "※ 한국지능정보사회진흥원(NIA) 조사 결과 도입률 38%",
+                 "※ 「AI 성과 측정 방법」(영향평가원)에서 절감률 20%"):
+        assert "source-line-missing" in _w(BASE + line + "\n"), line
+    assert "source-line-missing" not in _w(BASE + "※ 사람 이관(ESC)은 반려가 아닌 이관율로 별도 집계\n")

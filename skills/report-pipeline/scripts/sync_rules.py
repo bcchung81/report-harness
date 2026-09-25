@@ -11,8 +11,9 @@
     않은 것이다 → 새 시드 줄로 바꾸고(updated), 시드에서 폐지된 번호면 지운다(retired). 계보가 없던 때는 0.4.0
     설치자의 옛 시드 줄 7건을 '번호 충돌'로 오판해 새 값이 들어가지 않았고, 폐지된 R053이 운영본에 살아 있었다
     ('26.9.25 격리 설치 재현).
-  - 시드가 '대체됨·정정됨·폐지' 표기를 단 규칙 → 운영본의 같은 번호 줄을 시드 줄로 바꾼다(superseded, --apply).
-    대체 표기가 설치자에게 닿지 않으면 틀린 값이 계속 살아 움직인다(CLAUDE.md 규칙 복리축적).
+  - 시드가 '대체됨·정정됨·폐지' 표기를 단 규칙인데 설치자가 고친 줄 → 본문은 두고 그 표기만 줄 앞머리에 붙인다
+    (superseded, --apply). 대체 표기가 설치자에게 닿지 않으면 틀린 값이 계속 살아 움직이고, 줄을 통째로 바꾸면 설치자가
+    덧붙인 내용이 사라진다('26.9.25 코드 리뷰 #3).
   - 번호만 같고 내용이 전혀 다른 규칙 → 설치자 로컬 규칙이 시드 번호를 선점한 것이다(collision). 바꾸지 않고
     알린다 — 로컬 규칙을 R9NN 대역으로 옮긴 뒤 다시 --apply하면 시드 규칙이 들어간다.
   - 그 밖에 양쪽 본문이 다른 규칙 → 바꾸지 않고 보고만 한다(changed). 설치자가 고친 것인지 시드가 정정된 것인지는
@@ -24,6 +25,7 @@
   - --apply 없이는 아무것도 쓰지 않는다(운영본이 없어도 — 첫 실행 시드 복사도 --apply 때만).
 
     sync_rules.py [--apply] [--state <rules.md>] [--seed <rules-seed.md>]
+    sync_rules.py --next-id [--state <rules.md>]     # 새 규칙 번호 — 저자 환경은 시드 대역, 설치자는 R9NN
 
 exit 0: 처리 완료(JSON 보고) | exit 2: 인자·파일 오류
 """
@@ -104,11 +106,11 @@ def plan(state_text, seed_text, lineage=None):
     return out
 
 
-def apply(state_path, seed_text, added, replaced=(), retired=(), marker=None):
-    """시드에만 있는 규칙은 끝에 덧붙이고, replaced(옛 시드 줄·대체 표기) 번호는 그 줄만 시드 줄로 바꾸고, retired
-    (시드에서 폐지된 옛 시드 줄) 번호는 그 줄을 지운다. marker가 오면 통합 마커를 그 번호로 맞춘다.
-    나머지 줄은 한 글자도 건드리지 않는다."""
-    if not added and not replaced and not retired and not marker:
+def apply(state_path, seed_text, added, replaced=(), retired=(), marker=None, marked=()):
+    """시드에만 있는 규칙은 끝에 덧붙이고, replaced(손대지 않은 옛 시드 줄) 번호는 그 줄을 시드 줄로 바꾸고, retired
+    (시드에서 폐지된 옛 시드 줄) 번호는 그 줄을 지운다. marked(설치자가 고친 줄인데 시드가 대체·정정 표기를 단 번호)는
+    본문을 두고 표기만 태그 뒤에 붙인다. marker가 오면 통합 마커를 그 번호로 맞춘다. 나머지 줄은 한 글자도 건드리지 않는다."""
+    if not added and not replaced and not retired and not marker and not marked:
         return
     seed = rules(seed_text)
     text = state_path.read_text(encoding="utf-8")
@@ -119,6 +121,9 @@ def apply(state_path, seed_text, added, replaced=(), retired=(), marker=None):
         text = re.sub(rf"^- {k} (?:\[[a-z]+\])+ .*$", lambda m, k=k: seed[k], text, count=1, flags=re.M)
     for k in retired:
         text = re.sub(rf"^- {k} (?:\[[a-z]+\])+ .*\n?", "", text, count=1, flags=re.M)
+    for k in marked:
+        tag = SUPERSEDED.search(seed[k]).group(0)
+        text = re.sub(rf"^(- {k} (?:\[[a-z]+\])+ )", lambda m, tag=tag: m.group(1) + tag + " ", text, count=1, flags=re.M)
     if not text.endswith("\n"):
         text += "\n"
     if added:
@@ -154,6 +159,33 @@ def sync_history(state_path, seed_path, write):
     return False, sorted(new)
 
 
+LOCAL_BAND = 900     # consolidate_rules.LOCAL_BAND와 같은 값 — R9NN은 설치자 로컬 규칙
+
+
+def _numbers(text, pattern):
+    return {int(m.group(1)) for m in re.finditer(pattern, text, re.M)}
+
+
+def next_id(state_path, seed_path=SEED):
+    """새로 승격할 규칙 번호 → {"next", "band"}.
+
+    운영 규칙이 시드를 배포하는 저장소 안에 있으면(저자 환경 — report/_harness) 시드 대역에서 다음 번호를 준다.
+    결번(경위 로그의 `## R0NN`)도 건너뛴다 — 폐지 번호는 재사용하지 않는다. 그 밖(설치자)은 R9NN 대역 — 시드 번호를
+    쓰면 다음 판의 같은 번호 시드 규칙과 충돌해 그 규칙이 들어가지 못한다('26.9.25 코드 리뷰 #3)."""
+    state_path = pathlib.Path(state_path)
+    text = state_path.read_text(encoding="utf-8") if state_path.exists() else ""
+    author = any((d / "skills/report-pipeline/references/rules-seed.md").is_file() for d in state_path.resolve().parents)
+    if author:
+        used = _numbers(text, r"^- R(\d+) ") | _numbers(seed_path.read_text(encoding="utf-8"), r"^- R(\d+) ")
+        for hist in (state_path.parent / HISTORY, seed_path.parent / HISTORY):
+            if hist.is_file():
+                used |= _numbers(hist.read_text(encoding="utf-8"), r"^## R(\d+)\b")
+        n = max((u for u in used if u < LOCAL_BAND), default=0) + 1
+        return {"next": f"R{n:03d}", "band": "seed"}
+    n = max((u for u in _numbers(text, r"^- R(\d+) ") if u >= LOCAL_BAND), default=LOCAL_BAND) + 1
+    return {"next": f"R{n:03d}", "band": "local"}
+
+
 def default_state():
     cfg = json.loads(subprocess.run([sys.executable, str(HERE / "harness_config.py")],
                                     capture_output=True, text=True, timeout=20).stdout)
@@ -163,11 +195,15 @@ def default_state():
 def main(argv=None):
     ap = argparse.ArgumentParser(description="규칙 시드 → 운영 규칙 동기화(새 규칙 추가·대체 표기 반영·경위 로그)")
     ap.add_argument("--apply", action="store_true", help="시드에만 있는 규칙을 운영본에 덧붙인다")
+    ap.add_argument("--next-id", action="store_true", help="새로 승격할 규칙 번호만 알려 준다(쓰지 않음)")
     ap.add_argument("--state", type=pathlib.Path, help="운영 규칙 파일(기본: 설정의 state_dir/rules.md)")
     ap.add_argument("--seed", type=pathlib.Path, default=SEED, help="시드 파일(기본: references/rules-seed.md)")
     a = ap.parse_args(argv)
     try:
         state_path = a.state or default_state()
+        if a.next_id:
+            print(json.dumps(next_id(state_path, a.seed), ensure_ascii=False))
+            return 0
         seed_text = a.seed.read_text(encoding="utf-8")
         if not state_path.exists():
             # 첫 실행 — 시드를 그대로 복사하는 것이 SKILL.md §0-4 절차다. 점검(--apply 없음)은 아무것도 쓰지 않는다
@@ -182,8 +218,8 @@ def main(argv=None):
             return 0
         result = plan(state_path.read_text(encoding="utf-8"), seed_text)
         if a.apply:
-            apply(state_path, seed_text, result["added"], result["updated"] + result["superseded"], result["retired"],
-                  result["marker"])
+            apply(state_path, seed_text, result["added"], result["updated"], result["retired"], result["marker"],
+                  result["superseded"])
         result["history_missing"], result["history_added"] = sync_history(state_path, a.seed, a.apply)
     except (OSError, ValueError, KeyError) as e:
         print(f"error: {e}", file=sys.stderr)

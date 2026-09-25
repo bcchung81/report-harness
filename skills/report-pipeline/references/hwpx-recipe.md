@@ -468,7 +468,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 ```
 
 - 동일 유형이 2회 이상 반복 관찰되면 회고까지 기다리지 않고 그 자리에서 승격을 제안한다 —
-  사용자 승인 시 `rules.md`에 `R0NN [export]`로 반영, `md-profile.md`의 금지 목록·
+  사용자 승인 시 `rules.md`에 새 번호(`sync_rules.py --next-id` — 설치자 환경은 R9NN) `[export]`로 반영, `md-profile.md`의 금지 목록·
   `prep_report_md.py`의 거부 규칙으로 소급 반영할지 §5(md-profile.md)의 증보 절차를 따른다.
 
 ## 7. 인도
