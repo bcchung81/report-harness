@@ -256,3 +256,15 @@ def test_literal_markup_counts_marks_left_in_hwpx(tmp_path):
     assert [(i["rule"], i["mark"], i["count"]) for i in issues] == [("literal-markup", "**", 1)]
     clean = f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run><hp:t>정상</hp:t></hp:run></hp:p></hs:sec>"
     assert vh.literal_markup(make_zip(tmp_path, clean.encode())) == []
+
+
+def test_literal_markup_ignores_verbatim_quote_block_text(tmp_path):
+    """원문 인용 블록(```text)은 원문 그대로라 백틱 등이 있어도 잔재가 아니다('26.9.25 실변환 — 지시문 원문 백틱 2건)."""
+    import validate_hwpx as vh
+    src = "□ 붙임\n\n```text\n⁠- 11번째 열부터는 `원시_` 접두어를 붙인다\n```\n"
+    hp = "http://www.hancom.co.kr/hwpml/2011/paragraph"
+    xml = (f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run>"
+           f"<hp:t>- 11번째 열부터는 `원시_` 접두어를 붙인다</hp:t></hp:run></hp:p></hs:sec>").encode()
+    path = make_zip(tmp_path, xml)
+    assert vh.literal_markup(path) != []                                  # 인용 줄을 모르면 잡는다
+    assert vh.literal_markup(path, vh.quote_texts(src)) == []             # 원문 인용 줄이면 뺀다

@@ -397,15 +397,27 @@ def freshness_check(draft_text, prepared_text):
 LITERAL_MARKS = ("**", "==", "`", "~~")
 
 
-def literal_markup(hwpx_path):
+def quote_texts(src):
+    """초안의 원문 인용 블록(```text) 줄 — 원문 그대로라 기호(백틱 등)가 들어 있어도 잔재가 아니다."""
+    lines = src.split("\n")
+    return [_quote_norm(lines[k]) for start, end, _, _ in quote_blocks(src) if end
+            for k in range(start, end - 1) if lines[k].strip()]
+
+
+def literal_markup(hwpx_path, allowed=()):
     """hwpx 본문 글자(<hp:t>)에 마크다운 기호가 문자 그대로 남았는가 — 되읽기의 볼드 재직렬화와 달리 이것은
-    진짜 잔재다(postprocess 치환 실패 등). 되읽기만으로는 둘을 가를 수 없어 XML에서 직접 센다."""
+    진짜 잔재다(postprocess 치환 실패 등). 되읽기만으로는 둘을 가를 수 없어 XML에서 직접 센다.
+    allowed(원문 인용 블록 줄)에 든 글자는 원문 그대로라 빼다('26.9.25 실변환: 지시문 원문의 백틱 2건)."""
+    allowed = [a for a in allowed if a]
     found = {}
     with zipfile.ZipFile(hwpx_path) as z:
         for name in sorted(n for n in z.namelist() if re.match(r"Contents/section\d+\.xml$", n)):
             root = ET.fromstring(z.read(name))
             for t in root.iter("{http://www.hancom.co.kr/hwpml/2011/paragraph}t"):
                 text = "".join(t.itertext())
+                norm = _quote_norm(text)
+                if norm and any(norm in a or a in norm for a in allowed):
+                    continue
                 for mark in LITERAL_MARKS:
                     if mark in text:
                         found.setdefault(mark, []).append(text.strip()[:60])
@@ -433,7 +445,7 @@ if __name__ == "__main__":
             rt = open(sys.argv[3], encoding="utf-8").read()
             issues = compare_texts(src, rt)
             if "--hwpx" in sys.argv[4:]:
-                issues += literal_markup(sys.argv[sys.argv.index("--hwpx") + 1])
+                issues += literal_markup(sys.argv[sys.argv.index("--hwpx") + 1], quote_texts(src))
             print(json.dumps({"issues": issues}, ensure_ascii=False, indent=1))
             sys.exit(1 if issues else 0)
         elif mode == "freshness":
