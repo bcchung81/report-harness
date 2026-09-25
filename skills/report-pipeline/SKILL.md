@@ -30,8 +30,8 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
 3. `{work_dir}/00_context.md`가 없으면 생성, 있으면 이번 요청 내용으로 갱신(요구사항·이번
    세션에서 결정된 사항 append).
 4. 규칙을 시드와 맞춘다 — `rules.md`가 없으면 시드를 복사하고, 있으면 **시드에만 있는 규칙(플러그인 갱신으로
-   새로 온 규칙)을 끝에 덧붙인다**. 설치자가 쌓은 규칙·고친 규칙은 건드리지 않는다('26.9.25 — 종전에는 첫 실행
-   시드에 고정돼 새 규칙이 설치자에게 도달하지 않았다):
+   새로 온 규칙)을 끝에 덧붙인다**. 시드가 대체·정정 표기를 단 규칙만 그 줄을 바꾸고, 설치자가 쌓은 규칙은 번호가
+   겹쳐도 건드리지 않는다('26.9.25 — 종전에는 첫 실행 시드에 고정돼 새 규칙이 설치자에게 도달하지 않았다):
 
    ```
    python3 "$SKILL_DIR/scripts/sync_rules.py" --apply
@@ -567,7 +567,9 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   아웃라인(§2 설계 점검)·초안 자가감사(§3 점검표)에 읽는다. 문장 규칙과 부딪히면 style-guide가 이긴다. 따로 부르는 입구는
   `report-writing` 스킬.
 - `scripts/check_craft.py {context|analysis|outline} <work_dir>` — 설계 칸 검사(R094). 칸·절의 존재만 본다. exit 0/1(빠진 칸)/2.
-- `scripts/sync_rules.py [--apply] [--state …] [--seed …]` — 시드에만 있는 규칙을 운영 규칙에 덧붙인다(§0-4).
+- `scripts/sync_rules.py [--apply] [--state …] [--seed …]` — 시드에만 있는 규칙을 운영 규칙에 덧붙이고, 시드가
+  대체·정정 표기를 단 규칙은 그 줄을 바꾼다. 번호만 같은 설치자 규칙(collision)·본문이 조금 다른 규칙(changed)은
+  보고만 한다(§0-4).
   본문이 다른 규칙은 보고만(`changed`), 운영본에만 있는 규칙은 보존(`local_only`). exit 0/2.
 - `references/factcheck.md` — §A 전수 팩트체크 절차(게이트②·export의 "전수" 선택 시)·
   §B 이미지 차용 기준(게이트① 이미지 배치 판정 시). 해당 시점에 읽는다.

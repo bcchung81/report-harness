@@ -224,15 +224,20 @@ def lease_claim(path, me, waiting=False, **extra):
     path = pathlib.Path(path)
     with _xlock(path):
         cur = lease_state(path)
-        # 같은 프로세스의 새 세션(`/clear` 뒤 세션 ID만 바뀜)은 제 임대를 넘겨받는다 — 종전에는 남의 임대로 보고
-        # exit 3을 내 최대 30분 코멘트를 받지 못했다('26.9.25 실측). 단 상대가 지금 기다리는 중(waiting)이면 살아 있는
-        # 다른 세션이 한 프로세스를 나눠 쓰는 것이라 넘겨받지 않는다('26.9.25 코드 리뷰). pid를 모르면(None)도 안 넘긴다.
-        same_process = me.get("pid") and cur.get("pid") == me["pid"] and cur["state"] != "waiting"
+        # 같은 Claude 프로세스의 새 세션(`/clear` 뒤 세션 ID만 바뀜)은 제 임대를 넘겨받는다 — 종전에는 남의 임대로 보고
+        # exit 3을 내 최대 30분 코멘트를 받지 못했다('26.9.25 실측). 한 프로세스에는 대화가 하나뿐이라 같은 pid의 다른
+        # 세션이 '처리 중'이면 그 세션은 이미 끝난 것이다. 단 그 세션이 띄운 wait 프로세스(waiter)가 아직 살아 기다리는
+        # 중이면 넘겨받지 않는다 — 두 wait가 같은 코멘트를 나눠 받는다. waiter가 죽었으면 넘겨받는다('26.9.25 코드 리뷰 #2:
+        # 종전에는 waiting이면 무조건 거부해, 강제 종료된 wait의 임대가 식을 때까지 exit 3이 났다). pid를 모르면 안 넘긴다.
+        live_waiter = cur["state"] == "waiting" and _alive(cur.get("waiter")) is not False
+        same_process = me.get("pid") and cur.get("pid") == me["pid"] and not live_waiter
         if cur["state"] != "none" and cur.get("owner") != me["owner"] and not same_process:
             return False, cur
         now = time.time()
         row = dict(extra, owner=me["owner"], pid=me["pid"], waiting=bool(waiting), seen=now,
                    since=cur.get("since", now) if cur.get("owner") == me["owner"] else now)
+        if waiting:
+            row["waiter"] = os.getpid()        # 기다리는 프로세스 — 같은 Claude 프로세스의 새 세션이 살았나 본다
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(row, ensure_ascii=False), encoding="utf-8")
         tmp.replace(path)
@@ -737,9 +742,12 @@ def make_server(work_dir, port=0):
             origin = self.headers.get("Origin")
             if origin is None:
                 return True
-            o = urllib.parse.urlsplit(origin)
+            # 같은 출처 = Origin의 호스트·포트가 Host 머리와 같다. 서버가 묶인 포트와 견주면 포트 포워딩(SSH·VS Code)으로
+            # 연 화면의 POST가 전부 403이 된다('26.9.25 코드 리뷰 #2)
             try:
-                return o.hostname in LOCAL_HOSTS and o.port == self.server.server_address[1]
+                o = urllib.parse.urlsplit(origin)
+                h = urllib.parse.urlsplit("//" + (self.headers.get("Host") or ""))
+                return o.hostname in LOCAL_HOSTS and (o.hostname, o.port) == (h.hostname, h.port)
             except ValueError:
                 return False
 
@@ -1152,6 +1160,10 @@ def wait(work_dir=None, timeout=None, all_cases=False, port=DEFAULT_PORT, grace=
                 held.pop(str(wd), None)
             else:
                 held[str(wd)] = {"work_dir": str(wd), "state": cur["state"], "since": cur.get("since")}
+                if me.get("pid") and cur.get("pid") == me["pid"] and cur.get("waiter"):
+                    # 같은 Claude 프로세스에서 먼저 띄운 wait가 아직 돈다(`/clear` 전 백그라운드 작업 등)
+                    held[str(wd)]["waiter"] = cur["waiter"]
+                    held[str(wd)]["hint"] = f"이 Claude 세션의 이전 wait(pid {cur['waiter']})가 기다리는 중 — 그 작업을 멈춘 뒤 다시"
 
     def rest():
         for wd in owned.values():

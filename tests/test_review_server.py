@@ -466,15 +466,13 @@ _PIDS = {}
 
 def _session_pid(sid):
     """세션마다 살아 있는 서로 다른 프로세스 — 다른 세션은 다른 Claude 프로세스다(같은 pid는 `/clear` 뒤 같은
-    프로세스의 새 세션이라 임대를 넘겨받는다). 첫 세션은 이 프로세스, 나머지는 잠든 보조 프로세스."""
+    프로세스의 새 세션이라 임대를 넘겨받는다). 모두 잠든 보조 프로세스다 — 첫 세션을 이 프로세스로 두면 테스트를
+    골라 돌릴 때 먼저 부른 세션이 바뀌어, 이 프로세스 pid로 흉내 낸 세션과 같은 프로세스로 잘못 묶였다."""
     if sid not in _PIDS:
-        if not _PIDS:
-            _PIDS[sid] = rs.os.getpid()
-        else:
-            import atexit, subprocess
-            p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(900)"])
-            atexit.register(p.kill)
-            _PIDS[sid] = p.pid
+        import atexit, subprocess
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(900)"])
+        atexit.register(p.kill)
+        _PIDS[sid] = p.pid
     return _PIDS[sid]
 
 
@@ -694,7 +692,11 @@ def test_requests_from_other_origins_are_refused(tmp_path):
         # 정상: 같은 로컬 출처의 화면, Origin 없는 CLI
         assert call("POST", "/api/feedback", {"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json"}, fb) == 200
         assert call("GET", "/api/hub", {"Host": f"localhost:{port}"}) == 200
-        assert [x["comment"] for x in rs.items(srv.log_path)] == ["외부에서 넣은 지시"]        # 정상 요청 1건만 기록
+        # 포트 포워딩(SSH·VS Code) — 브라우저 쪽 포트가 서버 포트와 달라도 Host와 Origin이 같으면 같은 출처다(리뷰 #2)
+        fwd = {"Host": "localhost:5173", "Origin": "http://localhost:5173", "Content-Type": "application/json"}
+        assert call("POST", "/api/feedback", fwd, fb) == 200
+        assert call("POST", "/api/feedback", dict(fwd, Origin="http://localhost:9999"), fb) == 403
+        assert [x["comment"] for x in rs.items(srv.log_path)] == ["외부에서 넣은 지시"] * 2    # 정상 요청 2건만 기록
     finally:
         srv.shutdown()
 
@@ -714,3 +716,23 @@ def test_pagination_skips_when_a_page_is_not_laid_out():
     ov = rs.overlay()
     body = ov[ov.index("function paginate(){"):ov.index("// 갱신 — 주기 요청 없이")]
     assert "meas.some(m=>!m.H)" in body and "if(!H)return" not in body
+    # 건너뛸 때는 기존 경계선을 지우지 않고 다시 잰다 — 지우기는 잰 값이 온전할 때만(리뷰 #2)
+    assert body.index("meas.some(m=>!m.H)") < body.rindex(".rv-pb').forEach(x=>x.remove())")
+    assert "setTimeout(paginate" in body
+
+
+def test_same_process_takes_over_a_waiting_lease_whose_waiter_died(tmp_path, monkeypatch, capsys):
+    """같은 Claude 프로세스의 wait가 강제 종료돼 '기다리는 중' 임대만 남았으면 새 세션이 넘겨받는다. waiter가 살아
+    있으면 거부하되 어느 wait를 멈추면 되는지 알린다('26.9.25 코드 리뷰 #2 — 종전에는 임대가 식을 때까지 exit 3)."""
+    path = rs._owner_path(tmp_path)
+    _as(monkeypatch, "before-clear", rs.os.getpid())
+    assert rs.lease_claim(path, rs.session_owner(), waiting=True)[0]
+    assert rs.lease_state(path)["waiter"] == rs.os.getpid()
+    _as(monkeypatch, "after-clear", rs.os.getpid())
+    assert rs.wait(tmp_path, timeout=1) == 3                                        # 이전 wait(이 프로세스)가 살아 있다
+    held = json.loads(capsys.readouterr().out)["held"][0]
+    assert held["waiter"] == rs.os.getpid() and "멈춘 뒤" in held["hint"]
+    row = json.loads(path.read_text(encoding="utf-8"))
+    path.write_text(json.dumps(dict(row, waiter=_dead_pid())), encoding="utf-8")        # wait가 SIGKILL로 죽은 뒤
+    assert rs.lease_claim(path, rs.session_owner())[0]
+    assert rs.lease_state(path)["owner"] == "after-clear"

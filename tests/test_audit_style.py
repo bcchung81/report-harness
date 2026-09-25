@@ -305,3 +305,21 @@ def test_later_citation_source_does_not_cover_earlier_citation():
             "※ 자료: OECD, 「AI 도입 통계」('24), 12쪽\n")
     w = [x for x in audit_text(text)[1] if x["rule"] == "source-line-missing"]
     assert len(w) == 1 and "영국" in w[0]["text"]
+
+
+def test_note_line_and_shared_source_line_count_as_sourced():
+    """인용에 붙은 '※ 주:' 단서 줄은 새 인용이 아니고, 잇단 인용은 출처 줄 하나에 ';'로 함께 적을 수 있다
+    ('26.9.25 코드 리뷰 #2 — 종전에는 둘 다 source-line-missing 오탐)."""
+    note = (BASE + "※ 영국 정부 실험에서 설문 절감만 보고\n\n※ 주: 해외 사례는 '24년 기준\n\n"
+            "※ 자료: 영국 과학혁신기술부, 「AI 실험 보고서」('24)\n")
+    assert "source-line-missing" not in _w(note)
+    shared = (BASE + "※ 미국 연방 기관의 도입 사례 요약\n\n※ 영국 정부 실험에서 설문 절감만 보고\n\n"
+              "※ 자료: 미국 관리예산처, 「AI 활용 보고」('24); 영국 과학혁신기술부, 「AI 실험 보고서」('24)\n")
+    assert "source-line-missing" not in _w(shared)
+
+
+def test_common_nouns_ending_in_ham_im_pass():
+    """'운임·주임·상임·보관함'처럼 흔한 명사는 목록에 두어 막지 않는다('26.9.25 코드 리뷰 #2 — 명사 목록 전환 뒤 회귀)."""
+    for ok in ("화물 운임", "위원 비상임", "민원 보관함", "담당 주임"):
+        v, _ = audit_text(BASE + f"ㅇ **(측정 기준)** 산정 대상은 {ok}\n")
+        assert "ending-forbidden" not in rules(v), ok

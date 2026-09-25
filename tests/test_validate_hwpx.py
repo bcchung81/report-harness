@@ -278,3 +278,39 @@ def test_short_quote_line_does_not_exempt_other_text(tmp_path):
     xml = (f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run>"
            f"<hp:t>**남은 기호** 문장 1</hp:t></hp:run></hp:p></hs:sec>").encode()
     assert [i["mark"] for i in vh.literal_markup(make_zip(tmp_path, xml), vh.quote_texts(src))] == ["**"]
+
+
+def test_marks_only_fragment_is_not_exempted_by_quote_line(tmp_path):
+    """기호만 따로 떨어진 <hp:t>(`**`)는 인용 줄에 같은 기호가 있어도 잔재다 — 기호뿐인 조각은 어느 인용 줄과도
+    겹쳐 보인다('26.9.25 코드 리뷰 #2)."""
+    import validate_hwpx as vh
+    src = "□ 붙임\n\n```text\n원문에 **굵게** 표기가 있다\n```\n"
+    hp = "http://www.hancom.co.kr/hwpml/2011/paragraph"
+    xml = (f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run>"
+           f"<hp:t>**</hp:t></hp:run><hp:run><hp:t>본문 강조</hp:t></hp:run></hp:p></hs:sec>").encode()
+    assert [i["mark"] for i in vh.literal_markup(make_zip(tmp_path, xml), vh.quote_texts(src))] == ["**"]
+
+
+def test_quote_line_inside_longer_run_only_exempts_the_quote(tmp_path):
+    """인용 줄 + 본문이 한 <hp:t>에 들면 인용 부분만 빼고 나머지 잔재를 본다."""
+    import validate_hwpx as vh
+    src = "□ 붙임\n\n```text\n열 이름은 `원시_` 접두어\n```\n"
+    hp = "http://www.hancom.co.kr/hwpml/2011/paragraph"
+
+    def run(text):
+        return make_zip(tmp_path, (f"<?xml version='1.0'?><hs:sec xmlns:hs='x' xmlns:hp='{hp}'><hp:p><hp:run>"
+                                   f"<hp:t>{text}</hp:t></hp:run></hp:p></hs:sec>").encode())
+    allowed = vh.quote_texts(src)
+    assert vh.literal_markup(run("열 이름은 `원시_` 접두어 — 설명 문장"), allowed) == []
+    assert [i["mark"] for i in vh.literal_markup(run("열 이름은 `원시_` 접두어 — **잔재**"), allowed)] == ["**"]
+
+
+def test_blank_table_dropped_in_conversion_is_reported():
+    """글자 없는 표(서명란)는 표 수와 따로 센다 — 되읽기에 느는 빈 표(머리말 배너)는 잡음이지만 원본의 빈 표가
+    빠진 것은 손실이다('26.9.25 코드 리뷰 #2)."""
+    body = "□ 개요\n\nㅇ 결재 서명란\n\n"
+    blank = "| | |\n|---|---|\n| | |\n\n"
+    src = body + blank
+    assert profile_counts(src)["blank_tables"] == 1 and profile_counts(src)["tables"] == 0
+    assert any(i["rule"] == "count-mismatch:blank_tables" for i in compare_texts(src, body))
+    assert not any("tables" in i["rule"] for i in compare_texts(body, body + blank))   # 되읽기에만 느는 빈 표는 보지 않는다

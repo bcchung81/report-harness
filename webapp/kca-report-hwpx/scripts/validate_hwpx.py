@@ -134,9 +134,15 @@ def _table_groups(lines):
 
 def _is_box(cols, rows):
     """1칸 상자(산식 박스 등) — 되읽기가 표 대신 문단으로 돌려주는 경우가 있어 표로 세지 않는다('26.9.24 r02 실측).
-    글자는 문장 대조(content-dropped)가 따로 본다. 글자가 한 칸도 없는 표(rows 0)는 배치용이다 — 웹앱 되읽기는
-    머리말 배너를 그림이 빠진 빈 2칸 표로 돌려줘 표 수가 매번 1 늘었다('26.9.25)."""
-    return rows == 0 or (cols == 1 and rows <= 1)
+    글자는 문장 대조(content-dropped)가 따로 본다."""
+    return cols == 1 and 0 < rows <= 1
+
+
+def _is_blank(rows):
+    """글자가 한 칸도 없는 표(서명란·그림만 든 표) — 표 수와 따로 센다. 웹앱 되읽기는 머리말 배너를 그림이 빠진
+    빈 2칸 표로 돌려줘 표 수가 매번 1 늘었다('26.9.25). 되읽기 쪽에 느는 빈 표는 잡음이지만 원본의 빈 표가 빠진 것은
+    손실이라, compare는 빈 표가 줄어든 경우만 본다('26.9.25 코드 리뷰 — 한데 빼면 빈 서명란 누락을 못 잡는다)."""
+    return rows == 0
 
 
 def profile_counts(text):
@@ -145,14 +151,19 @@ def profile_counts(text):
     text = HTML_TABLE.sub("", text)
     lines = _strip_preamble(text.splitlines())
     groups = [(c, r) for c, r in _table_groups(lines) if not _is_box(c, r)]
+    html = [(w, len([c for c in cells if c])) for w, cells in html]
+    html = [(w, r) for w, r in html if not _is_box(w, r)]
+    blank = sum(_is_blank(r) for _, r in groups + html)
+    groups = [(c, r) for c, r in groups if not _is_blank(r)]
+    html = [(w, r) for w, r in html if not _is_blank(r)]
     tables = len(groups)
-    html = [(w, cells) for w, cells in html if not _is_box(w, len([c for c in cells if c]))]
     return {
         "sections": sum(l.strip().startswith("□") for l in lines),
         "points": sum(l.strip()[:1] in ("ㅇ", "○") for l in lines),
         "subs": sum(l.strip().startswith("-") and not set(l.strip()) <= set("|- :") for l in lines if not l.strip().startswith("|")),
         "footnotes": sum(l.strip().startswith("＊") for l in lines),
         "tables": tables + len(html),
+        "blank_tables": blank,
         "figures": _figure_count(lines),
         "max_cols": max([c for c, _ in groups] + [w for w, _ in html], default=0),
         "numbers": set(NUM.findall(numbers_src)),
@@ -291,6 +302,8 @@ def compare_texts(src, rt):
     for k in keys:
         if a[k] != b[k]:
             issues.append({"rule": f"count-mismatch:{k}", "src": a[k], "roundtrip": b[k]})
+    if b["blank_tables"] < a["blank_tables"]:
+        issues.append({"rule": "count-mismatch:blank_tables", "src": a["blank_tables"], "roundtrip": b["blank_tables"]})
     a_num = {normalize_num(n) for n in a["numbers"]}
     b_num = {normalize_num(n) for n in b["numbers"]}
     lost = a_num - b_num
@@ -406,22 +419,39 @@ def quote_texts(src):
             for k in range(start, end - 1) if lines[k].strip()]
 
 
+def _core(text):
+    """기호를 뺀 글자 — 기호뿐인 조각(`**`)은 어느 인용 줄과도 겹쳐 보이므로 면제 판단에 쓰지 않는다."""
+    for mark in LITERAL_MARKS:
+        text = text.replace(mark, "")
+    return text.strip()
+
+
+def _outside_quotes(norm, allowed):
+    """글자 조각에서 원문 인용 부분을 뺀 나머지. 조각이 인용 줄의 일부이면(글자가 있을 때만) 빈 문자열, 인용 줄을
+    품은 조각이면 그 줄만 지운다 — 기호뿐인 잔재 조각이나 인용 줄 + 본문이 한 <hp:t>에 든 경우도 잔재를 본다
+    ('26.9.25 코드 리뷰: 한 방향 포함 검사는 `**` 조각을 면제하고 인용 줄 + 본문 조각은 통째로 잡았다)."""
+    if _core(norm) and any(norm in a for a in allowed):
+        return ""
+    for a in allowed:
+        if a in norm:
+            norm = norm.replace(a, " ")
+    return norm
+
+
 def literal_markup(hwpx_path, allowed=()):
     """hwpx 본문 글자(<hp:t>)에 마크다운 기호가 문자 그대로 남았는가 — 되읽기의 볼드 재직렬화와 달리 이것은
     진짜 잔재다(postprocess 치환 실패 등). 되읽기만으로는 둘을 가를 수 없어 XML에서 직접 센다.
     allowed(원문 인용 블록 줄)에 든 글자는 원문 그대로라 빼다('26.9.25 실변환: 지시문 원문의 백틱 2건)."""
-    allowed = [a for a in allowed if a]
+    allowed = sorted({a for a in allowed if _core(a)}, key=len, reverse=True)
     found = {}
     with zipfile.ZipFile(hwpx_path) as z:
         for name in sorted(n for n in z.namelist() if re.match(r"Contents/section\d+\.xml$", n)):
             root = ET.fromstring(z.read(name))
             for t in root.iter("{http://www.hancom.co.kr/hwpml/2011/paragraph}t"):
                 text = "".join(t.itertext())
-                norm = _quote_norm(text)
-                if norm and any(norm in a for a in allowed):   # 글자 조각이 인용 줄 안에 있을 때만 — 역방향은 짧은 인용 줄이 다 면제한다
-                    continue
+                rest = _outside_quotes(_quote_norm(text), allowed)
                 for mark in LITERAL_MARKS:
-                    if mark in text:
+                    if mark in rest:
                         found.setdefault(mark, []).append(text.strip()[:60])
     return [{"rule": "literal-markup", "mark": m, "count": len(v), "values": v[:5]} for m, v in found.items()]
 

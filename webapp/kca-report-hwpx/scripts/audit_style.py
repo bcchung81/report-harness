@@ -32,7 +32,15 @@ ENDING_EXEMPT = re.compile(r"(?:하여야\s*함|답변함|질의함|설명함|�
 NOUN_ENDING_OK = {
     "포함", "불포함", "결함", "위임", "재위임", "책임", "모임", "부임", "선임", "연임", "재임", "겸임", "전임", "후임",
     "신임", "일임", "방임", "소임", "직임", "퇴임", "취임", "이임", "사임", "해임", "담임", "보임",
-    "게임", "프레임", "타임", "처음", "다음", "마음", "소음", "녹음", "발음", "모음"}
+    "운임", "주임", "상임", "비상임", "적임", "중임", "유임", "초임", "특임", "역임",
+    "보관함", "우편함", "사서함", "투표함", "잠수함", "군함",
+    "게임", "프레임", "타임", "처음", "다음", "마음", "소음", "녹음", "발음", "모음", "이음", "얼음", "웃음", "믿음", "물음"}
+
+
+def _source_count(line):
+    """출처 줄에 적힌 자료 수 — ';'로 나눈 칸과 「자료명」 수 중 큰 값."""
+    body = SOURCE_LINE.sub("", line)
+    return max(len([p for p in body.split(";") if p.strip()]), body.count("「"))
 
 
 def bad_ending(body):
@@ -102,6 +110,7 @@ LEAD_PAREN = re.compile(r"^\s*(?:ㅇ|○|-|※)\s*(?:\([^)]*\)\s*)?")
 # R092 — 외부 자료 인용 ※ 줄은 출처 줄(`※ 자료: 기관, 「자료명」(연도), 쪽`)을 단다. '26.9.25 1127 검증에서 외부 인용 5건 중
 # 규격 출처 줄이 0건이었다(METR·영국 정부는 기관명만, 정부 원문 산식은 출처 없음). 오탐 여지가 있어 warnings.
 SOURCE_LINE = re.compile(r"^\s*※\s*자료\s*:")
+NOTE_LINE = re.compile(r"^\s*※\s*(?:주|단|참고|비고)\s*[:：,)]")   # 인용에 붙는 단서 줄 — 새 인용이 아니다
 EXTERNAL_CUE = re.compile(r"「[^」]+」|\([A-Z][A-Za-z0-9]+\)|미국|영국|일본|독일|프랑스|캐나다|중국|EU|OECD|해외|국외|동종")
 INLINE_SOURCE = re.compile(r"「[^」]+」.*'\d{2}.*\d+쪽")      # 문장 안에 자료명·연도·쪽이 모두 있으면 출처 줄로 본다
 HIER_LEAD = re.compile(r"^\s*(□|ㅇ|○|-)\s")
@@ -273,16 +282,18 @@ def audit_text(text: str):
         if SOURCE_LINE.match(stripped):     # 출처 줄은 자료명(원어 제목·약칭)이라 쉬운 말·종결 검사 대상이 아니다
             continue
         if stripped.startswith("※") and EXTERNAL_CUE.search(stripped) and not INLINE_SOURCE.search(stripped):
-            sourced = False
+            sourced, later = False, 0
             for nxt in lines[i:]:           # 다음 ㅇ·□·대시 전까지(표·도식 캡션을 건너) 출처 줄을 찾는다
                 s = nxt.strip()
                 if SOURCE_LINE.match(s):
-                    sourced = True
+                    # 인용이 잇따르면 출처 줄 하나에 ';'로 함께 적는다 — 건너온 뒤 인용보다 자료가 많아야 이 인용 것도 있다
+                    # (종전에는 다음 인용에서 멈춰 공유 출처 줄을 못 봤다 — '26.9.25 코드 리뷰 #2)
+                    sourced = _source_count(s) > later
                     break
                 if HIER_LEAD.match(s) or ANNEX_BANNER.match(s):
                     break
-                if s.startswith("※") and EXTERNAL_CUE.search(s):   # 다음 인용이 시작됐다 — 그 출처 줄은 이 인용 것이 아니다
-                    break
+                if s.startswith("※") and EXTERNAL_CUE.search(s) and not NOTE_LINE.match(s):
+                    later += 1              # 뒤 인용 — 그 출처 줄이 이 인용 것까지 적었는지는 자료 수로 가린다
             if not sourced:
                 w.append({"line": i, "rule": "source-line-missing",
                           "text": f"외부 자료 인용에 출처 줄 없음 — 아래에 '※ 자료: 기관, 「자료명」(연도), 쪽'(R092): {stripped[:40]}"})

@@ -52,10 +52,12 @@ def plan(state_text, seed_text):
         if k not in state:
             out["added"].append(k)
         elif seed[k].strip() != state[k].strip():
-            if SUPERSEDED.search(seed[k]) and not SUPERSEDED.search(state[k]):
-                out["superseded"].append(k)
-            elif difflib.SequenceMatcher(None, _body(seed[k]), _body(state[k])).ratio() < SAME_RULE:
+            # 번호 선점부터 본다 — 대체 표기가 붙은 시드 번호를 설치자 로컬 규칙이 쓰고 있으면 덮지 않는다
+            # (종전에는 대체 표기를 먼저 봐 로컬 규칙이 --apply에 지워졌다 — '26.9.25 코드 리뷰 #2). 표기는 빼고 견준다
+            if difflib.SequenceMatcher(None, _body(SUPERSEDED.sub("", seed[k])), _body(state[k])).ratio() < SAME_RULE:
                 out["collision"].append(k)
+            elif SUPERSEDED.search(seed[k]) and not SUPERSEDED.search(state[k]):
+                out["superseded"].append(k)
             else:
                 out["changed"].append(k)
     return out

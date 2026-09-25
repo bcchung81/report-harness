@@ -58,3 +58,16 @@ def test_real_seed_parses_every_rule():
     text = sr.SEED.read_text(encoding="utf-8")
     ids = list(sr.rules(text))
     assert ids and ids == sorted(set(ids), key=ids.index) and "R094" in ids and "R090" in ids
+
+
+def test_local_rule_on_superseded_seed_number_is_a_collision_not_overwritten(tmp_path, capsys):
+    """시드가 대체 표기를 단 번호를 설치자 로컬 규칙이 쓰고 있으면 덮지 않고 충돌로 알린다('26.9.25 코드 리뷰 #2)."""
+    local = "- R005 [draft] 설치자 로컬: 발표자료 색상은 남색으로 통일\n"
+    seed = tmp_path / "seed.md"
+    seed.write_text("- R005 [draft] **[대체됨 → R010]** 표 머리행 음영은 회색\n", encoding="utf-8")
+    state = tmp_path / "rules.md"
+    state.write_text(local, encoding="utf-8")
+    out = sr.plan(local, seed.read_text(encoding="utf-8"))
+    assert out["collision"] == ["R005"] and out["superseded"] == []
+    assert sr.main(["--apply", "--state", str(state), "--seed", str(seed)]) == 0
+    assert state.read_text(encoding="utf-8") == local
