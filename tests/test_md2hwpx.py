@@ -4,7 +4,7 @@
 같은 postprocess·validate 스크립트를 그대로 통과하는지, 그리고 kordoc이 내던
 역행 열 폭을 재현하지 않는지를 고정한다.
 """
-import json, pathlib, subprocess, sys, zipfile
+import json, os, pathlib, re, subprocess, sys, zipfile
 import xml.etree.ElementTree as ET
 import pytest
 
@@ -390,3 +390,16 @@ def test_quote_block_lines_keep_text_and_marker():
     quote = [b for b in blocks if b["t"] == "plain"]
     assert [b["segs"][0][0] for b in quote] == ["⁠- 처리단위: [건]", "⁠", "⁠[처리 조건]"]
     assert not any(b["t"] in ("dash", "caption") for b in blocks)
+
+
+def test_documented_conversion_procedure_runs(tmp_path):
+    """SKILL.md ④ 변환 명령 블록을 문서 그대로 실행한다 — 파일 이름·인자가 스크립트와 어긋나면 사용자가 문서대로
+    하다 막힌다('26.9.25: 마지막 대조가 `--hwpx 출력.hwpx`로 앞 단계의 `결과.hwpx`와 달라 exit 2로 끝났다)."""
+    doc = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    block = next(b for b in re.findall(r"```bash\n(.*?)```", doc, re.S) if "md2hwpx.py" in b)
+    block = "\n".join(l for l in block.splitlines() if not l.strip().startswith("cd "))   # 작업 폴더는 tmp_path
+    (tmp_path / "draft.md").write_text(FIXTURE, encoding="utf-8")
+    env = dict(os.environ, SKILL_DIR=str(SKILL), PATH=f"{pathlib.Path(sys.executable).parent}{os.pathsep}{os.environ.get('PATH', '')}")
+    r = subprocess.run(["bash", "-e", "-c", block], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, (r.stdout[-800:], r.stderr[-800:])
+    assert (tmp_path / "결과.hwpx").is_file() and '"issues": []' in r.stdout

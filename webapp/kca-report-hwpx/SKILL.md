@@ -132,7 +132,8 @@ lint 통과 후 두 가지를 이어서 한다.
 `references/humanizer/examples/`에 있다.
 
 - **서술형 구간에만 적용**한다 — 배경 설명·근거 서술 등. **개조식 명사형 종결부는 대상에서
-  제외**한다(`~함`·`~임`으로 끝나는 항목을 문장으로 풀면 개조식이 무너진다).
+  제외**한다(`~확인`·`~추진`처럼 동작명사로 끝나는 항목을 문장으로 풀면 개조식이 무너진다 — `~함`·`~임` 종결은
+  style-guide §4 철칙상 쓰지 않는다).
 - 적용 전후로 **수치·인용이 불변인지 확인**한다. 하나라도 달라졌으면 그 절만 되돌리고 다시 한다.
 - 윤문 후 lint를 **다시** 돌린다 — 문장을 손대면 md-profile 위반이 새로 생길 수 있다.
 
@@ -183,7 +184,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" structural "결과.hwpx"
 
 # 6) 왕복 대조 — python-hwpx가 있으면 그걸 쓰고, 없으면 stdlib 폴백으로 자동 전환된다
 python3 "$SKILL_DIR/scripts/roundtrip_md.py" "결과.hwpx" -o roundtrip.md
-python3 "$SKILL_DIR/scripts/validate_hwpx.py" compare prepared.md roundtrip.md --hwpx 출력.hwpx
+python3 "$SKILL_DIR/scripts/validate_hwpx.py" compare prepared.md roundtrip.md --hwpx "결과.hwpx"
 ```
 
 ### 판정 규칙
