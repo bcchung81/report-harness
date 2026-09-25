@@ -31,11 +31,12 @@ python3 scripts/build_webapp_skill.py --target all   # dist/에 5플랫폼 패�
 
 python3 skills/report-pipeline/scripts/doctor.py            # 자가진단
 python3 skills/report-pipeline/scripts/consolidate_rules.py --check   # 규칙 통폐합 현황
+python3 skills/report-pipeline/scripts/sync_rules.py        # 시드 ↔ 운영 규칙 차이(--apply로 새 규칙만 덧붙임)
 ```
 
 의존성 설치 단계가 없다 — **모든 런타임 스크립트는 파이썬 표준 라이브러리만 쓴다**(웹앱
 샌드박스에서 `pip` 없이 돌아야 한다). 테스트도 `pytest` 외 의존이 없다. 새 스크립트에
-서드파티 import를 넣지 말 것.
+서드파티 import를 넣지 말 것. CI(`.github/workflows/test.yml`)가 설치하는 것도 테스트 러너 pytest 하나뿐이다.
 
 ## 아키텍처
 
@@ -78,6 +79,10 @@ SKILL.md 안의 모든 스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태�
 - 대체된 규칙에는 `**[대체됨 → R0NN]**` 표기를 단다 — 안 달면 틀린 값이 계속 살아 움직인다.
 - 마지막 통합 마커(`<!-- consolidated-at: R0NN -->`) 이후 10건이 늘면
   `test_consolidate_rules.py`가 실패한다. 자동 병합은 하지 않는다.
+- 설치자 환경에서는 운영 `rules.md`가 첫 실행 시드에 고정되지 않도록 `sync_rules.py --apply`(SKILL §0-4)가
+  **시드에만 있는 규칙을 끝에 덧붙인다** — 설치자 규칙은 보존, 본문이 다른 규칙은 보고만.
+- lesson에는 `kind`(content·defect·feature·preference)를 붙이고, 결함·기능은 고친 뒤 `resolved_by`(커밋·R번호)를
+  단다. 규칙 승격은 content만 타고, `doctor.py`는 resolved_by 없는 결함·기능만 '미조치'로 센다.
 
 ### 값 드리프트 — 단일 출처는 `format-profile.kca.md`
 
@@ -110,6 +115,11 @@ prep 정규화 → generate → 이미지 규격판정·주입 → postprocess_h
 표 폭 정합(R036·R042)과 패키지 정합(R043 `canonicalize_package` — `version.xml` 등 필수 멤버.
 없으면 자료교환 시스템이 hwpx로 인식하지 못해 내부망 반입이 반려된다)은 플래그와 무관하게
 매 실행 적용된다. `hooks/verify_hwpx_hook.py`가 PostToolUse로 이 검증 우회를 차단한다.
+초안 쪽 안전망은 `hooks/lint_draft_hook.py` — `20_draft.md`를 쓰거나 고치면 린트·감사 위반을 block한다(파생 md 제외).
+
+compare(`validate_hwpx.py compare`)는 되읽기가 원래 돌려주는 것(짝 맞는 볼드 `**`, 원문 제목과 같은 `# 제목`,
+따옴표 차이, 1칸 상자, 글자 없는 배치 표)을 잔재·손실로 세지 않는다. 진짜 기호 잔재는 `--hwpx`가 인도본 XML
+글자에서 센다(`literal-markup`, 원문 인용 블록 제외). 무해 판정을 사람이 XML을 열어 하지 않게 만든 구조다.
 
 ### 하네스 금기 2건
 
@@ -139,5 +149,8 @@ CI가 돌기 때문).
 | `test_references_consistency.py` | 참조 문서 간 정합, 룰 번호 중복 |
 | `test_plugin_structure.py` | 플러그인·마켓플레이스 매니페스트 구조와 버전 일치 |
 | `test_postprocess_hwpx.py` | 후처리 규칙 회귀 |
+| `test_validate_hwpx.py` | 구조 검증·왕복 대조 회귀(되읽기 오탐 5종·literal-markup) |
+| `test_check_craft.py` · `test_sync_rules.py` · `test_doctor_lessons.py` | 설계 칸 검사(R094)·시드 동기화·교훈 스키마 판정 |
+| `test_lint_draft_hook.py` · `test_verify_hwpx_hook.py` | 안전망 훅 2종 — 대상 한정·block 조건 |
 
 새 규칙(R0NN)을 추가하면 대체로 이 중 둘 이상을 함께 고쳐야 통과한다.
