@@ -81,6 +81,12 @@ NOT_BARE = ("을", "를", "이", "가", "은", "는", "의", "에", "로", "와"
             "여", "게", "지", "한", "할", "된", "될", "인", "적", "등", "함", "음", "임", "됨", "및", "며")
 NOUN_CHAIN = 5
 LEAD_PAREN = re.compile(r"^\s*(?:ㅇ|○|-|※)\s*(?:\([^)]*\)\s*)?")
+# R092 — 외부 자료 인용 ※ 줄은 출처 줄(`※ 자료: 기관, 「자료명」(연도), 쪽`)을 단다. '26.9.25 1127 검증에서 외부 인용 5건 중
+# 규격 출처 줄이 0건이었다(METR·영국 정부는 기관명만, 정부 원문 산식은 출처 없음). 오탐 여지가 있어 warnings.
+SOURCE_LINE = re.compile(r"^\s*※\s*자료\s*:")
+EXTERNAL_CUE = re.compile(r"「[^」]+」|\([A-Z][A-Za-z0-9]+\)|미국|영국|일본|독일|프랑스|캐나다|중국|EU|OECD|해외|국외|동종")
+INLINE_SOURCE = re.compile(r"「[^」]+」.*'\d{2}.*\d+쪽")      # 문장 안에 자료명·연도·쪽이 모두 있으면 출처 줄로 본다
+HIER_LEAD = re.compile(r"^\s*(□|ㅇ|○|-)\s")
 
 
 def load_plain_words(path=STYLE_GUIDE):
@@ -246,6 +252,20 @@ def audit_text(text: str):
         if not in_annex and ARTICLE_NO.search(stripped):
             article_hits.append(i)
 
+        if SOURCE_LINE.match(stripped):     # 출처 줄은 자료명(원어 제목·약칭)이라 쉬운 말·종결 검사 대상이 아니다
+            continue
+        if stripped.startswith("※") and EXTERNAL_CUE.search(stripped) and not INLINE_SOURCE.search(stripped):
+            sourced = False
+            for nxt in lines[i:]:           # 다음 ㅇ·□·대시 전까지(표·도식 캡션을 건너) 출처 줄을 찾는다
+                s = nxt.strip()
+                if SOURCE_LINE.match(s):
+                    sourced = True
+                    break
+                if HIER_LEAD.match(s) or ANNEX_BANNER.match(s):
+                    break
+            if not sourced:
+                w.append({"line": i, "rule": "source-line-missing",
+                          "text": f"외부 자료 인용에 출처 줄 없음 — 아래에 '※ 자료: 기관, 「자료명」(연도), 쪽'(R092): {stripped[:40]}"})
         if BODY_LEAD.match(stripped):
             # 계층 문구는 이어지는 줄까지 하나의 문장이므로 다음 선두 전까지 이어 붙인다.
             buf = stripped
@@ -291,6 +311,60 @@ def audit_text(text: str):
     return v, w
 
 
+# ── R093: 도식 카드 문장 — 초안의 `도해: 슬러그`가 가리키는 figures/{슬러그}.json 명세 ─────────────
+# 카드 안 문장도 본문과 같은 공문서 문장이다('26.9.25 게이트② f11·f12 — `처리시간 = …` 등호 정의식,
+# `과제당 3개, 18건 54개` 숫자 나열). 오탐 여지가 있어 전부 warnings. 명세가 없는 환경(웹앱)에서는 아무것도 안 한다.
+FIG_MARKER = re.compile(r"^\s*도[해식]:\s*(\S+)\s*$")
+FIG_FORMULA = re.compile(r"=|\s\+\s|[×÷]")
+FIG_FRAGMENT = re.compile(r"\d+\s*(?:개|건|칸|종|명|곳|회|%|개소|단계)\)?$")
+
+
+def _card_texts(node):
+    """명세 안 카드의 (머리·화살표 문구, 본문 항목) — `body`를 가진 노드면 어디에 있든 카드로 본다."""
+    heads, bodies = [], []
+    if isinstance(node, dict):
+        if "body" in node:
+            body = node["body"]
+            bodies += [body] if isinstance(body, str) else [b for b in body if isinstance(b, str)]
+        heads += [node[k] for k in ("head", "arrow") if isinstance(node.get(k), str)]
+        for k, v in node.items():
+            if k != "body":
+                h, b = _card_texts(v)
+                heads += h
+                bodies += b
+    elif isinstance(node, list):
+        for v in node:
+            h, b = _card_texts(v)
+            heads += h
+            bodies += b
+    return heads, bodies
+
+
+def audit_figures(md_path, text):
+    """초안이 부르는 도식 명세의 카드 문장 경고 — 산식 기호(`diagram-formula`)·숫자로 끝나는 나열(`diagram-fragment`)."""
+    fig_dir = pathlib.Path(md_path).resolve().parent / "figures"
+    w = []
+    for i, line in enumerate(text.splitlines(), 1):
+        m = FIG_MARKER.match(line)
+        spec_path = fig_dir / f"{m.group(1)}.json" if m else None
+        if not spec_path or not spec_path.is_file():
+            continue
+        try:
+            spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        heads, bodies = _card_texts(spec)
+        for t in heads + bodies:
+            if FIG_FORMULA.search(t):
+                w.append({"line": i, "rule": "diagram-formula",
+                          "text": f"{m.group(1)}: '{t}' — 등호·산식 기호 없이 서술형으로, 산식은 1열 표로(R093)"})
+        for t in bodies:
+            if FIG_FRAGMENT.search(t.strip()):
+                w.append({"line": i, "rule": "diagram-fragment",
+                          "text": f"{m.group(1)}: '{t}' — 숫자로 끝나는 나열 대신 무엇을 하는지 동작명사로 끝맺는다(R093)"})
+    return w
+
+
 if __name__ == "__main__":
     # exit 계약: 0 통과(경고만 있어도 0) / 1 철칙 위반 / 2 인자·파일 오류
     args = [a for a in sys.argv[1:] if a != "--skeleton"]
@@ -306,6 +380,7 @@ if __name__ == "__main__":
         print(json.dumps({"skeleton": skeleton(src)}, ensure_ascii=False, indent=1))
         sys.exit(0)
     viol, warn = audit_text(src)
+    warn += audit_figures(args[0], src)
     print(json.dumps({"violations": viol, "warnings": warn},
                      ensure_ascii=False, indent=1))
     sys.exit(1 if viol else 0)

@@ -46,6 +46,10 @@ DASH = ("DASH", "0.12 mm", rd.LINE)     # 비교형 이전 칸 — 색 + 점선(
 ACC = ("SOLID", "0.4 mm", rd.ACCENT_LINE)   # 강조 카드 테두리 — 색 + 굵기
 CELL_MARGIN = (283, 283, 141, 141)      # 좌·우·위·아래(HU)
 LINE_SPACING = 130                      # 셀 문단 줄 간격(%) — 표 셀과 같다
+ARROW_HEAD_ASPECT = 0.55                # 비교도 화살표 머리 폭 ÷ 높이 — 머리는 라벨 높이에서 정한다(f15)
+CARD_MARK = "•"                         # 카드 본문 항목 부호
+CARD_HANG = 1500                        # 카드 본문 내어쓰기(HU) — 부호 1글자 + 반 칸(10pt 기준). 둘째 줄이 첫 줄 글자와
+                                        # 같은 자리에서 시작한다(R093, format-profile §8-1)
 STYLES = {                              # 이름: (크기 pt, 굵게, 색)
     "head": (11, True, rd.NAVY), "old_head": (11, True, rd.OLD_TEXT), "body": (10, False, "#111111"),
     "key": (11, True, rd.NAVY), "th": (10.5, True, rd.NAVY), "task": (10, False, "#111111"),
@@ -84,7 +88,7 @@ class Canvas:
         if emphasis:
             self.add(x0, x1, y1, y2, sides="LRTB", line=line, paras=[("C", "key", b) for b in body])
         else:
-            self.add(x0, x1, y1, y2, sides="LRTB", line=line, valign="TOP", paras=[("L", "body", "• " + b) for b in body])
+            self.add(x0, x1, y1, y2, sides="LRTB", line=line, valign="TOP", paras=card_items(body))
 
     def grid(self):
         xs = {0, self.width}
@@ -151,15 +155,21 @@ class Canvas:
 
 
 # ---------------------------------------------------------------- 높이 추정
+def card_items(body):
+    """카드 본문 항목 문단 — `H`(내어쓰기): 부호는 내어쓰기 칸에 두고 글자는 모든 줄에서 CARD_HANG 뒤에 선다."""
+    return [("H", "body", b) for b in body]
+
+
 def paras_height(paras, width, margin=CELL_MARGIN):
     """셀 문단들이 차지하는 높이(HU) — 후처리와 같은 줄 수 추정(어절 단위)."""
-    avail = (width - margin[0] - margin[1]) / 100 * ph.FIT_SLACK
     h = 0
     for p in paras:
         if p[0] == "tri":
             h += p[3]
             continue
         size = STYLES[p[1]][0]
+        hang = CARD_HANG if p[0] == "H" else 0      # 내어쓰기 항목은 모든 줄이 부호 칸만큼 좁다
+        avail = (width - margin[0] - margin[1] - hang) / 100 * ph.FIT_SLACK
         n = ph.lines_at(ph._weighted_len(p[2]), avail, size, 100, 0, ph.word_lens(p[2]))
         h += n * size * LINE_SPACING
     return int(h + margin[2] + margin[3] + 60)
@@ -180,7 +190,7 @@ def _flow(spec, W):
     numbered = spec.get("numbered", True)
     heads = [f"{rd.STEP_NUMS[i]} {s.get('head', '')}" if numbered else s.get("head", "") for i, s in enumerate(steps)]
     hh = max(paras_height([("C", "head", h)], x1 - x0) for h, (x0, x1) in zip(heads, xs))
-    bh = max(paras_height([("L", "body", "• " + b) for b in rd._items(s)], x1 - x0) for s, (x0, x1) in zip(steps, xs))
+    bh = max(paras_height(card_items(rd._items(s)), x1 - x0) for s, (x0, x1) in zip(steps, xs))
     cv = Canvas(W)
     for (x0, x1), head, s in zip(xs, heads, steps):
         cv.box(x0, x1, 0, hh, hh + bh, head, rd._items(s), accent=s.get("tone") == "accent")
@@ -199,26 +209,41 @@ def _flow(spec, W):
     return cv
 
 
+def arrow_label(text):
+    """비교도 화살표 라벨 — 어절마다 한 줄로 세워 몸통을 좁힌다(3어절 이상은 두 줄로 나눈다)."""
+    words = text.split()
+    if len(words) > 2:
+        half = (len(words) + 1) // 2
+        words = [" ".join(words[:half]), " ".join(words[half:])]
+    return [("C", "band", w) for w in words] or [("C", "band", "")]
+
+
 def _compare(spec, W):
     """종전(회색 머리) | 블록 화살표 | 이번 기준. 화살표 = 파란 몸통 셀(라벨) + 머리 셀 안 삼각형 도형.
-    이미지 도식과 같게 몸통 높이는 머리의 64%, 둘 다 카드 세로 가운데."""
+    화살표는 라벨에 맞춘다 — 라벨을 어절마다 세워 몸통 폭을 줄이고, 몸통 높이 = 라벨 높이, 머리 = 몸통 ÷ 0.64
+    (몸통:머리 비율은 이미지 도식과 같다). 줄인 폭만큼 좌우 카드가 넓어져 줄바꿈이 준다. 종전에는 머리를 도식
+    높이의 84%로 키워 화살표가 카드만큼 컸다('26.9.25 게이트② f15)."""
     left, right = spec["left"], spec["right"]
-    sw, hw = 5200, 1800
+    label = arrow_label(spec.get("arrow", ""))
+    pad = (200, 200, 100, 100)
+    size = STYLES["band"][0]
+    sw = int(max(ph._weighted_len(p[2]) for p in label) * size * 100 / ph.FIT_SLACK) + pad[0] + pad[1] + 100
+    shaft = paras_height(label, sw, pad)
+    head_h = int(shaft / 0.64)
+    hw = max(int(head_h * ARROW_HEAD_ASPECT), 700)
     cw = (W - sw - hw) // 2
     lx, bx, hx, rx = (0, cw), (cw, cw + sw), (cw + sw, cw + sw + hw), (cw + sw + hw, W)
     hh = max(paras_height([("C", "head", n.get("head", ""))], cw) for n in (left, right))
-    bh = max(paras_height([("L", "body", "• " + b) for b in rd._items(n)], cw) for n in (left, right))
+    bh = max(paras_height(card_items(rd._items(n)), cw) for n in (left, right))
     T = hh + bh
-    label = [("C", "band", spec.get("arrow", ""))]
-    head_h = int(T * 0.84)
-    shaft = max(int(head_h * 0.64), paras_height(label, sw, (200, 200, 100, 100)))
-    head_h = min(max(head_h, int(shaft / 0.64)), T - 200)
+    head_h = min(head_h, T - 200)
+    shaft = min(shaft, head_h)
     mid = T // 2
     cv = Canvas(W)
     cv.box(*lx, 0, hh, T, left.get("head", ""), rd._items(left), head_fill=rd.HEAD_OLD, head_style="old_head", line=DASH)
     cv.box(*rx, 0, hh, T, right.get("head", ""), rd._items(right), head_fill=rd.HEAD_STRONG,   # 개선 = 진한 머리(R090)
            accent=right.get("tone") == "accent")
-    cv.add(*bx, mid - shaft // 2, mid - shaft // 2 + shaft, fill=rd.BLUE_FILL, paras=label, margin=(200, 200, 100, 100))
+    cv.add(*bx, mid - shaft // 2, mid - shaft // 2 + shaft, fill=rd.BLUE_FILL, paras=label, margin=pad)
     cv.add(*hx, 0, T, paras=[tri("right", hw, head_h, rd.BLUE_FILL, align="L")], margin=(0, 0, 0, 0))
     return cv
 
@@ -247,9 +272,8 @@ def _structure(spec, W):
             y += 2 * half
         top = li == 0
         hh = max(paras_height([("C", "head", n.get("head", ""))], b - a) for n, (a, b) in zip(lv, boxes))
-        bh = max(paras_height([("C" if n.get("emphasis") else "L", "key" if n.get("emphasis") else "body",
-                                ("" if n.get("emphasis") else "• ") + t) for t in rd._items(n)], b - a)
-                 for n, (a, b) in zip(lv, boxes))
+        bh = max(paras_height([("C", "key", t) for t in rd._items(n)] if n.get("emphasis")
+                              else card_items(rd._items(n)), b - a) for n, (a, b) in zip(lv, boxes))
         for n, (a, b) in zip(lv, boxes):
             cv.box(a, b, y, y + hh, y + hh + bh, n.get("head", ""), rd._items(n),
                    head_fill=rd.HEAD_STRONG if (top or n.get("emphasis")) else rd.HEAD, emphasis=bool(n.get("emphasis")),
@@ -341,8 +365,13 @@ def _html_para(p):
                 f'viewBox="0 0 {w} {h}" style="display:inline-block"><polygon points="{pts}" fill="{color}"/></svg></div>')
     al, st, text = p
     size, bold, color = STYLES[st]
-    return (f'<div style="text-align:{"center" if al == "C" else "left"};font-size:{size}pt;'
-            f'font-weight:{700 if bold else 400};color:{color};line-height:{LINE_SPACING}%">{_esc(text)}</div>')
+    style = (f'text-align:{"center" if al == "C" else "left"};font-size:{size}pt;'
+             f'font-weight:{700 if bold else 400};color:{color};line-height:{LINE_SPACING}%')
+    if al == "H":       # 부호를 내어쓰기 폭의 고정 칸에 — 글자폭대로 그리면 1줄과 2줄의 앞이 어긋난다(본문 marker_html과 같다)
+        hang = CARD_HANG / 100
+        return (f'<div style="{style};padding-left:{hang:g}pt;text-indent:-{hang:g}pt">'
+                f'<span style="display:inline-block;width:{hang:g}pt;text-indent:0">{CARD_MARK}</span>{_esc(text)}</div>')
+    return f'<div style="{style}">{_esc(text)}</div>'
 
 
 def _esc(t):
@@ -364,6 +393,7 @@ class _Res:
     def __init__(self, header):
         self.h = header
         self.bf, self.cp, self.pp = {}, {}, {}
+        self.tab = None
         self.font = ph._ensure_font_face(header, TABLE_FACE)
         self.obj = 1990000000
 
@@ -421,8 +451,29 @@ class _Res:
         self.cp[style] = new.get("id")
         return self.cp[style]
 
-    def para(self, align, spacing):
-        key = (align, spacing)
+    def auto_tab(self):
+        """내어쓰기 자동 탭 탭 모양(autoTabLeft=1) — 부호 뒤 탭이 내어쓰기 위치로 간다. 본문 계층 문단과 같은 방식."""
+        if self.tab:
+            return self.tab
+        props = self.h.find(f".//{qn('hh', 'tabProperties')}")
+        if props is None:
+            ref = self.h.find(f".//{qn('hh', 'refList')}")
+            kids = list(ref)
+            anchor = ref.find(qn("hh", "charProperties"))
+            props = ET.Element(qn("hh", "tabProperties"))
+            ref.insert(kids.index(anchor) + 1 if anchor is not None else len(kids), props)
+        for tp in props.findall(qn("hh", "tabPr")):
+            if tp.get("autoTabLeft") == "1" and tp.get("autoTabRight", "0") == "0" and not len(tp):
+                self.tab = tp.get("id")
+                return self.tab
+        tp = ET.SubElement(props, qn("hh", "tabPr"), {"id": self._next(props, qn("hh", "tabPr")),
+                                                      "autoTabLeft": "1", "autoTabRight": "0"})
+        props.set("itemCnt", str(len(props.findall(qn("hh", "tabPr")))))
+        self.tab = tp.get("id")
+        return self.tab
+
+    def para(self, align, spacing, hang=0):
+        key = (align, spacing, hang)
         if key in self.pp:
             return self.pp[key]
         props = self.h.find(f".//{qn('hh', 'paraProperties')}")
@@ -435,7 +486,9 @@ class _Res:
             for tag in ("intent", "left", "right", "prev", "next"):
                 el = mg.find(qn("hc", tag))
                 if el is not None:
-                    el.set("value", "0")
+                    el.set("value", str(-hang) if tag == "intent" else "0")   # 내어쓰기 = left 0·intent -hang(R061과 같은 인코딩)
+        if hang:
+            new.set("tabPrIDRef", self.auto_tab())
         for ls in new.iter(qn("hh", "lineSpacing")):
             ls.set("type", "PERCENT")
             ls.set("value", str(spacing))
@@ -492,6 +545,12 @@ def table_element(g, res, tid):
                     obj = _polygon(d, tw, th, color, res.object_id())
                     ps.append(f'<hp:p paraPrIDRef="{pid}" styleIDRef="0"><hp:run charPrIDRef="{res.char("body")}">'
                               f'{obj}</hp:run></hp:p>')
+                elif p[0] == "H":           # 부호 + 탭(내어쓰기 위치로) + 글자 — 부호 글자폭과 무관하게 줄 앞이 맞는다
+                    _, st, text = p
+                    pid = res.para("LEFT", LINE_SPACING, CARD_HANG)
+                    ps.append(f'<hp:p paraPrIDRef="{pid}" styleIDRef="0"><hp:run charPrIDRef="{res.char(st)}">'
+                              f'<hp:t>{CARD_MARK}<hp:tab width="{CARD_HANG // 2}" leader="0" type="1"/>{_esc(text)}'
+                              f'</hp:t></hp:run></hp:p>')
                 else:
                     al, st, text = p
                     pid = res.para("CENTER" if al == "C" else "LEFT", LINE_SPACING)

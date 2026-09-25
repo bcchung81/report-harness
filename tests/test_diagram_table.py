@@ -74,7 +74,7 @@ def test_compare_arrow_is_shaft_cell_plus_triangle_head():
     g = dt.layout(SPECS["비교"], W)
     shaft = [x for x in g["cells"] if x["fill"] == dt.rd.BLUE_FILL]
     heads = [p for x in g["cells"] for p in x["paras"] if p[0] == "tri"]
-    assert len(shaft) == 1 and shaft[0]["paras"][0][2] == "착시 차단"
+    assert len(shaft) == 1 and [q[2] for q in shaft[0]["paras"]] == ["착시", "차단"]    # 어절마다 세워 몸통을 좁힌다
     assert len(heads) == 1 and heads[0][1] == "right" and heads[0][5] == "L"
     shaft_h = sum(g["heights"][shaft[0]["r"]:shaft[0]["r"] + shaft[0]["rs"]])
     assert heads[0][3] > shaft_h
@@ -226,3 +226,53 @@ def test_compare_old_side_is_dashed_and_new_side_strong():
     heads = {x["paras"][0][2]: x for x in g["cells"] if x["paras"] and x["paras"][0][0] == "C" and x["fill"]}
     assert heads["종전"]["fill"] == rd.HEAD_OLD and dt.DASH in heads["종전"]["s"].values()
     assert heads["이번"]["fill"] == rd.HEAD_STRONG
+
+
+# ---------------------------------------------------------------- 카드 문장 내어쓰기 (R093)
+def test_card_items_hang_in_review_and_hwpx(tmp_path):
+    """둘째 줄이 부호 아래가 아니라 첫 줄 글자 아래에서 시작한다('26.9.25 게이트② f12) — 리뷰는 고정 폭 부호 칸,
+    한글은 본문 계층과 같은 left 0·intent -hang + 부호 뒤 탭(내어쓰기 자동 탭)."""
+    hang = dt.CARD_HANG / 100
+    html = dt.html(SPECS["비교"])
+    assert f"padding-left:{hang:g}pt;text-indent:-{hang:g}pt" in html
+    assert f'<span style="display:inline-block;width:{hang:g}pt;text-indent:0">{dt.CARD_MARK}</span>가' in html
+    assert f"{dt.CARD_MARK} 가" not in html
+
+    path, work, figs = _hwpx(tmp_path)
+    dt.convert(path, work, figs)
+    sec, head, _, _ = _tables(path)
+    tab_path = f"{ph.qn('hp', 'run')}/{ph.qn('hp', 't')}/{ph.qn('hp', 'tab')}"      # 표를 품은 바깥 문단은 빼고
+    paras = [p for p in sec.iter(ph.qn("hp", "p")) if p.find(tab_path) is not None]
+    assert paras, "카드 항목 문단에 부호 뒤 탭이 없다"
+    pprs = {pp.get("id"): pp for pp in head.iter(ph.qn("hh", "paraPr"))}
+    tabs = {tp.get("id"): tp for tp in head.iter(ph.qn("hh", "tabPr"))}
+    for p in paras:
+        t = p.find(f".//{ph.qn('hp', 't')}")
+        assert t.text == dt.CARD_MARK and t.find(ph.qn("hp", "tab")).tail in ("가", "나", "다", "라")
+        pp = pprs[p.get("paraPrIDRef")]
+        mg = {e.tag.split("}")[1]: e.get("value") for e in pp.find(ph.qn("hh", "margin"))}
+        assert mg["intent"] == str(-dt.CARD_HANG) and mg["left"] == "0"
+        assert tabs[pp.get("tabPrIDRef")].get("autoTabLeft") == "1"
+
+
+def test_card_hang_narrows_every_line_in_height_estimate():
+    """내어쓰기 항목은 모든 줄이 부호 칸만큼 좁다 — 같은 글이면 줄 수가 같거나 늘지, 줄지 않는다."""
+    long = "운영 AI 여부부터 효과 성격까지 6개 질문으로 유형 판정"
+    for w in range(6000, 20000, 500):
+        assert dt.paras_height(dt.card_items([long]), w) >= dt.paras_height([("L", "body", long)], w)
+
+
+def test_compare_arrow_follows_label_not_card_height():
+    """화살표는 라벨 높이로 정한다 — 카드가 길어져도 머리 높이가 따라 커지지 않고, 줄인 폭만큼 카드가 넓다
+    ('26.9.25 게이트② f15 — 머리가 도식 높이의 84%라 카드만큼 컸다)."""
+    def head(spec):
+        g = dt.layout(spec, W)
+        return [p for x in g["cells"] for p in x["paras"] if p[0] == "tri"][0], g
+    def spec(words):
+        return dict(SPECS["비교"], left={"head": "종전", "body": ["가 " * words] * 3},
+                    right={"head": "이번", "body": ["나 " * words] * 3})
+    short, g1 = head(spec(20))
+    long_, g2 = head(spec(60))
+    assert long_[3] == short[3] and long_[2] == short[2]      # 카드가 세 배 길어져도 머리는 그대로
+    assert sum(g2["heights"]) > 2 * long_[3]                  # 머리는 카드 높이의 절반도 안 된다
+    assert g1["widths"][0] > (W - 5200 - 1800) // 2           # 종전 고정 폭(몸통 5200 + 머리 1800)보다 카드가 넓다

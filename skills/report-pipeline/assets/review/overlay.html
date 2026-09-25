@@ -9,10 +9,11 @@
  --rv-mute:#667085;--rv-accent:#006BA6;--rv-fix:#0080C0;--rv-del:#c2410c;--rv-ask:#7c3aed;--rv-good:#1f8a4c;--rv-note-w:380px}
 html,body{background:var(--rv-desk)!important}
 body{padding:60px 0 48px}
-/* 쪽은 왼쪽 아이콘 줄 옆, 오른쪽을 메모 열로 비운다(줄 80 + 쪽 794 + 간격 28 + 메모 380 + 여유 20) */
-.page{transition:margin-left .2s ease;margin:16px 0 16px max(92px, calc((100vw - 1302px) / 2 + 92px))!important;box-shadow:0 2px 6px rgba(30,28,20,.10),0 18px 40px rgba(30,28,20,.08)!important}
-/* 서랍이 열려도 쪽을 덮지 않는다 — 자리가 되면(줄 80 + 서랍 340 + 쪽 794 + 간격 28 + 메모 380 + 여유 18) 쪽을 밀고, 좁으면 덮는다 */
-@media (min-width:1640px){body.rv-dopen .page{margin-left:max(420px, calc((100vw - 1302px) / 2 + 92px))!important}}
+/* 쪽은 왼쪽 아이콘 줄 옆, 오른쪽을 메모 열로 비운다(줄 80 + 쪽 794 + 간격 28 + 메모 380 + 여유 20).
+   왼쪽 여백(--rv-ml)·배율(--rv-z)·메모 폭은 fitPage()가 창 폭과 서랍 상태로 정한다 — zoom은 여백에도 걸리므로 나눠 준다 */
+.page{transition:margin-left .2s ease;zoom:var(--rv-z,1);margin:16px 0 16px calc(var(--rv-ml, max(92px, calc((100vw - 1302px) / 2 + 92px))) / var(--rv-z,1))!important;box-shadow:0 2px 6px rgba(30,28,20,.10),0 18px 40px rgba(30,28,20,.08)!important}
+/* 서랍이 열려도 쪽을 덮지 않는다 — 폭과 관계없이 쪽을 서랍 오른쪽으로 밀고, 모자라면 메모 폭 → 쪽 배율 순으로 줄인다(fitPage).
+   종전에는 1640px 이상에서만 밀고 그보다 좁으면 덮었다('26.9.25 사용자 지적 — 노트북 폭에서 서랍이 본문을 가림) */
 .rv-ui{font:13px/1.5 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;color:var(--rv-ink)}
 .rv-ui button{font-family:inherit}
 /* 위 알약 막대 */
@@ -260,7 +261,7 @@ body.rv-docmode .rv-formonly{display:none!important}
 @keyframes rvpop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
 /* 운영체제 '동작 줄이기' 설정이면 움직임을 모두 끈다 */
 @media (prefers-reduced-motion: reduce){.rv-ui,.rv-ui *,.rv-ui *::before,.page,#rv-lines,#rv-notes .rv-note{transition:none!important;animation:none!important}}
-@media print{#rv-bar,#rv-rail,#rv-drawer,#rv-notes,#rv-lines,#rv-pop,#rv-pick,#rv-approve-pop,.rv-pb,#rv-mini,#rv-cmd,#rv-help{display:none!important} body{padding:0} .page{margin:0!important}}
+@media print{#rv-bar,#rv-rail,#rv-drawer,#rv-notes,#rv-lines,#rv-pop,#rv-pick,#rv-approve-pop,.rv-pb,#rv-mini,#rv-cmd,#rv-help{display:none!important} body{padding:0} .page{margin:0!important;zoom:1!important}}
 </style>
 <div id="rv-bar" class="rv-ui" role="toolbar" aria-label="리뷰 상태">
  <span id="rv-dot" class="rv-dot"></span>
@@ -396,7 +397,7 @@ body.rv-docmode .rv-formonly{display:none!important}
   changed.forEach(a=>{const s=document.createElement('button'); s.className='rv-chg-chip'; s.textContent=a; s.onclick=()=>goto(a); box.appendChild(s)}) }
  // 서랍 — 아이콘 줄에서 연다
  function openDrawer(t){ drawer=(drawer===t||!t)?null:t; put('rv-drawer',drawer);
-  $('rv-drawer').classList.toggle('on',!!drawer); document.body.classList.toggle('rv-dopen',!!drawer); $('rv-dtitle').textContent=DTITLE[drawer]||'';
+  $('rv-drawer').classList.toggle('on',!!drawer); document.body.classList.toggle('rv-dopen',!!drawer); $('rv-dtitle').textContent=DTITLE[drawer]||''; fitPage();
   document.querySelectorAll('#rv-rail .rv-railbtn[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===drawer));
   document.querySelectorAll('.rv-dsec').forEach(s=>s.classList.toggle('on',s.dataset.t===drawer)); glide() }
  let glideT=null;
@@ -404,6 +405,16 @@ body.rv-docmode .rv-formonly{display:none!important}
   glideT=setTimeout(()=>{ L.classList.add('glide'); layoutNotes(); glideT=setTimeout(()=>{L.classList.remove('glide'); document.body.classList.remove('rv-gliding')},230) },210) }
  document.querySelectorAll('#rv-rail .rv-railbtn[data-t]').forEach(b=>b.onclick=()=>openDrawer(b.dataset.t));
  $('rv-dclose').onclick=()=>openDrawer(null); $('rv-pages-btn').onclick=()=>openDrawer('page');
+ // 쪽 맞춤 — 왼쪽 자리(아이콘 줄, 서랍이 열리면 서랍까지)는 늘 비운다. 쪽과 메모 열이 다 들어가지 않으면 메모 폭을
+ // 먼저 줄이고(380→300), 그래도 모자라면 쪽을 비율로 줄인다(글자·폭이 함께 줄어 줄바꿈·쪽수는 그대로). 쪽이 75% 밑으로
+ // 작아져야 하면 메모는 종전처럼 쪽 위에 겹쳐 띄우고 쪽만 창에 맞춘다(하한 50% — 그보다 좁은 창만 가로 스크롤)
+ const RAIL_W=92, DRAWER_W=420, NOTE_W=380, NOTE_MIN=300, NOTE_SIDE=40, Z_KEEP=0.75, Z_FLOOR=0.5;
+ function fitPage(){ const pg=pagesEl()[0], rs=document.documentElement.style; if(!pg)return;
+  const vw=document.documentElement.clientWidth, L=drawer?DRAWER_W:RAIL_W, pw=parseFloat(getComputedStyle(pg).width)||794;
+  let z=1, nw=NOTE_W, ml=Math.max(L,(vw-(RAIL_W+pw+NOTE_SIDE+NOTE_W))/2+RAIL_W);
+  if(vw-L-pw-NOTE_SIDE-NOTE_W<0){ nw=NOTE_MIN; ml=L; z=Math.min(1,(vw-L-NOTE_SIDE-nw)/pw);
+   if(z<Z_KEEP)z=Math.min(1,Math.max(Z_FLOOR,(vw-L-16)/pw)) }
+  rs.setProperty('--rv-z',String(Math.round(z*1000)/1000)); rs.setProperty('--rv-ml',Math.round(ml)+'px'); rs.setProperty('--rv-note-w',nw+'px') }
  // 여백 메모 열 — 문단 높이에 맞춰 세우고 겹치면 아래로, 작성 카드는 제자리 우선
  const NOTE_GAP=10;
  function notesX(){ const pg=pagesEl()[0], vw=document.documentElement.clientWidth, w=$('rv-pop').offsetWidth||380;
@@ -606,14 +617,16 @@ body.rv-docmode .rv-formonly{display:none!important}
  function paginate(){
   document.querySelectorAll('.rv-pb').forEach(x=>x.remove());
   if(DOCMODE){layoutNotes(); return}
-  const probe=document.createElement('div'); probe.style.cssText='position:absolute;visibility:hidden;height:247mm'; document.body.appendChild(probe);
-  const H=probe.getBoundingClientRect().height; probe.remove(); if(!H)return;
+  // 탐침은 쪽 안에 둔다 — 쪽이 축소(fitPage)돼도 문단과 같은 좌표로 재야 쪽수가 맞다. 경계선 위치도 쪽 안 단위(mm)로 적는다
   let total=0; const per=[];
-  pagesEl().forEach(sec=>{ const top=parseFloat(getComputedStyle(sec).paddingTop), base=sec.getBoundingClientRect().top+top;
+  pagesEl().forEach(sec=>{ const top=parseFloat(getComputedStyle(sec).paddingTop), probe=document.createElement('div');
+   probe.style.cssText='position:absolute;left:0;width:1px;visibility:hidden;top:'+top+'px;height:247mm'; sec.appendChild(probe);
+   const pr=probe.getBoundingClientRect(), H=pr.height, base=pr.top; probe.remove(); if(!H)return;
    const blks=[...sec.children].filter(c=>c.classList.contains('blk')); const lastB=blks[blks.length-1];
    const h=lastB?lastB.getBoundingClientRect().bottom-base:0, n=Math.max(1,Math.ceil((h-2)/H)); per.push(n);
-   for(let k=1;k<n;k++){const d=document.createElement('div'); d.className='rv-pb'; d.style.top=(top+k*H)+'px'; d.innerHTML='<span>'+(total+k+1)+'쪽</span>'; sec.appendChild(d)}
+   for(let k=1;k<n;k++){const d=document.createElement('div'); d.className='rv-pb'; d.style.top='calc('+top+'px + '+(k*247)+'mm)'; d.innerHTML='<span>'+(total+k+1)+'쪽</span>'; sec.appendChild(d)}
    total+=n });
+  if(!per.length)return;
   const detail='본문 '+per[0]+(per.length>1?' · 붙임 '+per.slice(1).join('·'):'');
   $('rv-pages-n').innerHTML='<b style="color:var(--rv-ink)">'+total+'쪽</b> · '+detail; $('rv-pages-big').textContent=total+'쪽';
   $('rv-pages').textContent='본문 '+per[0]+'쪽'+(per.length>1?' · '+per.slice(1).map((n,i)=>'붙임'+(i+1)+' '+n+'쪽').join(' · '):'');
@@ -779,7 +792,7 @@ body.rv-docmode .rv-formonly{display:none!important}
   const t=ev.target; if(ev.metaKey||ev.ctrlKey||ev.altKey||(t.closest&&t.closest('input,textarea,select,[contenteditable="true"]')))return;
   if(ev.key==='?'){ ev.preventDefault(); showHelp($('rv-help').hidden) } });
  // 시작
- window.addEventListener('resize',layoutNotes);
+ window.addEventListener('resize',()=>{fitPage(); layoutNotes()});
  drawChanged(); drawCaseBtn(); drawTree(); openDrawer(get('rv-drawer',null));
  if(get('rv-opened',0)){ put('rv-opened',0); toast('이 보고서 리뷰를 열었습니다 — Claude 세션이 wait --all을 걸면 코멘트가 넘어갑니다') }
  const cp=get('rv-compose',null);

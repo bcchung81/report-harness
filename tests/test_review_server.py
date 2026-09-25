@@ -425,8 +425,17 @@ def test_left_rail_holds_navigation_not_top_bar():
     assert re.findall(r'<span class="lb">(\w+)</span>', rail) == ["탐색", "이력", "의견", "단축키"]   # 아이콘만으로는 뜻이 안 읽힌다
     # 보고서 바꾸기는 서랍 안에 펼치지 않고 버튼 아래 떠 있는 목록(이중 스크롤·트리 밀림 방지)
     assert 'id="rv-cases" class="rv-cases" role="listbox"' in ov and ".rv-cases{position:absolute" in ov
-    # 서랍은 넓은 화면에서 쪽을 밀어 본문을 덮지 않는다
-    assert "body.rv-dopen .page" in ov and "classList.toggle('rv-dopen'" in ov
+    # 서랍은 창 폭과 관계없이 쪽을 밀어 본문을 덮지 않는다 — 모자라면 메모 폭 → 쪽 배율 순으로 줄인다('26.9.25 사용자 지적:
+    # 종전 1640px 이상에서만 밀어 노트북 폭에서 서랍이 본문을 가렸다)
+    assert "classList.toggle('rv-dopen'" in ov and "(min-width:1640px)" not in ov
+    assert "zoom:var(--rv-z,1)" in ov and "/ var(--rv-z,1))" in ov              # zoom이 여백에도 걸리므로 나눠 준다
+    fit = re.search(r"function fitPage\(\)\{.*?setProperty\('--rv-note-w'.*?\}", ov, re.S).group(0)
+    assert "drawer?DRAWER_W:RAIL_W" in fit and "--rv-note-w" in fit
+    assert "fitPage();" in re.search(r"function openDrawer\(t\)\{.*?\n.*?\n", ov, re.S).group(0)
+    assert "addEventListener('resize',()=>{fitPage(); layoutNotes()})" in ov
+    # 쪽수 탐침은 쪽 안에서 재야 쪽이 축소돼도 문단과 같은 좌표계다
+    pag = re.search(r"function paginate\(\)\{.*?layoutNotes\(\) \}", ov, re.S).group(0)
+    assert "sec.appendChild(probe)" in pag and "document.body.appendChild(probe)" not in pag and "mm)'" in pag
 
 
 def test_doc_and_case_names_are_readable(tmp_path):

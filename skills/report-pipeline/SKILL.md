@@ -151,7 +151,18 @@ report-research가 책임진다 — 여기서는 위임 여부만 판단한다.
   함께 제시**하고 파일을 받을지 묻는다 — 예: `① 질의 응답 화면 ② 답변·근거 표시 ③ 모바일 화면`.
   받지 않으면 이미지 표를 만들지 않고 진행한다.
 
-답변을 `00_context.md`에 append한다.
+**상황 전제는 05로 불명확할 때만 묻는다** — 의사결정 전/후(이미 발주·계약했는지), 대응할 외부 제기·지적 원문, 먼저 받을
+내부 상위 계획 문서. 착수 뒤 드러나면 논지를 통째로 버린다('26.8.5 발주 완료가 게이트②에서, 유관부서 쟁점 6건이 인도 뒤에,
+'26.9.15 경영평가 관리계획이 조사 3단위 뒤에 드러남). 4문항 상한은 답이 명확한 문항을 건너뛰어 지킨다.
+
+답변을 `00_context.md`에 append하고, 이어서 **`## 보고 설계` 블록**(보고 목적·결재자·수신자·결재자가 내릴 결정·예상 결론·
+상황 전제 — `references/report-craft.md` §1)을 한 번 덧붙인 뒤 칸 검사를 돌린다(R094):
+
+```
+python3 "$SKILL_DIR/scripts/check_craft.py" context {work_dir}
+```
+
+exit 1이면 JSON `missing`의 칸을 채운다 — 05로 답이 나오는 칸은 채우고, 불명확한 칸만 이 게이트에서 묻는다.
 
 ### 아웃라인 생성 → 게이트①
 
@@ -165,6 +176,15 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 재구성** 중 하나로 정하고 출처 ※ 줄까지 설계에 적는다(`diagram-pool.md` '외부 도식 활용' — 재작도가 기본).
 05의 **인용 재료 목록**은 항목마다 본문 문구 + 시각화(인용 차트·재작도·원문 인용 블록·표) + 출처 ※ 줄로 배치를 적는다
 (R092 — 도식만 두지 않고 문구를 함께, 그 문구에도 쉬운 말·두괄식 R091 적용). 공공누리 제3·4유형은 재작도하지 않는다.
+**분량(쪽수)을 이유로 시각화를 선택지에서 빼지 않는다** — 넣을지는 사용자가 정한다('26.9.25 1127 검증: 차트를 선택지에 올리지 않아 인용 5건이 ※ 문구로만 들어감).
+
+**`## 설계 점검` 블록도 반드시 둔다**(`references/report-craft.md` §2 — 제목(결론)·핵심 메시지·근거 구조·절별 So What·
+구성요소·상위 계획 대응). 제목이 곧 결론이고, 근거는 서로 겹치지 않게 2~4개, 절마다 "그래서 무엇인가"를 한 줄로 적는다.
+상위 계획서가 있으면 요건 ↔ 절 대응표를 먼저 보인다. 게이트① 제시 전에 칸 검사를 돌린다(R094):
+
+```
+python3 "$SKILL_DIR/scripts/check_craft.py" outline {work_dir}
+```
 
 **라이브 리뷰어로 보여 준다**('26.9.25 — 모든 md 리뷰): `review_server.py serve {work_dir}`(아래 게이트② 절과 같은 서버)를
 띄우고 문서 고르기에서 `10 아웃라인`을 연다. 코멘트는 `wait` 출력의 `doc: 10_outline.md`로 오고, 처리는 게이트②와
@@ -220,7 +240,8 @@ exit 1이면 `violations`를 수정 후 재실행한다(린트와 같은 shift-l
 **쉬운 말·두괄식 경고(R091, style-guide §11)는 본문에서 고치는 것이 기본이다** — `plain-word`(용어표의 기술어·
 한자어 투, 용어별 1건)·`abbr-unexplained`(풀이 없는 로마자 약어)·`clause-chain`(한 문장 이음 3개 이상)·
 `noun-chain`(명사 5개 이상 나열)·`history-narration`(경위 표지어)·`lead-not-conclusion`(절 첫 ㅇ가 배경으로 시작).
-기술 사양이 꼭 필요하면 붙임으로 옮긴다(R079 — 붙임은 검사하지 않는다). 고친 뒤 **되말하기 점검**을 1회 한다:
+도식 카드 문장도 같다(R093) — `도해:`가 가리키는 명세의 `diagram-formula`(등호·산식 기호)·`diagram-fragment`(숫자로
+끝나는 나열)는 명세를 서술형 문장으로 고친다. 외부 자료를 가리키는 ※ 줄에 `※ 자료:` 출처 줄이 없으면 `source-line-missing`(R092)이다. 기술 사양이 꼭 필요하면 붙임으로 옮긴다(R079 — 붙임은 검사하지 않는다). 고친 뒤 **되말하기 점검**을 1회 한다:
 
 ```
 python3 "$SKILL_DIR/scripts/audit_style.py" {work_dir}/20_draft.md --skeleton
@@ -238,7 +259,9 @@ lint 통과 후 수행한다. **서브에이전트 스폰은 게이트② 승인
 - **스타일 감사**: 게이트② 전에는 **메인 컨텍스트에서 직접** `style-guide.md` + `rules.md`
   `[draft]` 태그로 자가감사한다(에이전트 0개). `audit_style.py`가 잡는 항목은 이미 걸러졌으므로,
   여기서는 스크립트가 못 보는 것을 본다 — 문장 전체 볼드, 감정 수식어, 나열이 술어를 대체한
-  문구, 사실과 주장의 절 분리(§10), 맺음말 계열이 문서 유형과 맞는지(§7). 승인 후 최종본에 한해 독립 서브에이전트로
+  문구, 사실과 주장의 절 분리(§10), 맺음말 계열이 문서 유형과 맞는지(§7), 그리고 `report-craft.md` §3 **흔한 실수 점검표**
+  (사실 없는 상상·실행 없는 의미 부여·진부한 답·불리한 사실 감추기·날짜·단위 불일치·욱여넣기)와 개조식 약점(시제·주체·
+  논리 관계)을 1회 본다. 승인 후 최종본에 한해 독립 서브에이전트로
   교차 감사할 수 있다 — 선택 사항이며 기본값은 자가감사다.
 - **humanizer**: 서술형 구간(배경 설명·근거 서술 등)에만 적용, 개조식 명사형 종결부는 대상에서
   제외. 원문 근거는 플러그인 번들 humanizer 스킬(skills/humanizer).
@@ -510,6 +533,10 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 - `references/diagram-pool.md` — 표 도식·이미지 도식 판정 카탈로그. 아웃라인의 도식 설계 시점에
   읽는다.
 - `references/table-pool.md` — 경영실적 표 부품 카탈로그. 표 설계 시점에 참고(선택).
+- `references/report-craft.md` — 보고서 설계 지침(무엇을 어떤 순서로 세우나 — 목적·결론·근거 구조). 게이트⓪ 끝(§1 보고 설계)·
+  아웃라인(§2 설계 점검)·초안 자가감사(§3 점검표)에 읽는다. 문장 규칙과 부딪히면 style-guide가 이긴다. 따로 부르는 입구는
+  `report-writing` 스킬.
+- `scripts/check_craft.py {context|outline} <work_dir>` — 설계 칸 검사(R094). 칸의 존재만 본다. exit 0/1(빠진 칸)/2.
 - `references/factcheck.md` — §A 전수 팩트체크 절차(게이트②·export의 "전수" 선택 시)·
   §B 이미지 차용 기준(게이트① 이미지 배치 판정 시). 해당 시점에 읽는다.
 - `references/format-profile.kca.md` — KCA 기본 양식 프로파일(폰트·계층·줄바꿈). 프리플라이트·
@@ -523,7 +550,9 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   (`ending-forbidden`)·문서 제목 접미(`title-no-suffix`)·절 번호(`section-numbered`)·조문 §
   표기(`article-symbol`)를 `violations`로, 절 제목 어휘 풀 이탈(`section-title-offpool`)·발신 줄
   누락(`sender-line-missing`)과 쉬운 말·두괄식 6종(R091 — `plain-word`·`abbr-unexplained`·`clause-chain`·
-  `noun-chain`·`history-narration`·`lead-not-conclusion`, 용어표는 style-guide §11)을 `warnings`로 낸다.
+  `noun-chain`·`history-narration`·`lead-not-conclusion`, 용어표는 style-guide §11)과 도식 카드 문장 2종(R093 —
+  `diagram-formula`·`diagram-fragment`, `도해:`가 가리키는 `figures/` 명세)과 외부 인용 출처 줄 누락(R092 — `source-line-missing`,
+  `※ 자료:` 줄은 약어·종결 검사에서 뺀다)을 `warnings`로 낸다.
   `--skeleton`은 감사 없이 □ 제목·절 첫 ㅇ 뼈대만 낸다(되말하기 점검). exit 0(통과·경고만)/1(위반)/2(인자·파일 오류).
 - `scripts/prep_report_md.py <src> -o <out>` — 변환 전 정규화. exit 0(성공)/2(모호한 입력
   거부).

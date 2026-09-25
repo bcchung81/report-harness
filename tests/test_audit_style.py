@@ -224,3 +224,37 @@ def test_skeleton_lists_section_titles_and_first_points():
                      "| 붙임 1 | | 상세 |\n| --- | --- | --- |\n\n□ 붙임 절\n")
     assert [x["section"] for x in sk] == ["개 요", "향후 계획"]
     assert sk[0]["first"].startswith("ㅇ (결론) 표준 기록")
+
+
+def test_diagram_card_sentences_warn_on_formula_and_count_fragments(tmp_path):
+    """R093 — 도식 카드 문장도 공문서 문장이다('26.9.25 게이트② f11 등호 정의식·f12 숫자 나열)."""
+    import json
+    import audit_style as au
+    (tmp_path / "figures").mkdir()
+    spec = {"type": "flow", "steps": [
+        {"head": "과제 배정", "body": ["처리시간 = 시스템 속도만 측정", "과제당 3개, 18건 54개"]},
+        {"head": "실적 수집", "body": ["18건 모두 같은 양식으로 실적 산출", "처리 1건을 1행 10칸에 적는 표준 로그로 수집"]}]}
+    (tmp_path / "figures" / "흐름.json").write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+    md = tmp_path / "20_draft.md"
+    text = BASE + "[ 흐름 ]\n\n도해: 흐름\n"
+    w = au.audit_figures(md, text)
+    assert sorted(rules(w)) == ["diagram-formula", "diagram-fragment"]
+    assert all(x["line"] == text.splitlines().index("도해: 흐름") + 1 for x in w)
+    assert not any("실적 산출" in x["text"] or "표준 로그로 수집" in x["text"] for x in w)
+    assert au.audit_figures(tmp_path / "없는폴더" / "20_draft.md", text) == []      # 명세 없는 환경(웹앱)
+
+
+def test_external_citation_needs_source_line():
+    """R092 — 외부 자료를 가리키는 ※ 줄은 '※ 자료:' 출처 줄을 단다('26.9.25 1127 검증: 규격 출처 줄 0건)."""
+    cite = "※ 미국 AI 평가 연구기관(METR)의 무작위 실험에서 체감과 실제 소요시간이 반대\n\n"
+    src = "※ 자료: METR, 「Measuring the Impact of Early-2025 AI」(2025)\n"
+    assert "source-line-missing" in _w(BASE + cite)
+    assert "source-line-missing" not in _w(BASE + cite + src)
+    table = "[ 해외 사례 ]\n\n| 구 분 | 결 과 |\n| --- | --- |\n| METR | 19% 증가 |\n\n"
+    assert "source-line-missing" not in _w(BASE + cite + table + src)       # 표·캡션을 건너 출처 줄을 찾는다
+    assert "source-line-missing" in _w(BASE + cite + "ㅇ **(다음 요지)** 다음 요지 문장\n\n" + src)   # 다음 ㅇ를 넘지 않는다
+    inline = "※ 과제는 「공공부문 초거대 AI 도입·활용 가이드라인 2.0」(디지털플랫폼정부위원회, '25.4) 71쪽의 13분류에 배정\n"
+    assert "source-line-missing" not in _w(BASE + inline)                   # 자료명·연도·쪽이 한 줄에 다 있으면 출처 줄
+    # 출처 줄은 자료명(원어 제목·약칭)이라 약어·종결 검사에서 뺀다
+    v, w = audit_text(BASE + "※ 자료: 한국지능정보사회진흥원, 「가이드」 부록 05 성과지표 POOL(2023) NO.2 재구성\n")
+    assert "abbr-unexplained" not in rules(w) and v == []

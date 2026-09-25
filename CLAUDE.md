@@ -44,7 +44,8 @@ python3 skills/report-pipeline/scripts/consolidate_rules.py --check   # 규칙 �
 `skills/report-pipeline/`의 두 폴더가 이 저장소의 중심 분할이다.
 
 - `references/*.md` — **LLM이 읽고 판단하는 기준**(style-guide·md-profile·format-profile·
-  hwpx-recipe·rules-seed·diagram-pool·table-pool·factcheck).
+  hwpx-recipe·rules-seed·diagram-pool·table-pool·factcheck·report-craft). `report-craft.md`는 '무엇을 어떤
+  순서로 세우나'(목적·결론·근거 구조)의 단일 출처이고, `skills/report-writing/`은 그 문서를 따로 부르는 얇은 입구다.
 - `scripts/*.py` — **판단이 끼어들면 안 되는 일**. 양식 정합처럼 매번 똑같아야 하는 것은 전부
   스크립트로 내려 LLM 편차를 없앴다.
 
@@ -91,7 +92,7 @@ SKILL.md 안의 모든 스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태�
 
 - 동기 대상 스크립트: `postprocess_hwpx.py` · `validate_hwpx.py` · `prep_report_md.py` ·
   `lint_md_profile.py` · `audit_style.py`
-- 동기 대상 문서: `md-profile.md` · `style-guide.md` · `table-pool.md`
+- 동기 대상 문서: `md-profile.md` · `style-guide.md` · `table-pool.md` · `report-craft.md`
 - `diagram-pool.md`는 **의도적 분기**(웹앱판은 도식 Pool 원형 hwpx를 싣지 않는다).
 - `webapp/references/rules.md`는 손으로 고치지 않는다 — 빌드가 매번 시드에서 재생성하며
   `[draft]`·`[export]` 태그만 싣는다.

@@ -98,3 +98,14 @@ def test_commands_and_bundle():
               "report-doctor"]:
         assert (ROOT / "commands" / f"{c}.md").is_file()
     assert (ROOT / "skills/humanizer/SKILL.md").is_file()
+
+
+def test_report_writing_skill_points_to_single_craft_source():
+    """보고서 설계 지침은 references/report-craft.md 한 곳 — report-writing 스킬은 그 문서를 부르는 입구이고,
+    파이프라인은 게이트⓪·아웃라인·자가감사에서 같은 문서와 칸 검사를 쓴다(R094)."""
+    t = (ROOT / "skills/report-writing/SKILL.md").read_text(encoding="utf-8")
+    assert t.startswith("---") and "name: report-writing" in t and "description:" in t
+    assert "$SKILL_DIR/../report-pipeline/references/report-craft.md" in t
+    assert (ROOT / "skills/report-pipeline/references/report-craft.md").is_file()
+    p = (ROOT / "skills/report-pipeline/SKILL.md").read_text(encoding="utf-8")
+    assert p.count("report-craft.md") >= 3 and 'check_craft.py" context' in p and 'check_craft.py" outline' in p

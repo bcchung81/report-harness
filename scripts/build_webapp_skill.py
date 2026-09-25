@@ -51,7 +51,7 @@ COPIED = ("postprocess_hwpx.py", "validate_hwpx.py",
 # 하네스 references와 바이트 동일해야 하는 문서 사본 — 종전에는 스크립트 4종만 검사해
 # 문서 쪽이 소리 없이 갈라질 수 있었다. diagram-pool.md는 의도적 분기라 제외한다
 # (웹앱판은 도식 Pool 원형 hwpx를 싣지 않아 관련 서술이 다르다 — 설계문서 §4).
-SYNCED_REFS = ("md-profile.md", "style-guide.md", "table-pool.md")
+SYNCED_REFS = ("md-profile.md", "style-guide.md", "table-pool.md", "report-craft.md")
 SCOPE_TAGS = ("[draft]", "[export]")
 TARGETS = {"claude": ".skill", "chatgpt": ".zip", "gemini": ".zip",
            "codex": ".zip", "antigravity": ".zip"}

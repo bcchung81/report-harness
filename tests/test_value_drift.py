@@ -221,3 +221,14 @@ def test_diagram_palette_contrast_and_grayscale():
     assert abs(_lum(rd.HEAD_OLD) - _lum(rd.HEAD_STRONG)) >= 0.15, "비교도 종전·개선 머리가 흑백에서 같아 보인다"
     shades = sorted(_lum(bg) for bg, _, _ in rd.STATUS.values())
     assert min(b - a for a, b in zip(shades, shades[1:])) >= 0.1, "일정 상태 3단계가 흑백에서 갈리지 않는다"
+
+
+# ---------------------------------------------------------------- 도식 카드 내어쓰기 (R093)
+def test_diagram_card_hang_matches_profile():
+    sec = _profile_text().split("### 8-1. 도식 카드 본문", 1)[1]
+    m = re.search(r"^\|[^|]+\|\s*`CARD_HANG`\s*\|\s*(\d+)\s*\|", sec, re.M)
+    assert m, "format-profile §8-1에 CARD_HANG 행이 없다"
+    spec = importlib.util.spec_from_file_location("dt_drift", ROOT / "skills/report-pipeline/scripts/diagram_table.py")
+    dt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dt)
+    assert int(m.group(1)) == dt.CARD_HANG, f"프로파일 {m.group(1)} ↔ diagram_table {dt.CARD_HANG}"
