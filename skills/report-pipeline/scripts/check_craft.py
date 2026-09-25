@@ -9,6 +9,7 @@
     check_craft.py outline {work_dir}   # 10_outline.md의 `## 설계 점검` (절별 So What은 □ 절 수만큼)
 
 exit 0: 칸 모두 있음 | exit 1: 빠진 칸 있음(JSON `missing`) | exit 2: 인자·파일 오류
+경고(JSON `warnings`, 종료 코드에 영향 없음): outline의 제목 후보가 제목표 한 줄을 넘는지(`title-two-lines`).
 """
 import json
 import pathlib
@@ -74,6 +75,20 @@ def check(kind, work_dir):
     return missing
 
 
+def warnings(kind, work_dir):
+    """칸은 있지만 미리 알면 싼 것 — 아웃라인 제목 후보가 제목표 한 줄(24pt)을 넘는지. 변환 뒤에야 2쪽이 된 것을 알고
+    초안을 줄이던 것을 게이트①로 당긴다('26.9.25 하네스 실전 점검 교훈). audit_style과 같은 판정(fit_title)."""
+    if kind != "outline":
+        return []
+    got = fields(block((pathlib.Path(work_dir) / OUTLINE[0]).read_text(encoding="utf-8"), OUTLINE[1]) or "")
+    title = re.sub(r"[*`]", "", got.get("제목(결론)", "")).strip()
+    if not title or PLACEHOLDER.match(title):
+        return []
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    from audit_style import _title_overflows
+    return [f"title-two-lines — 제목 후보가 제목표 한 줄을 넘는다(2줄 조판): {title[:40]}"] if _title_overflows(title) else []
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
     if len(args) != 2 or args[0] not in ("context", "analysis", "outline"):
@@ -81,10 +96,11 @@ def main(argv=None):
         return 2
     try:
         missing = check(args[0], args[1])
+        warn = warnings(args[0], args[1]) if not missing else []
     except OSError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    print(json.dumps({"kind": args[0], "ok": not missing, "missing": missing}, ensure_ascii=False, indent=1))
+    print(json.dumps({"kind": args[0], "ok": not missing, "missing": missing, "warnings": warn}, ensure_ascii=False, indent=1))
     return 1 if missing else 0
 
 

@@ -1942,14 +1942,49 @@ PAREN_KINDS = ("dae", "yo", "dash")
 LEAD_MARKERS = {"", "□", "-", "ㅇ", "○"}
 
 
+def _explode_inline_runs(p):
+    """hp:t 안에 인라인 요소(`<hp:nbSpace/>`·`<hp:tab/>` 등)가 섞인 run을 글자 조각 run과 요소 run으로 나눈다.
+
+    같은 charPr·같은 순서라 조판은 그대로이고, 글자 조각은 단순 run이 되어 괄호 축소(R033·R039)·강조(R040) 같은
+    분할 처리를 받는다 — kordoc이 '180만 원'의 숫자·단위 사이에 nbSpace를 넣어, 같은 run 안 괄호 '(1인당 월평균
+    15건)'이 분할 불가로 건너뛰어져 15pt로 남았다('26.9.25 하네스 실전 점검). 나눈 run 수를 돌려준다."""
+    n = 0
+    for run in list(p.findall(qn("hp", "run"))):
+        kids = list(run)
+        if run.get("charPrIDRef") is None or len(kids) != 1 or kids[0].tag != qn("hp", "t") or not len(kids[0]):
+            continue
+        t = kids[0]
+        if len(t) == 1 and not t.text and not t[0].tail:
+            continue                     # 요소 하나뿐인 run — 이미 나뉜 조각(재실행 멱등)
+        pieces = [t.text] if t.text else []
+        for c in list(t):
+            tail, c.tail = c.tail, None
+            pieces.append(c)
+            if tail:
+                pieces.append(tail)
+        pos = list(p).index(run)
+        p.remove(run)
+        for i, piece in enumerate(pieces):
+            new_run = ET.Element(qn("hp", "run"), dict(run.attrib))
+            nt = ET.SubElement(new_run, qn("hp", "t"), dict(t.attrib))
+            if isinstance(piece, str):
+                nt.text = piece
+            else:
+                nt.append(piece)
+            p.insert(pos + i, new_run)
+        n += 1
+    return n
+
+
 def _para_run_infos(p):
     """문단 직속 run들의 (run, text, start, end, simple) 목록과 전체 텍스트를 반환한다.
-    simple = 자식이 순수 텍스트 hp:t 하나뿐이고 charPrIDRef가 있어 _split_run 분할 가능."""
+    simple = 자식이 순수 텍스트 hp:t 하나뿐이고 charPrIDRef가 있어 _split_run 분할 가능.
+    text는 인라인 요소 뒤 글자(tail)까지 담는다 — 빠뜨리면 뒤 run들의 위치가 어긋난다."""
     infos = []
     full = ""
     for run in p.findall(qn("hp", "run")):
         t = run.find(qn("hp", "t"))
-        text = (t.text or "") if t is not None else ""
+        text = "".join(t.itertext()) if t is not None else ""
         simple = (t is not None and len(list(run)) == 1 and len(list(t)) == 0
                   and run.get("charPrIDRef") is not None)
         infos.append({"run": run, "text": text, "start": len(full),
@@ -1976,6 +2011,7 @@ def apply_paren_small(header_root, section_roots, pt=13):
     spans = 0
     lead_skipped = 0
     cross_run = 0
+    exploded = 0
     for sec_root in section_roots:
         for child in sec_root:
             if child.tag != p_tag or classify(child) not in PAREN_KINDS:
@@ -1983,6 +2019,9 @@ def apply_paren_small(header_root, section_roots, pt=13):
             infos, full = _para_run_infos(child)
             if "(" not in full or ")" not in full:
                 continue
+            if any(not i["simple"] for i in infos):
+                exploded += _explode_inline_runs(child)
+                infos, full = _para_run_infos(child)
             jobs = []
             for m in PAREN_RE.finditer(full):
                 if full[:m.start()].strip() in LEAD_MARKERS:
@@ -2021,7 +2060,7 @@ def apply_paren_small(header_root, section_roots, pt=13):
                 segments.append((text[pos:], base_cp))
                 _split_run(child, info["run"], segments)
     return {"paren_spans": spans, "lead_skipped": lead_skipped, "cross_run_skipped": cross_run,
-            "height": height}
+            "inline_runs_split": exploded, "height": height}
 
 
 # '특히 강조' = 노란색 음영 하이라이트 (R040 — 사용자 확정 '26.7.28).
@@ -2079,6 +2118,9 @@ def apply_highlight(header_root, section_roots):
             infos, full = _para_run_infos(child)
             if "==" not in full:
                 continue
+            if any(not i["simple"] for i in infos):
+                _explode_inline_runs(child)
+                infos, full = _para_run_infos(child)
             jobs = []  # (전체 시작, 전체 끝, 내용 시작, 내용 끝)
             for m in HIGHLIGHT_RE.finditer(full):
                 overlapped = [i for i in infos

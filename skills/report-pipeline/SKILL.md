@@ -218,6 +218,9 @@ Agent, 각자 다른 파일에 초안 아웃라인만 작성)해 선택지로 �
 python3 "$SKILL_DIR/scripts/check_craft.py" outline {work_dir}
 ```
 
+`warnings`에 `title-two-lines`가 나오면 제목 후보가 제목표 한 줄(24pt)을 넘는다 — 결론을 담은 채 줄인 후보를 함께
+보인다. 짧은 분량이면 쪽이 넘쳐, 종전에는 승인 뒤에야 제목을 줄였다('26.9.25 하네스 실전 점검).
+
 **라이브 리뷰어로 보여 준다**('26.9.25 — 모든 md 리뷰): `review_server.py serve {work_dir}`(아래 게이트② 절과 같은 서버)를
 띄우고 문서 고르기에서 `10 아웃라인`을 연다. 코멘트는 `wait` 출력의 `doc: 10_outline.md`로 오고, 처리는 게이트②와
 같다(해당 항목만 고치고 `resolve`). 방향 선택(승인/수정 지정/방향 전환)은 AskUserQuestion으로 받는다 — 승인되면 같은

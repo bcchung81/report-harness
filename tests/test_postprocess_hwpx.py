@@ -2567,3 +2567,32 @@ def test_short_label_column_keeps_one_line_width_when_floors_overflow():
     need = (ph._cell_width_hu("구 분") + ph.COL_FIT_CELL_PAD) / total
     assert shares[0] >= need - 1e-9
     assert abs(sum(shares) - 1.0) < 1e-9
+
+
+def test_paren_small_splits_runs_with_inline_nbspace(tmp_path):
+    """kordoc이 '180만 원' 사이에 <hp:nbSpace/>를 넣으면 그 run이 분할 불가가 되어 같은 run 안 괄호가 15pt로 남았다
+    ('26.9.25 하네스 실전 점검). 인라인 요소가 섞인 run은 글자 조각·요소 run으로 나눠 처리하고, 요소·글자 순서와
+    재실행 멱등을 지킨다."""
+    section = """<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section" xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
+  <hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t>- 초안 1,260건(1인당 월평균 15건)을 만들고 사용료는 월 180만<hp:nbSpace/>원씩 지출</hp:t></hp:run></hp:p>
+</hs:sec>
+"""
+    p = tmp_path / "paren_nbsp.hwpx"
+    build_hwpx(str(p), header_xml=HEADER_WITH_BOLD, section_xml=section)
+    ps = ph.process_file(str(p), star=False, spacing=True)["paren_small"]
+    assert ps["cross_run_skipped"] == 0 and ps["paren_spans"] == 1 and ps["inline_runs_split"] == 1
+    with zipfile.ZipFile(str(p)) as z:
+        hdr = ET.fromstring(z.read("Contents/header.xml"))
+        sec = ET.fromstring(z.read("Contents/section0.xml"))
+    info = _charpr_info(hdr)
+    by_text = dict(_run_pieces(sec))
+    assert info[by_text["(1인당 월평균 15건)"]][0] == "1300"
+    hp = "{http://www.hancom.co.kr/hwpml/2011/paragraph}"
+    flat = []
+    for t in sec.iter(hp + "t"):
+        flat.append(t.text or "")
+        flat += ["<nb>" + (c.tail or "") for c in t]
+    assert "".join(flat).endswith("월 180만<nb>원씩 지출")                              # 순서 보존
+    again = ph.process_file(str(p), star=False, spacing=True)["paren_small"]
+    assert again["paren_spans"] == 0 and again["inline_runs_split"] == 0                # 멱등

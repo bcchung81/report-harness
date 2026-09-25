@@ -95,7 +95,7 @@ def score(run_dir):
         if rt and draft.exists():
             cmp_ = _json(_run(SCRIPTS / "validate_hwpx.py", "compare", draft, rt[-1], "--hwpx", hwpx)[1])
             out["compare_issues"] = [i.get("rule") for i in cmp_.get("issues", [])]
-        post = sorted(wd.glob("history/r*/40_postprocess.json"))
+        post = sorted(wd.glob("history/r*/*postprocess*.json"))      # 이름은 실행마다 다르다(40_·42_)
         layout = _json(post[-1].read_text(encoding="utf-8")).get("layout", {}) if post else {}
         out["est_pages"] = layout.get("est_pages")
         out["delivered"] = bool(out.get("structural_ok")) and out.get("compare_issues") == [] and bool(rev)

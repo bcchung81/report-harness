@@ -81,3 +81,15 @@ def test_analysis_needs_four_sections(tmp_path):
     missing = cc.check("analysis", _w(tmp_path, "05_analysis.md", full.replace("## 4. 인용 재료 목록 (R092)\n", "")))
     assert len(missing) == 1 and "인용 재료" in missing[0]
     assert cc.main(["analysis", str(tmp_path / "없음")]) == 2
+
+
+def test_outline_title_that_wraps_is_warned_without_failing(tmp_path, capsys):
+    """아웃라인 제목 후보가 제목표 한 줄을 넘으면 경고만 한다 — 칸 검사 결과(종료 코드)는 그대로('26.9.25 실전 점검:
+    결론형 제목 33자가 2줄로 넘쳐 집필·변환 단계에서야 줄였다)."""
+    assert cc.warnings("outline", _w(tmp_path, "10_outline.md", OUTLINE_OK)) == []
+    long_title = OUTLINE_OK.replace("검수 시간을 포함한 AI 성과 측정 체계 마련 방안",
+                                    "작성 시간 단축 효과를 확인한 AI 문서 초안 도우미 시범운영 결과 보고")
+    _w(tmp_path, "10_outline.md", long_title)
+    assert cc.main(["outline", str(tmp_path)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True and out["warnings"][0].startswith("title-two-lines")
