@@ -8,7 +8,8 @@
 
 ## 실무자: 설치
 
-운영자에게 자기 플랫폼용 파일을 하나 받아 올리면 끝이다.
+자기 플랫폼용 파일을 하나 받아 올리면 끝이다. 파일은 운영자에게 받거나
+[릴리스 페이지](https://github.com/kca-deep/report-harness/releases/latest)의 첨부 파일에서 내려받는다.
 
 | 플랫폼 | 받을 파일 | 등록 경로 |
 |---|---|---|
@@ -23,7 +24,7 @@
 담고 있으므로 그 경로에서 `unzip` 한 번이면 끝난다.
 
 ```bash
-mkdir -p ~/.agents/skills && unzip -o dist/kca-report-hwpx-codex.zip -d ~/.agents/skills/
+mkdir -p ~/.agents/skills && unzip -o kca-report-hwpx-codex.zip -d ~/.agents/skills/
 ```
 
 업로드형(Claude·ChatGPT·Gemini)과 달리 바이너리 제약이 없어 머리말 배너 이미지가 원본
@@ -32,14 +33,14 @@ mkdir -p ~/.agents/skills && unzip -o dist/kca-report-hwpx-codex.zip -d ~/.agent
 올린 뒤 대화에서 `"이 내용으로 개조식 보고서 만들어줘"`라고 하고 자료를 붙여넣으면 된다.
 아웃라인과 초안을 각각 한 번씩 확인해 주면 `.hwpx` 파일이 나온다(한글 2014 이상에서 열린다).
 
-세 패키지의 **내용과 절차는 동일**하다. Gemini판만 배너 이미지가 base64 텍스트로 들어가
+다섯 패키지의 **내용과 절차는 동일**하다. Gemini판만 배너 이미지가 base64 텍스트로 들어가
 있고, 변환 0단계(`decode_assets.py`)가 원본으로 되돌린다 — Gemini Spark가 스킬 패키지에
 바이너리 파일을 허용하지 않기 때문이다.
 
 ## 운영자: 빌드
 
 ```bash
-# 세 플랫폼 전부 (기본 시드 룰)
+# 다섯 플랫폼 전부 (기본 시드 룰)
 python3 scripts/build_webapp_skill.py --target all
 
 # 축적본 반영 — 하네스에서 쌓인 룰을 실어 배포
@@ -49,11 +50,10 @@ python3 scripts/build_webapp_skill.py --target all --rules report/_harness/rules
 python3 scripts/build_webapp_skill.py --target chatgpt
 ```
 
-산출: `dist/kca-report-hwpx-{claude,chatgpt,gemini,codex,antigravity}.{skill,zip}` (각 199~201KB). 빌드는 결정론이라 내용이 같으면 바이트도 같다 — `dist/`를 저장소가 추적하므로 받는 쪽은 재빌드 없이 그대로 내려받으면 된다.
-
-`dist/`는 git에 올리지 않는다 — zip 바이트가 빌드마다 달라 이력만 불린다. 배포할 파일은
-그때그때 위 명령으로 재빌드해 전달한다. 빌드 기준(아래)이 매번 다시 걸리므로 갓 빌드한
-파일이 곧 검증된 파일이다.
+산출: `dist/kca-report-hwpx-{claude,chatgpt,gemini,codex,antigravity}.{skill,zip}` (각 약 240KB). 빌드는 결정론이라 내용이
+같으면 바이트도 같다 — `dist/`를 저장소가 추적하고(`test_no_dead_code.py`가 원본과 어긋난 패키지를 잡는다) 릴리스마다
+첨부하므로, 받는 쪽은 재빌드 없이 그대로 내려받으면 된다. 빌드 기준(아래)이 매번 다시 걸리므로 갓 빌드한 파일이 곧
+검증된 파일이다.
 
 ## 플랫폼별 제약 (조사 '26.8.7)
 
