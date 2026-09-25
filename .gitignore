@@ -33,3 +33,8 @@ docs/talk/
 work/
 *.xlsx
 *.xls
+
+# 기관 양식 원본(경영관리 프레임워크 12건)과 디자인 시안 — 로컬 참고용, 공개 배포 금지('26.9.25).
+# 런타임은 원본을 읽지 않는다: 표·도식 틀은 table-pool.md·diagram-pool.md·md-profile.md에 파생 패턴으로 공개돼 있다.
+skills/report-pipeline/assets/경영관리프레임워크/
+prototype/
