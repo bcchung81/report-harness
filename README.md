@@ -223,6 +223,8 @@ report-harness/
 │   │   │   ├── format-profile.kca.md   기관 양식 실측 프로파일
 │   │   │   ├── hwpx-recipe.md          변환 절차서
 │   │   │   ├── rules-seed.md           회귀 방지 규칙 88건 (복리축적 시드)
+│   │   │   ├── rules-seed.lineage.json 배포한 시드 줄 지문 — 설치자 규칙 갱신 판정
+│   │   │   ├── rules-history.md        규칙 경위·결번 기록
 │   │   │   ├── report-craft.md         보고서 설계 지침 — 목적·결론·근거 구조 (R094)
 │   │   │   ├── diagram-pool.md         도식 패턴 — 표 도식·인용 차트·외부 인용
 │   │   │   └── table-pool.md           표 부품 카탈로그
@@ -235,11 +237,11 @@ report-harness/
 │   │   │   ├── diagram_table.py        도식 명세 → 한글 표 (흐름·비교·체계·일정)
 │   │   │   ├── review_server.py        라이브 리뷰어·허브 (게이트①·② 코멘트 → CLI)
 │   │   │   ├── check_craft.py          보고 설계·설계 점검 칸 검사
-│   │   │   ├── sync_rules.py           규칙 시드 → 운영본 동기화
+│   │   │   ├── sync_rules.py           규칙 시드 → 운영본 동기화 · 새 규칙 번호
 │   │   │   ├── consolidate_rules.py    규칙 통폐합 lint
 │   │   │   ├── doctor.py               자가진단
 │   │   │   └── …                       설정·이미지 규격·프로파일 추출
-│   │   └── assets/          기관 양식 원본 · 도식 Pool · 머리말 배너
+│   │   └── assets/          기관 표준 양식 · 도식 Pool · 머리말 배너 · 리뷰어 화면
 │   ├── report-research/     ① 조사 — 방법은 자유, 산출 계약만 강제
 │   ├── report-writing/      보고서 설계 지침 입구 — report-craft.md를 따로 부른다
 │   ├── cross-verify/        교차검증 — 다중 CLI 패널 + 수치 근거 대조
@@ -253,12 +255,12 @@ report-harness/
 │   ├── SKILL.md             ③초안 게이트 최대 3회 → ④변환 자동
 │   ├── NOTICE.md            서드파티 고지
 │   ├── scripts/             md2hwpx(생성) · assert_postprocess(침묵실패 차단)
-│   │                        · roundtrip_md(되읽기) + 하네스 복사본 4종
+│   │                        · roundtrip_md(되읽기) + 하네스 복사본 5종
 │   ├── references/          하네스 참조 사본(보고서 설계 지침 포함) + humanizer 번들
 │   └── assets/              동결 스타일 정본 · 머리말 배너
 │
 ├── docs/                    설치·라이선스·개발자 문서
-├── scripts/                 배포 가드 + 5플랫폼 패키지 빌드 (claude·chatgpt·gemini·codex·antigravity)
+├── scripts/                 배포 가드 + 5플랫폼 패키지 빌드 (claude·chatgpt·gemini·codex·antigravity) + 시드 계보 갱신
 └── tests/                   pytest 회귀 스위트 — CI가 매 push 실행
 ```
 
