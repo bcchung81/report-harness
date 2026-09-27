@@ -18,8 +18,15 @@ lifetime — Send Feedback·Approve·Close 모두) 화면이 잠기고, 수정�
     resolve <work_dir> ID…                      코멘트를 '반영됨'으로 표시하고 열린 화면을 새로 그린다
     refresh <work_dir>                          열린 화면을 지금 새로 그린다(수정 끝 신호)
     stop    <work_dir>                          이 건 리뷰 닫기(처리 세션 임대도 푼다)
+    status  [--port N]                          허브 상태 — 켜짐·PID·메모리·리뷰 중인 건·화면 캐시·대기 wait·남은 연결 파일
+    restart [work_dir] [--port N] [--open]      허브를 다시 띄운다(Bash 백그라운드) — 리뷰 중인 건을 그대로 다시 등록, 기록은 이어 씀
+    down    [--port N]                          허브 전체를 끈다 — 대기 wait·임대·연결 파일까지 정리(건 하나만 닫을 때는 stop)
     lock    acquire|release|status [--why 사유] 규칙 승격·하네스 코드 수정·변환은 한 번에 한 건만
     sum                                         하네스 지문 — 서브에이전트에 코멘트 처리를 넘긴 전후 대조
+
+서버 수명('26.9.27 사용자 지시 — 올리기·내리기를 하네스에): 서버는 띄운 Claude 세션의 백그라운드 작업이라 세션이
+끝나면 함께 꺼진다. 올리기는 serve(또는 restart), 확인은 status, 내리기는 stop(건 하나)·down(허브 전체)이다.
+허브가 비정상 종료돼 남은 연결 파일(`.review_server.json`)은 status가 알리고 down이 지운다.
 
 여러 보고서를 함께 열 때의 안전장치('26.9.25 사용자 선택): 건마다 **처리 세션 임대**
 (`history/drafts/.review_owner.json` — 다른 세션이 잡은 건은 wait가 exit 3으로 거부해 같은 코멘트를 두 번
@@ -46,6 +53,7 @@ import getpass
 import re
 import queue
 import hashlib
+import subprocess
 import argparse
 import contextlib
 import importlib.util
@@ -77,6 +85,8 @@ LEASE_SEC = 1800             # 임대 유지 — 마지막 신호 뒤 이 시간
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")   # 이 서버가 받아 주는 Host·Origin 호스트 — 나머지는 403
 BEAT_SEC = 20                # wait가 기다리는 동안 남기는 신호 간격
 WAITING_FRESH_SEC = 60       # 이 안에 신호가 있으면 '대기 중'
+CACHE_IDLE_SEC = 300         # 리뷰 중이 아닌 건의 화면 캐시는 열린 탭 없이 이만큼 지나면 푼다('26.9.27 메모리 점검)
+PORT_WAIT_SEC = 10           # down·restart가 허브 종료 뒤 포트가 비기를 기다리는 한도
 CLI_WATCH_SEC = 3
 GRACE_SEC = 5                # 보낸 코멘트는 이 시간 뒤에 CLI로 넘긴다 — 그 사이 화면에서 되돌릴 수 있다('26.9.25)            # 서버가 건별 CLI 상태를 다시 보는 간격(바뀔 때만 화면에 보낸다)
 STATUS_LABEL = {"sent": "보냄", "delivered": "확인 중", "resolved": "반영됨", "withdrawn": "취소됨"}
@@ -458,6 +468,26 @@ def ui_version():
     return hashlib.sha256(OVERLAY_FILE.read_bytes()).hexdigest()[:12]
 
 
+def code_signature():
+    """서버 코드(이 파일) 지문 — 렌더러와 달리 서버 코드는 다시 읽지 못해, 바뀌었으면 restart가 필요하다."""
+    return hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes()).hexdigest()[:12]
+
+
+def memory_mb(pid=None):
+    """프로세스 메모리(RSS, MB) — /proc(리눅스) 또는 ps(맥). 모르면 None(윈도 등)."""
+    pid = pid or os.getpid()
+    try:
+        with open(f"/proc/{pid}/statm", encoding="ascii") as f:
+            return round(int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1048576, 1)
+    except (OSError, ValueError, IndexError, AttributeError):
+        pass
+    try:
+        out = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)], capture_output=True, text=True, timeout=3).stdout
+        return round(int(out.strip()) / 1024, 1)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # 브라우저 쪽 — 리뷰 HTML에 덧붙이는 라이브 패널(정적 파일 25_review.html에는 넣지 않는다)
 # ---------------------------------------------------------------------------
@@ -488,6 +518,7 @@ class Live:
         self.parts = self.version = None
         self.boot = case.boot if case else f"{time.time_ns():x}"   # 서버를 다시 띄우면 바뀐다 — 열린 탭이 기준본을 다시 받는다
         self.stop = case.stop if case else threading.Event()
+        self.idle_since = time.time()      # 열린 탭이 없어진 시각 — 리뷰 중이 아닌 건의 캐시를 풀 때 본다(Hub.release_idle)
 
     def _active(self):
         return self.case.active if self.case else True
@@ -551,6 +582,7 @@ class Live:
         q = queue.Queue()
         with self.lock:
             self.subs.append(q)
+            self.idle_since = None
         try:
             wfile.write(f"retry: 1000\nevent: hello\ndata: {json.dumps(hello, ensure_ascii=False)}\n\n".encode("utf-8"))
             wfile.flush()
@@ -566,6 +598,8 @@ class Live:
         finally:
             with self.lock:
                 self.subs.remove(q)
+                if not self.subs:
+                    self.idle_since = time.time()
 
 
 def continue_log(work_dir):
@@ -650,6 +684,8 @@ def _stage(wd):
 class Hub:
     def __init__(self, work_dir):
         self.boot = f"{time.time_ns():x}"
+        self.started = datetime.datetime.now().isoformat(timespec="seconds")
+        self.code = code_signature()          # 띄울 때의 서버 코드 — status가 지금 파일과 견줘 재시작 필요를 알린다
         self.stop = threading.Event()
         self.cases = {}
         self.primary = self.case(work_dir, active=True)
@@ -676,6 +712,27 @@ class Hub:
             if wd.is_dir() and list_docs(wd):
                 return self.case(wd)
         return None
+
+    def release_idle(self, now=None, idle=CACHE_IDLE_SEC):
+        """리뷰 중이 아닌 건의 화면 캐시를 푼다 — 열린 탭 없이 idle초가 지난 문서만('26.9.27 메모리 점검).
+
+        서랍에서 보기 전용으로 연 다른 보고서·research 문서도 한 번 그린 화면을 서버 수명 내내 들고 있었다.
+        리뷰 중인 건은 두지 않는다 — 그 캐시가 '마지막으로 보낸 화면'(바뀐 항목 비교의 기준본)이다.
+        → 푼 문서 수."""
+        now = now or time.time()
+        freed = 0
+        for key, c in list(self.cases.items()):
+            if c.active:
+                continue
+            with c.lock:
+                for doc, lv in list(c.lives.items()):
+                    if not lv.subs and lv.idle_since and now - lv.idle_since > idle:
+                        del c.lives[doc]
+                        freed += 1
+                empty = not c.lives
+            if empty and c is not self.primary:
+                self.cases.pop(key, None)
+        return freed
 
     def listing(self):
         """보고서 목록 — 등록 건 + 보고서 폴더의 건(최근 날짜 먼저)."""
@@ -715,9 +772,11 @@ def make_server(work_dir, port=0):
                 "perm": doc_perm(doc, case.active, is_record(case.wd, doc)), "cli": case.cli()}
 
     def watch_cli():
-        """건별 CLI 상태가 바뀌면(wait 시작·끝, 세션 종료, 임대 만료) 열린 탭에 알린다 — 브라우저는 묻지 않는다."""
+        """건별 CLI 상태가 바뀌면(wait 시작·끝, 세션 종료, 임대 만료) 열린 탭에 알린다 — 브라우저는 묻지 않는다.
+        같은 돌림에서 리뷰 중이 아닌 건의 묵은 화면 캐시도 푼다."""
         last = {}
         while not hub.stop.wait(CLI_WATCH_SEC):
+            hub.release_idle()
             for c in list(hub.cases.values()):
                 cur = c.cli()
                 if last.get(c.key) != cur["state"]:
@@ -789,7 +848,13 @@ def make_server(work_dir, port=0):
                 act = [c for c in hub.cases.values() if c.active] or [primary]
                 return self._send(302, "", "text/plain", {"Location": act[0].prefix + "/"})
             if u.path == "/api/hub":
-                return self._json(200, {"hub": True, "boot": hub.boot, "cases": hub.listing()})
+                info = {"hub": True, "boot": hub.boot, "cases": hub.listing(), "pid": os.getpid(),
+                        "port": self.server.server_address[1], "started": hub.started, "code": hub.code,
+                        "root": str(hub.root) if hub.root else None,
+                        "loaded": len(hub.cases), "caches": sum(len(c.lives) for c in hub.cases.values())}
+                if "mem" in urllib.parse.parse_qs(u.query):   # status만 묻는다 — wait --all은 5초마다 이 주소를 본다
+                    info["memory"] = memory_mb()
+                return self._json(200, info)
             case, rest, q = self._route()
             if case is None:
                 return self._json(404, {"error": "not found"})
@@ -1114,20 +1179,224 @@ def serve(work_dir, port=DEFAULT_PORT, open_browser=True):
             return 0
         fallback = {"wanted": port, "reason": f"사용 중({e.strerror or e})"}
         srv = make_server(work_dir, 0)
-    url = srv.case_url
-    info = {"url": url, "hub": f"http://127.0.0.1:{srv.server_address[1]}/", "port": srv.server_address[1],
-            "log": str(srv.log_path), "started": datetime.datetime.now().isoformat(timespec="seconds")}
-    if fallback:
-        info["port_fallback"] = fallback
-    (_drafts(work_dir) / STATE).write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
-    print(json.dumps(info, ensure_ascii=False), flush=True)
+    return _run(srv, [], open_browser, {"port_fallback": fallback} if fallback else None)
+
+
+def _write_state(case, port):
+    """CLI(wait·resolve·refresh·stop)가 서버를 찾는 연결 파일 — 건마다 history/drafts/.review_server.json."""
+    info = {"url": f"http://127.0.0.1:{port}{case.prefix}/", "hub": f"http://127.0.0.1:{port}/", "port": port,
+            "log": str(case.log), "started": datetime.datetime.now().isoformat(timespec="seconds")}
+    (_drafts(case.wd) / STATE).write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
+    return info
+
+
+def _clear_state(work_dir, port):
+    """이 포트의 허브를 가리키는 연결 파일만 지운다 — 다른 허브로 옮겨 간 건의 파일은 두고 → 지웠나."""
+    p = _drafts(work_dir) / STATE
+    try:
+        st = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if st.get("port") != port:
+        return False
+    p.unlink(missing_ok=True)
+    return True
+
+
+def _run(srv, extra_dirs=(), open_browser=True, note=None):
+    """허브를 돌린다 — 기본 건 + extra_dirs(restart가 다시 등록하는 건)의 연결 파일을 쓰고, 끝날 때 전부 지운다.
+
+    종전에는 끝날 때 기본 건의 연결 파일만 지워, 합류한 건의 파일이 남았다('26.9.27 실측: 서랍에서 연 2046 건).
+    지우고 나서 포트를 닫는다 — restart가 포트가 빈 것을 보고 새 파일을 쓰므로 순서가 바뀌면 새 파일을 지운다."""
+    port = srv.server_address[1]
+    for wd in extra_dirs:
+        srv.hub.case(wd, active=True)
+    cases = [c for c in srv.hub.cases.values() if c.active]
+    infos = [_write_state(c, port) for c in cases]
+    out = dict(infos[0], **(note or {}))
+    if len(infos) > 1:
+        out["cases"] = [c.key for c in cases]
+    print(json.dumps(out, ensure_ascii=False), flush=True)
     if open_browser:
-        webbrowser.open(url)
+        webbrowser.open(out["url"])
     try:
         srv.serve_forever()
     finally:
-        (_drafts(work_dir) / STATE).unlink(missing_ok=True)
+        for c in list(srv.hub.cases.values()):
+            _clear_state(c.wd, port)
+        srv.server_close()
     return 0
+
+
+def _hub_info(port=DEFAULT_PORT, mem=False):
+    """떠 있는 허브의 정보(/api/hub) — 허브가 아니거나 응답이 없으면 None."""
+    try:
+        info = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/api/hub" + ("?mem=1" if mem else ""),
+                                                 timeout=3).read())
+    except (OSError, ValueError):
+        return None
+    return info if isinstance(info, dict) and info.get("hub") else None
+
+
+def _port_free(port, limit=PORT_WAIT_SEC):
+    """포트가 빌 때까지 기다린다 → 비었나."""
+    end = time.time() + limit
+    while True:
+        with socket.socket() as s:
+            s.settimeout(0.5)
+            if s.connect_ex(("127.0.0.1", port)) != 0:
+                return True
+        if time.time() > end:
+            return False
+        time.sleep(0.2)
+
+
+def _is_wait(pid):
+    """그 pid가 리뷰 서버의 wait인가 — pid 재사용으로 엉뚱한 프로세스를 끄지 않게 명령줄을 본다(ps 없으면 False)."""
+    try:
+        cmd = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "review_server.py" in cmd and " wait" in cmd
+
+
+def _waiters(work_dirs):
+    """건마다 기다리는 중인 wait 프로세스 → [{key, pid}] — 살아 있고 명령줄이 wait인 것만."""
+    out = []
+    for wd in work_dirs:
+        st = lease_state(_owner_path(wd))
+        pid = st.get("waiter")
+        if st["state"] == "waiting" and pid and _alive(pid) and _is_wait(pid):
+            out.append({"key": f"{wd.parent.name}/{wd.name}", "pid": pid})
+    return out
+
+
+def _stale_states(root, info, port):
+    """남은 연결 파일 — 허브가 없거나, 다른 포트를 가리키거나, 허브에서 리뷰 중이 아닌 건의 것."""
+    if not root or not pathlib.Path(root).is_dir():
+        return []
+    active = {c["key"] for c in (info or {}).get("cases", []) if c.get("active")}
+    stale = []
+    for f in sorted(pathlib.Path(root).glob(f"*/*/history/drafts/{STATE}")):
+        wd = f.parents[2]
+        try:
+            st = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            st = {}
+        if not info or st.get("port") != info.get("port", port) or f"{wd.parent.name}/{wd.name}" not in active:
+            stale.append(f)
+    return stale
+
+
+def _remove(files):
+    """파일을 지우고 지운 경로 목록을 돌려준다."""
+    out = []
+    for f in files:
+        f.unlink(missing_ok=True)
+        out.append(str(f))
+    return out
+
+
+def _root(info, root):
+    if root:
+        return pathlib.Path(root)
+    if info and info.get("root"):
+        return pathlib.Path(info["root"])
+    try:
+        return pathlib.Path(load_config()["reports_dir"])
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def status(port=DEFAULT_PORT, root=None):
+    """허브 상태 → JSON. 켜져 있으면 0, 아니면 1."""
+    info = _hub_info(port, mem=True)
+    active = [c for c in (info or {}).get("cases", []) if c.get("active")]
+    out = {"up": bool(info), "port": port}
+    if info:
+        out.update(url=f"http://127.0.0.1:{port}/", pid=info.get("pid"), started=info.get("started"),
+                   memory_mb=info.get("memory"), code_changed=info.get("code") != code_signature(),
+                   loaded=info.get("loaded"), caches=info.get("caches"),
+                   cases=[{"key": c["key"], "work_dir": c["wd"], "cli": c.get("cli"), "open": c.get("open", 0)}
+                          for c in active],
+                   waiters=_waiters([pathlib.Path(c["wd"]) for c in active]))
+        if out["code_changed"]:
+            out["hint"] = "서버 코드가 띄운 뒤 바뀌었다 — restart로 다시 띄운다(렌더러는 다시 띄우지 않아도 반영)"
+    else:
+        with socket.socket() as s:
+            s.settimeout(0.5)
+            if s.connect_ex(("127.0.0.1", port)) == 0:
+                out["port_busy"] = "허브가 아닌 다른 프로그램이 쓰는 중"
+    stale = _stale_states(_root(info, root), info, port)
+    if stale:
+        out["stale_state"] = [str(f) for f in stale]
+    print(json.dumps(out, ensure_ascii=False, indent=1))
+    return 0 if info else 1
+
+
+def _exit_hub(info, port):
+    """허브를 끄고 포트가 빌 때까지 기다린다 — 응답이 없으면 그 pid에 SIGTERM(자기 자신은 제외) → 비었나."""
+    try:
+        urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/api/exit", data=b"{}", method="POST"),
+                               timeout=5)
+    except OSError:
+        pass
+    if _port_free(port):
+        return True
+    pid = info.get("pid")
+    if pid and pid != os.getpid() and _alive(pid):
+        with contextlib.suppress(OSError):
+            os.kill(pid, signal.SIGTERM)
+        return _port_free(port, 5)
+    return False
+
+
+def down(port=DEFAULT_PORT, root=None):
+    """허브 전체를 끈다 — 기다리는 wait를 먼저 끝내고(끝나며 남기는 임대까지 뒤에서 푼다), 허브를 끄고, 리뷰 중이던
+    건의 임대·연결 파일과 남은 연결 파일을 지운다. 건 하나만 닫을 때는 stop."""
+    info = _hub_info(port)
+    root = _root(info, root)
+    if not info:
+        cleaned = _remove(_stale_states(root, None, port))
+        print(json.dumps({"down": False, "reason": "실행 중인 허브 없음", "cleaned": cleaned}, ensure_ascii=False, indent=1))
+        return 0
+    active = [pathlib.Path(c["wd"]) for c in info.get("cases", []) if c.get("active")]
+    waiters = _waiters(active)
+    for w in waiters:
+        with contextlib.suppress(OSError):
+            os.kill(w["pid"], signal.SIGTERM)       # wait는 SIGTERM을 받으면 '대기 중'을 거두고 끝난다
+    end = time.time() + 3
+    while any(_alive(w["pid"]) for w in waiters) and time.time() < end:
+        time.sleep(0.1)
+    stopped = _exit_hub(info, port)
+    for wd in active:
+        lease_release(_owner_path(wd))
+        _clear_state(wd, info.get("port", port))
+    cleaned = _remove(_stale_states(root, None, port)) if stopped else []
+    out = {"down": stopped, "port": port, "closed": [f"{wd.parent.name}/{wd.name}" for wd in active],
+           "waiters_stopped": [w["pid"] for w in waiters], "cleaned": cleaned}
+    if not stopped:
+        out["reason"] = f"포트 {port}가 비지 않았다 — pid {info.get('pid')}를 확인한다"
+    print(json.dumps(out, ensure_ascii=False, indent=1))
+    return 0 if stopped else 1
+
+
+def restart(work_dir=None, port=DEFAULT_PORT, open_browser=False):
+    """허브를 다시 띄운다 — 리뷰 중인 건을 그대로 다시 등록하고 기록은 이어 쓴다(continue_log). 이 프로세스가 새 허브가
+    되므로 serve처럼 Bash 백그라운드로 부른다. 열린 탭은 스스로 다시 붙고, 기다리던 wait는 기록 파일을 보므로 그대로 산다.
+    서버 코드를 고친 뒤(status의 code_changed) 또는 메모리를 비울 때 쓴다."""
+    info = _hub_info(port)
+    dirs = [pathlib.Path(c["wd"]) for c in (info or {}).get("cases", []) if c.get("active")]
+    if work_dir and pathlib.Path(work_dir).resolve() not in [d.resolve() for d in dirs]:
+        dirs.append(pathlib.Path(work_dir))
+    if not dirs:
+        print(json.dumps({"error": "실행 중인 허브도, 다시 등록할 건도 없다 — serve {work_dir}로 띄운다"}, ensure_ascii=False))
+        return 1
+    if info and not _exit_hub(info, port):
+        print(json.dumps({"error": f"포트 {port}가 비지 않아 다시 띄우지 못했다 — status로 확인"}, ensure_ascii=False))
+        return 1
+    srv = make_server(dirs[0], port)
+    return _run(srv, dirs[1:], open_browser, {"restarted": bool(info)})
 
 
 def _hub_active(port):
@@ -1301,6 +1570,14 @@ def main(argv=None):
     r = sub.add_parser("resolve"); r.add_argument("work_dir"); r.add_argument("ids", nargs="+")
     f = sub.add_parser("refresh"); f.add_argument("work_dir")
     t = sub.add_parser("stop"); t.add_argument("work_dir")
+    st = sub.add_parser("status", help="허브 상태(켜짐·PID·메모리·리뷰 중인 건·남은 연결 파일)")
+    st.add_argument("--port", type=int, default=DEFAULT_PORT)
+    dn = sub.add_parser("down", help="허브 전체 끄기 — 대기 wait·임대·연결 파일 정리")
+    dn.add_argument("--port", type=int, default=DEFAULT_PORT)
+    rt = sub.add_parser("restart", help="허브 다시 띄우기(Bash 백그라운드) — 리뷰 중인 건을 다시 등록")
+    rt.add_argument("work_dir", nargs="?", help="함께 등록할 건(허브가 꺼져 있으면 이 건으로 띄운다)")
+    rt.add_argument("--port", type=int, default=DEFAULT_PORT)
+    rt.add_argument("--open", action="store_true", help="브라우저 열기(기본은 열린 탭이 스스로 다시 붙는다)")
     k = sub.add_parser("lock"); k.add_argument("action", choices=("acquire", "release", "status"))
     k.add_argument("--why", default="", help="잠그는 까닭(건·작업)")
     sub.add_parser("sum", help="하네스 지문 — 서브에이전트 처리 전후 대조")
@@ -1311,6 +1588,12 @@ def main(argv=None):
         if not a.work_dir and not a.all_cases:
             ap.error("wait에는 work_dir 또는 --all이 필요하다")
         return wait(a.work_dir, a.timeout, a.all_cases, a.port)
+    if a.cmd == "status":
+        return status(a.port)
+    if a.cmd == "down":
+        return down(a.port)
+    if a.cmd == "restart":
+        return restart(a.work_dir, a.port, a.open)
     if a.cmd == "lock":
         return harness_lock(a.action, a.why)
     if a.cmd == "sum":

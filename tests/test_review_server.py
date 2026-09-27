@@ -1,5 +1,5 @@
 """라이브 리뷰 서버 — 창을 닫지 않고 코멘트를 여러 번 보내고, 초안 변경이 바로 보인다 (review_server.py)."""
-import sys, json, pathlib, threading, urllib.request, urllib.error, re
+import sys, os, json, time, pathlib, subprocess, threading, urllib.request, urllib.error, re
 import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "skills/report-pipeline/scripts"))
 import review_server as rs
@@ -736,3 +736,96 @@ def test_same_process_takes_over_a_waiting_lease_whose_waiter_died(tmp_path, mon
     path.write_text(json.dumps(dict(row, waiter=_dead_pid())), encoding="utf-8")        # wait가 SIGKILL로 죽은 뒤
     assert rs.lease_claim(path, rs.session_owner())[0]
     assert rs.lease_state(path)["owner"] == "after-clear"
+
+
+def _run_bg(wd, extra=()):
+    """허브를 스레드로 돌린다(_run — 연결 파일을 쓰고 끝날 때 지운다) → (서버, 포트, 스레드)."""
+    srv = rs.make_server(wd)
+    th = threading.Thread(target=rs._run, args=(srv, list(extra), False), daemon=True)
+    th.start()
+    for _ in range(100):
+        if (wd / "history/drafts/.review_server.json").is_file():
+            break
+        time.sleep(0.05)
+    return srv, srv.server_address[1], th
+
+
+def test_status_and_down_close_hub_waiters_and_leftover_state(tmp_path, capsys):
+    """올리기·내리기('26.9.27 사용자 지시): status가 허브·리뷰 중인 건·기다리는 wait·남은 연결 파일을 알리고,
+    down이 허브 전체를 끄며 wait·임대·연결 파일까지 정리한다(종전에는 건 하나 닫기뿐이라 프로세스를 직접 끝내야 했다)."""
+    a, b, c = _case(tmp_path, "0900_가"), _case(tmp_path, "0910_나"), _case(tmp_path, "0920_다")
+    srv, port, th = _run_bg(a)
+    assert rs.serve(b, port, open_browser=False) == 0                   # 떠 있는 허브에 합류 — 연결 파일을 쓴다
+    capsys.readouterr()
+    (c / "history/drafts").mkdir(parents=True)
+    leftover = c / "history/drafts/.review_server.json"                  # 비정상 종료로 남은 연결 파일
+    leftover.write_text(json.dumps({"port": port}), encoding="utf-8")
+    waiter = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "review_server.py", "wait"])
+    now = time.time()
+    (a / "history/drafts/.review_owner.json").write_text(json.dumps(
+        {"owner": "s1", "pid": waiter.pid, "waiting": True, "seen": now, "since": now, "waiter": waiter.pid}),
+        encoding="utf-8")
+    try:
+        assert rs.status(port, root=tmp_path) == 0
+        st = json.loads(capsys.readouterr().out)
+        assert st["up"] and st["pid"] == os.getpid() and st["code_changed"] is False
+        assert {x["key"] for x in st["cases"]} == {"20260101/0900_가", "20260101/0910_나"}
+        assert [w["pid"] for w in st["waiters"]] == [waiter.pid]
+        assert st["stale_state"] == [str(leftover)]
+        assert rs.down(port, root=tmp_path) == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["down"] and out["waiters_stopped"] == [waiter.pid] and out["cleaned"] == [str(leftover)]
+        assert waiter.wait(timeout=5) is not None                         # 기다리던 wait가 끝났다
+        th.join(timeout=5)
+        assert not th.is_alive() and rs._port_free(port, 1)
+        for wd in (a, b, c):                                              # 합류한 건의 연결 파일도 지운다
+            assert not (wd / "history/drafts/.review_server.json").exists()
+        assert not (a / "history/drafts/.review_owner.json").exists()
+        assert rs.status(port, root=tmp_path) == 1 and json.loads(capsys.readouterr().out)["up"] is False
+    finally:
+        if waiter.poll() is None:
+            waiter.kill()
+
+
+def test_restart_reregisters_open_cases_and_keeps_their_logs(tmp_path, monkeypatch, capsys):
+    """restart: 허브를 끄고 리뷰 중이던 건을 그대로 다시 등록한다 — 기록은 이어 써서 앞선 코멘트를 resolve할 수 있고,
+    연결 파일은 새 허브를 가리킨다. 기다리던 wait는 기록 파일을 보므로 끊기지 않는다."""
+    a, b = _case(tmp_path, "0900_가"), _case(tmp_path, "0910_나")
+    srv, port, th = _run_bg(a)
+    rs.serve(b, port, open_browser=False)
+    joined = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    _post(joined["url"] + "api/feedback", {"addr": "□1", "comment": "나 건 코멘트"})
+    seen = {}
+
+    def fake(self, *args):
+        seen["cases"] = sorted(c.key for c in self.hub.cases.values() if c.active)
+        seen["logs"] = {c.key: str(c.log) for c in self.hub.cases.values() if c.active}
+        seen["state_b"] = json.loads((b / "history/drafts/.review_server.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(rs.ThreadingHTTPServer, "serve_forever", fake)
+    assert rs.restart(port=port) == 0
+    th.join(timeout=5)
+    out = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert out["restarted"] and set(out["cases"]) == {"20260101/0900_가", "20260101/0910_나"}
+    assert seen["cases"] == ["20260101/0900_가", "20260101/0910_나"]
+    assert seen["logs"]["20260101/0910_나"] == joined["log"]
+    assert seen["state_b"]["port"] == port
+
+
+def test_view_only_case_cache_is_released_when_idle(tmp_path):
+    """메모리 점검('26.9.27): 서랍에서 보기 전용으로 연 건의 화면 캐시는 열린 탭 없이 묵으면 푼다 — 서버 수명 내내
+    들고 있었다. 리뷰 중인 건의 캐시는 바뀐 항목 비교의 기준본이라 둔다."""
+    a, b = _case(tmp_path, "0900_가"), _case(tmp_path, "0910_나")
+    srv = rs.make_server(a)
+    try:
+        hub = srv.hub
+        view = hub.find("20260101", "0910_나")
+        assert view is not None and not view.active
+        view.live(rs.DRAFT).current()
+        hub.primary.live(rs.DRAFT).current()
+        assert hub.release_idle(now=time.time()) == 0                     # 아직 묵지 않았다
+        assert hub.release_idle(now=time.time() + rs.CACHE_IDLE_SEC + 1) == 1
+        assert "20260101/0910_나" not in hub.cases
+        assert rs.DRAFT in hub.primary.lives
+    finally:
+        srv.hub.stop.set()
+        srv.server_close()
