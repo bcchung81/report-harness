@@ -1322,12 +1322,26 @@ def _port_free(port, limit=PORT_WAIT_SEC):
         time.sleep(0.2)
 
 
-def _is_wait(pid):
-    """그 pid가 리뷰 서버의 wait인가 — pid 재사용으로 엉뚱한 프로세스를 끄지 않게 명령줄을 본다(ps 없으면 False)."""
+def _cmdline(pid):
+    """프로세스 명령줄 전체 — 리눅스는 /proc, 그 밖은 `ps -ww`(폭 제한 없음). 모르면 ''.
+
+    리눅스 procps의 `ps`는 출력이 터미널이 아니면 80자에서 자른다 — 긴 경로 뒤의 ` wait`가 잘려 status·down이
+    기다리는 wait를 못 찾았다('26.9.28 CI ubuntu 실패로 발견, macOS ps는 자르지 않아 로컬 재현 안 됨)."""
     try:
-        cmd = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, timeout=3).stdout
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            return f.read().replace(b"\0", b" ").decode("utf-8", "replace")
+    except OSError:
+        pass
+    try:
+        return subprocess.run(["ps", "-ww", "-o", "command=", "-p", str(pid)], capture_output=True, text=True,
+                              timeout=3).stdout
     except (OSError, subprocess.SubprocessError):
-        return False
+        return ""
+
+
+def _is_wait(pid):
+    """그 pid가 리뷰 서버의 wait인가 — pid 재사용으로 엉뚱한 프로세스를 끄지 않게 명령줄을 본다(모르면 False)."""
+    cmd = _cmdline(pid)
     return "review_server.py" in cmd and " wait" in cmd
 
 

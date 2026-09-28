@@ -761,8 +761,8 @@ def test_status_and_down_close_hub_waiters_and_leftover_state(tmp_path, capsys):
     leftover = c / "history/drafts/.review_server.json"                  # 비정상 종료로 남은 연결 파일
     leftover.write_text(json.dumps({"port": port}), encoding="utf-8")
     waiter = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "review_server.py", "wait"])
-    for _ in range(100):                     # 리눅스는 fork 직후 잠깐 부모(pytest)의 명령줄이 보인다 — exec가 끝날 때까지 기다린다
-        if rs._is_wait(waiter.pid):           # (CI ubuntu에서 0.6.3부터 `[] == [pid]`로 실패, macOS는 posix_spawn이라 재현 안 됨)
+    for _ in range(100):                     # exec로 명령줄이 바뀔 때까지 — 띄운 직후 확인이 빗나가지 않게
+        if rs._is_wait(waiter.pid):
             break
         time.sleep(0.05)
     now = time.time()
@@ -964,3 +964,19 @@ def test_overlay_shows_convert_progress_and_download():
     html = rs.overlay()
     assert 'id="rv-final"' in html and "addEventListener('convert'" in html
     assert "변환 중" in html and "인도본 받기" in html and "변환 실패" in html
+
+
+def test_is_wait_reads_long_command_lines_in_full():
+    """긴 경로 뒤의 ` wait`도 알아본다 — 리눅스 ps는 파이프 출력을 80자에서 잘라 CI(ubuntu)에서 status·down이
+    기다리는 wait를 못 찾았다('26.9.28). 설치 경로가 긴 실제 wait 명령줄과 같은 모양으로 시험한다."""
+    long_dir = "/" + "설치경로" * 20 + "/skills/report-pipeline/scripts/review_server.py"
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", long_dir, "wait", "/작업폴더/" + "가" * 40])
+    try:
+        for _ in range(100):
+            if rs._is_wait(p.pid):
+                break
+            time.sleep(0.05)
+        assert rs._is_wait(p.pid), rs._cmdline(p.pid)
+        assert len(rs._cmdline(p.pid)) > 80
+    finally:
+        p.kill()

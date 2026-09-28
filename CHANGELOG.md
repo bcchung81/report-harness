@@ -5,9 +5,10 @@
 git clone 직후 바로 쓸 수 있는지 점검했다(새로 clone → 테스트 → 격리 설정 폴더에서 로컬 마켓플레이스 설치·`plugin details`
 → 빈 업무 폴더에서 첫 실행·자가진단).
 
-- **CI 복구** — 0.6.3부터 GitHub CI(ubuntu)가 `test_status_and_down_close_hub_waiters_and_leftover_state` 한 건으로 실패하고
-  있었다. 리눅스는 fork 직후 잠깐 부모의 명령줄이 보여, 대기 프로세스를 띄운 직후의 `ps` 확인이 빗나갔다(macOS는
-  posix_spawn이라 로컬에서 재현되지 않음). 테스트가 명령줄이 바뀔 때까지 기다린다 — 제품 코드는 그대로다.
+- **CI 복구 + 리눅스 `status`·`down` 결함** — 0.6.3부터 GitHub CI(ubuntu)가 `test_status_and_down_close_hub_waiters_and_leftover_state`
+  한 건으로 실패하고 있었다. 리눅스 `ps`는 출력이 터미널이 아니면 명령줄을 80자에서 잘라, 긴 설치 경로 뒤의 ` wait`가
+  사라져 `status`·`down`이 기다리는 wait를 찾지 못했다(테스트만이 아니라 리눅스 사용자에게도 난 결함 — macOS ps는 자르지
+  않아 로컬에서 재현되지 않았다). 명령줄을 `/proc/{pid}/cmdline`(없으면 `ps -ww`)으로 끝까지 읽고, 긴 명령줄 회귀 테스트를 더했다.
 - **기본 산출 거처 제외** — 설정 없이 돌리면 실행 위치에 `reports/`·`.report-harness/`가 생기는데 gitignore에 없어, clone
   폴더 안에서 쓰면 기관 보고서·운영 규칙이 `git add -A` 한 번에 공개 저장소로 넘어갈 수 있었다. gitignore와 배포 가드
   (`package_check.sh`) 금지 목록에 넣고, 둘이 설정 기본값과 어긋나면 테스트가 잡는다. 루트 `.env`·`.env.*`도 제외.
