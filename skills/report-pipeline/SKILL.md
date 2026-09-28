@@ -380,13 +380,16 @@ python3 "$SKILL_DIR/scripts/review_server.py" wait {work_dir}           # Bash �
   고친 뒤 `resolve {work_dir} e1…`로 '확인됨'을 표시한다. 같은 줄을 CLI가 먼저 고쳤으면 서버가 저장을 거절(409)한다.
 - `decision: approved`(위 막대의 '승인 · 변환' → 팩트체크 선택 → 승인)가 오면 먼저 `archive_revision.py seal {work_dir}`로
   아웃라인 끝에 '게이트② 반영 결과'(승인된 초안의 절·표/도식·붙임, 게이트② 중 추가된 것)를 덧붙이고 아래 선택지 1로 간다 — 팩트체크는 경량(기본값),
-  승인 노트에 "전수"·"생략"이 있으면 그 값. 그다음 `review_server.py stop {work_dir}`.
+  승인 노트에 "전수"·"생략"이 있으면 그 값. 곧바로 `review_server.py convert {work_dir} --phase start`로 화면의 승인 알약을
+  '변환 중'으로 바꾸고 ④로 간다. **여기서 `stop`을 부르지 않는다** — 리뷰를 닫는 것은 인도 뒤다('26.9.28 사용자 지적: 승인
+  직후 stop이 허브를 꺼 변환이 끝나도 인도본을 받을 화면이 없었다).
 - **리뷰 화면 = 변환 결과의 약속**: 줄 맞춤(`fit_line`)·간격(`transition_for`)·표 열 폭(`column_shares`)을 후처리와
   같은 함수로 그리고, 사이드바 '예상 쪽수'와 빨간 쪽 경계선은 한글 본문 높이(247mm) 기준이다 — 후처리
   `layout.pages_by_part`와 같은 구분(본문·붙임별). 변환 뒤 한글에서 연 쪽수가 리뷰와 다르면 그 차이를
   lessons에 적는다(보정 재료 — 한글 조판은 이 PC에서 직접 잴 수 없다).
-- 서버는 **게이트①~②가 열려 있는 동안만** 띄운다 — 승인이 오면 `stop {work_dir}`(그 건의 리뷰만 닫고, 리뷰 중인 건이
-  더 없으면 서버가 끝난다). 주소는 고정 3333이고, 허브가 아닌 다른 프로그램이 쓰고 있으면 빈 포트로 뜬다(출력
+- 서버는 **게이트①부터 인도까지** 띄운다 — 인도 뒤 `convert --phase done` 다음에 `stop {work_dir}`(그 건의 리뷰만 닫는다).
+  리뷰 중인 건이 더 없어도 **열린 탭이 있으면 허브가 남아** 인도본을 받을 수 있고, 탭이 모두 닫히고 2분이 지나면 스스로
+  끝난다(`HUB_LINGER_SEC`). 주소는 고정 3333이고, 허브가 아닌 다른 프로그램이 쓰고 있으면 빈 포트로 뜬다(출력
   `port_fallback` — 그때는 출력 `url`을 사용자에게 알린다).
 - **올리기·내리기**('26.9.27 사용자 지시 — 종전에는 건 하나 닫기뿐이라 허브 전체를 끄려면 프로세스를 직접 끝내야 했다):
 
@@ -467,6 +470,10 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 `43_convert_input`·`40_roundtrip`·`40_qa`)은 전부 그 폴더 안에 쓴다 — 작업폴더 루트에 두지
 않는다.** 루트에 두면 초안만 고쳤을 때 넷이 함께 낡고, 실제로 '26.9.10 전수 측정에서 10건 중
 4건이 그 상태였다(최대 201조각·12일 차이). 인도본만 `final/{hwpx_prefix}{제목}.hwpx`로 나간다.
+**리뷰 화면이 열려 있으면 진행을 알린다** — 승인 때 보낸 `convert --phase start`로 알약이 '변환 중'이고, 인도 뒤
+`convert --phase done --note "{예상 쪽수 등 1줄}"`이면 알약이 **'인도본 받기 rNN'**으로 바뀌어 화면에서 hwpx를 내려받는다
+(`{건 주소}/final/{파일}`, 서랍 '인도본' 목록도 같다). 변환을 끝내지 못하면 `--phase fail --note "{사유}"` — 초안은 그대로 인도.
+서버가 없으면 신호는 exit 1로 알리기만 하고 변환은 계속한다. 신호를 다 보낸 뒤 `review_server.py stop {work_dir}`.
 **변환 동안은 하네스 잠금을 잡는다** — `review_server.py lock acquire --why "변환 {건}"`, 인도 뒤 `lock release`
 (여러 건을 함께 열었을 때 다른 건의 규칙·코드 수정이 변환 도중에 끼지 않게 — 게이트② '여러 보고서' 절).
 
@@ -528,7 +535,9 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
      결과가 규칙과 어긋나 보이면 그 절을 읽고 판정한다(여기서는 중복 서술하지 않는다).
    - `--star-indent`는 R019에서 폐기돼 **CLI에서 제거됐다** — 지금 넘기면 exit 2로 거부된다.
      계층 내어쓰기는 `--spacing` 묶음의 `apply_space_hierarchy`가 담당한다.
-3. **인도**: `final/r{NN}_{YYYYMMDD}_{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다. 미검증 사실(팩트체크
+3. **인도**: `final/r{NN}_{YYYYMMDD}_{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다. 리뷰 화면이 열려 있으면
+   `review_server.py convert {work_dir} --phase done --note "…"` → `review_server.py stop {work_dir}` 순으로 화면에 '인도본
+   받기'를 띄우고 리뷰를 닫는다(위 ④ 머리 — stop을 먼저 부르면 CLI가 서버를 못 찾아 신호가 가지 않는다). 미검증 사실(팩트체크
    생략/경량 선택 시)·잔존 QA 이슈가 있으면 **1줄로만** 고지한다 — 장황한 나열 금지.
 
    **쪽수가 분량을 넘어도 승인된 초안을 줄이지 않는다.** 후처리 JSON의 `layout.est_pages`(R067)가 게이트⓪ 분량을
@@ -660,9 +669,11 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 - `scripts/list_research_figures.py <work_dir>` — research 그림 후보 목록(출처·표시 크기·유효 dpi·권고, 표준출력
   JSON). 외부 도식을 차용·재작도·표 재구성 중 무엇으로 쓸지 정할 때(게이트① 도식 설계) — 기준은
   `diagram-pool.md` '외부 도식 활용'.
-- `scripts/review_server.py serve|wait|resolve|refresh|stop <work_dir>` · `lock acquire|release|status` — 라이브 리뷰 서버
+- `scripts/review_server.py serve|wait|resolve|refresh|convert|stop <work_dir>` · `lock acquire|release|status` — 라이브 리뷰 서버
   (127.0.0.1, 허브 — 왼쪽 서랍에서 보고서 바꾸기·리뷰 열기 + 건마다 모든 md). `serve`를 다른 건으로 또 부르면 떠 있는
-  허브에 합류, `stop`은 그 건의 리뷰만 닫고 처리 세션 임대를 푼다(마지막 건이면 서버 종료).
+  허브에 합류, `stop`은 그 건의 리뷰만 닫고 처리 세션 임대를 푼다(마지막 건이어도 열린 탭이 있으면 허브는 남았다가 탭이 닫히고
+  2분 뒤 종료). `convert --phase start|done|fail [--note]`는 변환(④) 진행을 화면 알약에 알린다 — done이면 '인도본 받기'
+  (`{건}/final/{파일}` 내려받기, 서버 없으면 exit 1이고 변환은 계속).
   `serve`는 신호 때 바뀐 항목만 열린 탭에 보냄(SSE, 새로고침·주기 요청 없음), `wait`는 새 코멘트·승인이 올
   때까지 대기 후 JSON 출력(exit 0, `--timeout` 초과 시 1, 다른 세션이 잡은 건뿐이면 3 — `--all`은 리뷰 중인 건 전부.
   보낸 코멘트는 5초 뒤에 넘긴다 — 그 사이 화면의 '되돌리기'가 통하게),

@@ -47,7 +47,8 @@ report-pipeline 스킬을 로드하고 **라이브 리뷰어**를 연다. 서버
    lint·감사를 다시 돌린 뒤 `review_server.py resolve {work_dir} f…`로 '반영됨'을 표시하고 다음 `wait`를 다시 띄운다.
    이 루프 안에서 스크립트·참조 문서는 고치지 않는다. '승인 · 변환'이 오면 게이트② 승인 절차로 넘어간다.
 
-5. 사용자가 "리뷰 닫아줘"라고 하거나 승인으로 끝나면 `review_server.py stop {work_dir}`로 그 건의 리뷰를 닫는다.
+5. 사용자가 "리뷰 닫아줘"라고 하면 `review_server.py stop {work_dir}`로 그 건의 리뷰를 닫는다. 승인으로 끝나면 바로 닫지 않는다 —
+   `convert --phase start` → 변환(④) → `convert --phase done`(실패면 fail) → `stop` 순서라야 화면에 '인도본 받기'가 뜬다('26.9.28).
    "서버 꺼줘"·"리뷰어 전부 닫아줘"면 `review_server.py down`(허브 전체).
 
 진행 보고는 1줄 — "리뷰어 열림: {url} · 코멘트 대기 중".

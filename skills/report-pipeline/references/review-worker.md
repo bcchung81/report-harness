@@ -33,7 +33,7 @@
 | `research/`·`history/`·`final/` | 손대지 않는다 |
 | `SKILL_DIR` 아래 전부(스크립트·참조 문서·자산), `rules.md`·`lessons.jsonl`, 다른 보고서 | 손대지 않는다 — 메인이 전후 지문(`review_server.py sum`)으로 대조한다 |
 
-실행하지 않는 것: `review_server.py resolve|refresh|wait|stop|lock`, 변환(④), git. 반영 표시·화면 갱신은 메인이 한다.
+실행하지 않는 것: `review_server.py resolve|refresh|convert|wait|stop|lock`, 변환(④), git. 반영 표시·화면 갱신은 메인이 한다.
 
 ## 4. 고치지 않고 메인에 돌려보낼 것
 

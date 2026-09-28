@@ -34,6 +34,14 @@ body{padding:60px 0 48px}
 .rv-linkbtn:hover{color:var(--rv-navy)}
 .rv-pillbtn{border:0;border-radius:999px;padding:8px 16px;background:var(--rv-navy);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer}
 .rv-pillbtn:disabled{background:#a6d8bb;cursor:default}
+.rv-pillbtn.rv-busy:disabled{background:#8A93B8}                /* 승인 뒤 변환 중('26.9.28) */
+.rv-pillbtn.rv-fail:disabled{background:#B54708}
+.rv-final{display:inline-flex;align-items:center;text-decoration:none;background:var(--rv-good)}   /* 인도본 받기 — 내려받기 링크 */
+.rv-final[hidden]{display:none}
+.rv-finalrow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;text-decoration:none;color:inherit;font-size:12.5px}
+.rv-finalrow:hover{background:#F3F0E8}
+.rv-finalrow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-finalrow .at{color:var(--rv-sub);font-size:11.5px}
 #rv-approve-pop{position:fixed;top:60px;right:max(16px, calc(50vw - 330px));z-index:41;display:none;width:280px;background:#fff;border-radius:14px;box-shadow:0 14px 36px rgba(30,28,20,.18);padding:14px;flex-direction:column;gap:8px}
 #rv-approve-pop.on{display:flex}
 #rv-approve-pop input{border:1px solid var(--rv-line);border-radius:9px;padding:7px 9px;font:12.5px "Apple SD Gothic Neo","Malgun Gothic",sans-serif}
@@ -276,6 +284,7 @@ body.rv-docmode .rv-formonly{display:none!important}
  <span id="rv-conn" class="rv-conn">연결 중</span>
  <span id="rv-cli" class="rv-cli" role="status"></span>
  <button id="rv-approve-open" class="rv-pillbtn">승인 · 변환</button>
+ <a id="rv-final" class="rv-pillbtn rv-final" href="#" download hidden title="인도본(hwpx) 내려받기">인도본 받기</a>
 </div>
 <div id="rv-approve-pop" class="rv-ui" role="dialog" aria-label="승인">
  <div class="rv-flabel">팩트체크</div>
@@ -516,7 +525,8 @@ body.rv-docmode .rv-formonly{display:none!important}
   if(ev.key==='Escape'){ if(!$('rv-help').hidden){showHelp(false); return} if(!$('rv-cmd').hidden){showCmd(false); return} if(!$('rv-cases').hidden){showCases(false); return} hidePick(); $('rv-approve-pop').classList.remove('on'); if($('rv-pop').classList.contains('on'))closePop(); else if(drawer)openDrawer(null)} });
  $('rv-approve-open').onclick=ev=>{ev.stopPropagation(); $('rv-approve-pop').classList.toggle('on')};
  let fc='경량'; document.querySelectorAll('#rv-fc button').forEach(b=>b.onclick=()=>{fc=b.dataset.v; document.querySelectorAll('#rv-fc button').forEach(x=>x.classList.toggle('on',x===b))});
- $('rv-approve').onclick=async()=>{ $('rv-approve').disabled=true; await post('/api/decision',{decision:'approved',factcheck:fc,note:$('rv-note').value.trim()}); $('rv-note').value='' };
+ $('rv-approve').onclick=async()=>{ $('rv-approve').disabled=true; await post('/api/decision',{decision:'approved',factcheck:fc,note:$('rv-note').value.trim()}); $('rv-note').value='';
+  $('rv-approve-pop').classList.remove('on') };   // 승인을 보냈으면 창을 닫는다 — 뒤이은 '변환 중 → 인도본 받기'를 알약에서 본다('26.9.28)
  document.querySelectorAll('#rv-filter button').forEach(b=>b.onclick=()=>{filter=b.dataset.f; document.querySelectorAll('#rv-filter button').forEach(x=>x.classList.toggle('on',x===b)); drawList()});
  // 이력(서랍)·상태 숫자·메모
  function drawList(){ const fb=last.filter(x=>x.type==='feedback'); const box=$('rv-list'); box.textContent='';
@@ -540,7 +550,16 @@ body.rv-docmode .rv-formonly{display:none!important}
   const dec=last.filter(x=>x.type==='decision').pop();
   $('rv-dec').textContent=dec?('승인 전달 · 팩트체크 '+(dec.factcheck||'경량')+' · '+(LABEL[dec.status]||'')):'';
   if(dec&&dec.status!=='withdrawn'){$('rv-approve').disabled=true; $('rv-approve-open').disabled=true; $('rv-approve-open').textContent='승인 전달됨'}
-  drawNotes(); drawTree() }
+  drawNotes(); drawTree(); drawFinal() }
+ // 승인 뒤 — 변환(④) 진행 신호와 인도본 받기('26.9.28 사용자 지적: 승인 뒤 화면이 꺼져 인도본을 받을 수 없었다)
+ let conv=null, finals=[];
+ function drawFinal(){ const a=$('rv-final'), b=$('rv-approve-open'), f=finals[0], ph=conv&&conv.phase;
+  b.classList.toggle('rv-busy',ph==='start'); b.classList.toggle('rv-fail',ph==='fail');
+  if(ph==='start'){ b.disabled=true; b.textContent='변환 중…'; b.title='hwpx로 바꾸는 중입니다 — 끝나면 이 자리에 인도본 받기가 뜹니다'; b.style.display='' }
+  else if(ph==='fail'){ b.disabled=true; b.textContent='변환 실패 — 초안은 보존'; b.title=conv.note||'초안(20_draft.md)은 그대로입니다'; b.style.display='' }
+  else if(ph==='done')b.style.display='none';
+  if(f&&ph!=='start'){ a.hidden=false; a.href=f.url; a.setAttribute('download',f.name); a.textContent='인도본 받기'+(f.rev?' '+f.rev:''); a.title=f.name+(conv&&conv.note?' · '+conv.note:'') }
+  else a.hidden=true }
  // 탐색 — 이 보고서의 문서 트리와 보고서 바꾸기(목록 화면으로 가지 않는다)
  const GROUPS=[['stage','보고서 단계'],['extra','부속 문서'],['research','자료']];
  const CHEV='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>';
@@ -551,6 +570,9 @@ body.rv-docmode .rv-formonly{display:none!important}
  const permTag=(p,d)=>!p.comment?'보기':(d&&d.record?'기록':(!p.edit?'코멘트만':''));   // 기록 = 초안이 생긴 뒤의 아웃라인·분석
  const ymd=d=>d?d.slice(2,4)+'.'+d.slice(4,6)+'.'+d.slice(6):'';
  function drawTree(){ const q=findQ(), box=$('rv-tree'), act=!!(RVX.case||{}).active; box.textContent=''; let hits=0;
+  if(finals.length&&!q){ const hd=document.createElement('div'); hd.className='rv-shead'; hd.textContent='인도본 '+finals.length; box.appendChild(hd);
+   finals.forEach(f=>{ const a=document.createElement('a'); a.className='rv-finalrow'; a.href=f.url; a.setAttribute('download',f.name); a.title='내려받기';
+    a.innerHTML='<b>'+esc(f.rev||'hwpx')+'</b><span class="nm">'+esc(f.name)+'</span><span class="at">'+esc(f.at||'')+'</span>'; box.appendChild(a) }) }
   if(!act&&!q){ const n=document.createElement('div'), m=/^인도\s*(?:r(\d+))?/.exec((RVX.case||{}).stage||''), rev=m?(+m[1]||0):null, p2=x=>String(x).padStart(2,'0');
    n.className='rv-ronote';
    n.innerHTML='<div><b>보기 전용</b> — 코멘트는 리뷰를 연 보고서만 받습니다</div>'
@@ -667,15 +689,19 @@ body.rv-docmode .rv-formonly{display:none!important}
   working:['CLI 처리 중','Claude 세션이 앞서 받은 코멘트를 고치는 중입니다 — 새 코멘트는 다음 차례에 넘어갑니다'],
   none:['CLI 없음 · 코멘트는 쌓아 둠','이 보고서를 처리하는 Claude 세션이 없습니다. 코멘트는 쌓아 두었다가 세션이 wait(여러 보고서면 wait --all)를 걸면 넘어갑니다']};
  let cliState=null;
- function setCli(c){ const el=$('rv-cli'); cliState=c&&c.state; const on=!!(RVX.case||{}).active&&!!cliState; el.classList.toggle('on',on); if(!on)return;
+ function setCli(c){ const el=$('rv-cli'); cliState=c&&c.state||cliState; const on=!!(RVX.case||{}).active&&!!cliState&&!conv; el.classList.toggle('on',on); if(!on)return;   // 변환 신호 뒤에는 코멘트 처리 상태를 보이지 않는다
   const t=CLI_TXT[cliState]||CLI_TXT.none; el.dataset.s=cliState; el.textContent=t[0]; el.title=t[1] }
  const es=new EventSource(API('/api/events'));
  es.addEventListener('hello',ev=>{ const d=JSON.parse(ev.data); setConn(true,/^갱신/.test($('rv-conn').textContent)?'':'연결됨');
   if(ui!==null&&d.ui!==ui)return fullReload(); ui=d.ui;
-  last=d.items; drawList(); setCli(d.cli);
+  last=d.items; finals=d.finals||[]; conv=d.convert||null; drawList(); setCli(d.cli);
   if(d.version!==ver||d.boot!==boot){boot=d.boot; fullSwap()} });
  es.addEventListener('cli',ev=>setCli(JSON.parse(ev.data)));
  es.addEventListener('items',ev=>{last=JSON.parse(ev.data); drawList()});
+ es.addEventListener('convert',ev=>{ const d=JSON.parse(ev.data); conv=d.convert; finals=d.finals||[]; drawList(); setCli(null); $('rv-approve-pop').classList.remove('on');
+  if(conv.phase==='done'&&finals[0])toast('변환 완료 — 인도본 '+(finals[0].rev||'')+' 받을 수 있습니다',false,{label:'받기',run:()=>$('rv-final').click()},15000);
+  else if(conv.phase==='fail')toast('변환 실패 — 초안(20_draft.md)은 그대로입니다'+(conv.note?' · '+conv.note:''),true);
+  else if(conv.phase==='start')toast('변환 중 — 끝나면 이 화면에서 인도본을 받습니다') });
  es.addEventListener('patch',ev=>{ const d=JSON.parse(ev.data);
   if(d.from!==ver){fullSwap(); return}
   applyPatch(d); ver=d.to });
@@ -765,6 +791,7 @@ body.rv-docmode .rv-formonly{display:none!important}
   if(PERM.comment)cmds.push(['전체 의견 쓰기',()=>$('rv-general').click()]);
   if(!DOCMODE)cmds.push(['쪽 미리보기',()=>openDrawer('page')]);
   if(PERM.approve&&!$('rv-approve-open').disabled)cmds.push(['승인 · 변환',()=>$('rv-approve-open').click()]);
+  if(finals[0])cmds.push(['인도본 받기 '+(finals[0].rev||''),()=>$('rv-final').click()]);
   cmds.forEach(([t,f])=>out.push({g:'명령',k:'실행',t:t,run:f}));
   return out }
  function drawCmd(){ const q=$('rv-cmd-q').value.trim().toLowerCase(), box=$('rv-cmd-list'), cap=q?30:8, by={};

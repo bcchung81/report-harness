@@ -17,6 +17,7 @@ lifetime — Send Feedback·Approve·Close 모두) 화면이 잠기고, 수정�
                                                 (--all: 허브에서 리뷰 중인 건 전부 — 항목마다 case·work_dir)
     resolve <work_dir> ID…                      코멘트를 '반영됨'으로 표시하고 열린 화면을 새로 그린다
     refresh <work_dir>                          열린 화면을 지금 새로 그린다(수정 끝 신호)
+    convert <work_dir> --phase start|done|fail [--note 글]   변환(④) 진행을 열린 화면에 알린다 — done이면 인도본 받기가 뜬다
     stop    <work_dir>                          이 건 리뷰 닫기(처리 세션 임대도 푼다)
     status  [--port N]                          허브 상태 — 켜짐·PID·메모리·리뷰 중인 건·화면 캐시·대기 wait·남은 연결 파일
     restart [work_dir] [--port N] [--open]      허브를 다시 띄운다(Bash 백그라운드) — 리뷰 중인 건을 그대로 다시 등록, 기록은 이어 씀
@@ -27,6 +28,11 @@ lifetime — Send Feedback·Approve·Close 모두) 화면이 잠기고, 수정�
 서버 수명('26.9.27 사용자 지시 — 올리기·내리기를 하네스에): 서버는 띄운 Claude 세션의 백그라운드 작업이라 세션이
 끝나면 함께 꺼진다. 올리기는 serve(또는 restart), 확인은 status, 내리기는 stop(건 하나)·down(허브 전체)이다.
 허브가 비정상 종료돼 남은 연결 파일(`.review_server.json`)은 status가 알리고 down이 지운다.
+
+승인 뒤('26.9.28 사용자 지적 — '승인 · 변환'을 누르면 곧바로 stop이 불려 허브가 꺼지고, 변환이 끝나도 인도본을 받을 화면이
+없었다): 게이트② 승인 → `convert --phase start` → 변환(④) → `convert --phase done`(실패면 fail) → stop 순서다. 화면의 승인
+알약이 '변환 중' → '인도본 받기 rNN'으로 바뀌고, 인도본은 `{건}/final/{파일}`로 내려받는다(final/ 바로 아래 .hwpx만).
+마지막 건의 리뷰를 닫아도 **열린 탭이 있으면 허브를 남기고**, 탭이 모두 닫힌 뒤 HUB_LINGER_SEC가 지나면 스스로 끈다.
 
 여러 보고서를 함께 열 때의 안전장치('26.9.25 사용자 선택): 건마다 **처리 세션 임대**
 (`history/drafts/.review_owner.json` — 다른 세션이 잡은 건은 wait가 exit 3으로 거부해 같은 코멘트를 두 번
@@ -88,6 +94,9 @@ WAITING_FRESH_SEC = 60       # 이 안에 신호가 있으면 '대기 중'
 CACHE_IDLE_SEC = 300         # 리뷰 중이 아닌 건의 화면 캐시는 열린 탭 없이 이만큼 지나면 푼다('26.9.27 메모리 점검)
 PORT_WAIT_SEC = 10           # down·restart가 허브 종료 뒤 포트가 비기를 기다리는 한도
 CLI_WATCH_SEC = 3
+HUB_LINGER_SEC = 120         # 마지막 리뷰를 닫은 뒤 열린 탭이 모두 닫히고 이만큼 지나면 허브를 끈다(인도본 받을 시간, '26.9.28)
+CONVERT_PHASES = ("start", "done", "fail")   # 변환(④) 진행 신호 — 승인 뒤 화면이 '변환 중 → 인도본 받기'를 보인다
+NO_DOC_API = ("refresh", "notify", "convert", "deactivate", "exit", "activate")   # 문서 인자가 필요 없는 신호
 GRACE_SEC = 5                # 보낸 코멘트는 이 시간 뒤에 CLI로 넘긴다 — 그 사이 화면에서 되돌릴 수 있다('26.9.25)            # 서버가 건별 CLI 상태를 다시 보는 간격(바뀔 때만 화면에 보낸다)
 STATUS_LABEL = {"sent": "보냄", "delivered": "확인 중", "resolved": "반영됨", "withdrawn": "취소됨"}
 
@@ -669,6 +678,36 @@ class Case:
         return {"state": st["state"], "seen": st.get("seen"), "since": st.get("since")}
 
 
+def finals(wd, prefix=""):
+    """인도본 목록(최신 판 먼저) — final/ 바로 아래 .hwpx만. url은 건 주소 아래 `/final/{파일}`(내려받기 라우트)."""
+    d = pathlib.Path(wd) / "final"
+    out = []
+    for f in sorted(d.glob("*.hwpx"), reverse=True) if d.is_dir() else []:
+        if not f.is_file():
+            continue
+        m = re.match(r"^(r\d+)_", f.name)
+        st = f.stat()
+        out.append({"name": f.name, "rev": m.group(1) if m else "", "size": st.st_size,
+                    "at": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%m.%d %H:%M"),
+                    "url": prefix + "/final/" + urllib.parse.quote(f.name)})
+    return out
+
+
+def last_convert(log):
+    """이 리뷰 회차의 마지막 변환 신호(start·done·fail) — 없으면 None."""
+    evs = [e for e in read_events(log) if e.get("type") == "convert"] if log else []
+    return evs[-1] if evs else None
+
+
+def _final_file(wd, name):
+    """내려받을 인도본 — final/ 바로 아래의 실제 .hwpx만(경로 이탈·다른 확장자·폴더는 None)."""
+    d = (pathlib.Path(wd) / "final").resolve()
+    if not name or "/" in name or "\\" in name or name in (".", "..") or not name.lower().endswith(".hwpx"):
+        return None
+    f = (d / name).resolve()
+    return f if f.parent == d and f.is_file() else None
+
+
 def _stage(wd):
     """목록에 보일 단계 — 인도본·초안·아웃라인·분석 순으로 가장 앞선 산출물."""
     finals = sorted((wd / "final").glob("*.hwpx")) if (wd / "final").is_dir() else []
@@ -687,6 +726,7 @@ class Hub:
         self.started = datetime.datetime.now().isoformat(timespec="seconds")
         self.code = code_signature()          # 띄울 때의 서버 코드 — status가 지금 파일과 견줘 재시작 필요를 알린다
         self.stop = threading.Event()
+        self.linger_since = None              # 마지막 리뷰를 닫았지만 열린 탭이 있어 허브를 남긴 시각('26.9.28)
         self.cases = {}
         self.primary = self.case(work_dir, active=True)
         root = self.primary.wd.parent.parent
@@ -769,7 +809,8 @@ def make_server(work_dir, port=0):
 
     def state(case, doc):
         return {"boot": hub.boot, "ui": ui_version(), "version": case.live(doc).current()[1], "items": case.items(),
-                "perm": doc_perm(doc, case.active, is_record(case.wd, doc)), "cli": case.cli()}
+                "perm": doc_perm(doc, case.active, is_record(case.wd, doc)), "cli": case.cli(),
+                "finals": finals(case.wd, case.prefix), "convert": last_convert(case.log)}
 
     def watch_cli():
         """건별 CLI 상태가 바뀌면(wait 시작·끝, 세션 종료, 임대 만료) 열린 탭에 알린다 — 브라우저는 묻지 않는다.
@@ -777,6 +818,13 @@ def make_server(work_dir, port=0):
         last = {}
         while not hub.stop.wait(CLI_WATCH_SEC):
             hub.release_idle()
+            if hub.linger_since and not any(c.active for c in hub.cases.values()):
+                if any(lv.subs for c in list(hub.cases.values()) for lv in list(c.lives.values())):
+                    hub.linger_since = time.time()      # 탭이 열려 있는 동안은 유예를 새로 센다
+                elif time.time() - hub.linger_since > HUB_LINGER_SEC:
+                    hub.stop.set()
+                    srv.shutdown()
+                    return
             for c in list(hub.cases.values()):
                 cur = c.cli()
                 if last.get(c.key) != cur["state"]:
@@ -866,6 +914,12 @@ def make_server(work_dir, port=0):
                 if rest.startswith("/d/"):
                     doc = self._doc(case, rest[3:])
                     return self._send(200, case.live(doc).page(), "text/html; charset=utf-8")
+                if rest.startswith("/final/"):             # 인도본 내려받기 — 승인 뒤 화면의 '인도본 받기'('26.9.28)
+                    f = _final_file(case.wd, rest[len("/final/"):])
+                    if f is None:
+                        return self._json(404, {"error": "인도본이 없다"})
+                    cd = "attachment; filename*=UTF-8''" + urllib.parse.quote(f.name)
+                    return self._send(200, f.read_bytes(), "application/hwp+zip", {"Content-Disposition": cd})
                 doc = self._doc(case, q.get("doc"))
                 if rest == "/api/state":
                     return self._json(200, state(case, doc))
@@ -907,11 +961,13 @@ def make_server(work_dir, port=0):
             if case is None or not rest.startswith("/api/"):
                 return self._json(404, {"error": "not found"})
             name = rest[5:]
-            try:
-                doc = self._doc(case, body.get("doc"))
-            except ValueError as e:
-                return self._json(400, {"error": str(e)})
-            perm = doc_perm(doc, case.active, is_record(case.wd, doc))
+            doc = perm = None
+            if name not in NO_DOC_API:                  # 신호에는 문서가 없다 — 초안 전(게이트①)에 400으로 막히던 결함('26.9.28)
+                try:
+                    doc = self._doc(case, body.get("doc"))
+                except ValueError as e:
+                    return self._json(400, {"error": str(e)})
+                perm = doc_perm(doc, case.active, is_record(case.wd, doc))
             kind = body.get("kind", "수정")
             comment = str(body.get("comment", "")).strip()
             if name == "feedback" and kind in KINDS and (comment or kind in ("삭제", "좋음")):
@@ -996,6 +1052,18 @@ def make_server(work_dir, port=0):
                             "via": "browser"}             # CLI(wait·resolve·refresh)가 서버를 찾는 자리 — serve와 같다
                     (_drafts(case.wd) / STATE).write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
                 return self._json(200, {"ok": True, "cli": case.cli()})
+            if name == "convert":                       # 변환(④) 진행 — 기록에 남기고 열린 탭에 알린다('26.9.28)
+                phase = body.get("phase")
+                if phase not in CONVERT_PHASES:
+                    return self._json(400, {"error": "phase는 start·done·fail"})
+                e = {"type": "convert", "phase": phase, "note": str(body.get("note", ""))[:400],
+                     "at": datetime.datetime.now().isoformat(timespec="seconds")}
+                if case.log:
+                    e = append_event(case.log, e)
+                info = {"convert": e, "finals": finals(case.wd, case.prefix)}
+                for lv in list(case.lives.values()):
+                    lv.send("convert", info)
+                return self._json(200, {"ok": True, "finals": len(info["finals"])})
             if name == "notify":                        # CLI가 코멘트 상태만 바꿨을 때(wait의 '확인 중')
                 case.send_items()
                 return self._json(200, {"ok": True})
@@ -1004,8 +1072,11 @@ def make_server(work_dir, port=0):
                 for lv in list(case.lives.values()):
                     lv.send("items", case.items())
                 last = not any(c.active for c in hub.cases.values())
-                self._json(200, {"ok": True, "server_stopped": last})
-                if last:
+                tabs = any(lv.subs for c in list(hub.cases.values()) for lv in list(c.lives.values()))
+                linger = last and tabs                  # 열린 탭이 있으면 남긴다 — 승인 뒤 인도본을 받을 화면('26.9.28)
+                hub.linger_since = time.time() if linger else None
+                self._json(200, {"ok": True, "server_stopped": last and not linger, "linger": linger})
+                if last and not linger:
                     hub.stop.set()
                     threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return None
@@ -1482,16 +1553,26 @@ def wait(work_dir=None, timeout=None, all_cases=False, port=DEFAULT_PORT, grace=
             signal.signal(signal.SIGTERM, prev)
 
 
-def _ping(work_dir, path):
+def _ping(work_dir, path, body=None):
     """실행 중인 서버에 POST 한 번 — 서버가 없거나 응답이 없으면 False."""
     st = _state(work_dir)
     if not st:
         return False
     try:
-        urllib.request.urlopen(urllib.request.Request(st["url"] + path, data=b"{}", method="POST"), timeout=5)
+        data = json.dumps(body or {}, ensure_ascii=False).encode("utf-8")
+        urllib.request.urlopen(urllib.request.Request(st["url"] + path, data=data, method="POST",
+                                                      headers={"Content-Type": "application/json"}), timeout=5)
         return True
     except OSError:
         return False
+
+
+def convert(work_dir, phase, note=""):
+    """변환(④) 진행 신호 — 서버가 없어도 변환은 계속한다(exit 1은 알림만 못 했다는 뜻)."""
+    ok = _ping(work_dir, "api/convert", {"phase": phase, "note": note})
+    print(json.dumps({"signalled": ok, "phase": phase} if ok else
+                     {"signalled": False, "phase": phase, "reason": "실행 중인 서버 없음"}, ensure_ascii=False))
+    return 0 if ok else 1
 
 
 def resolve(work_dir, ids):
@@ -1569,6 +1650,9 @@ def main(argv=None):
     w.add_argument("--port", type=int, default=DEFAULT_PORT)
     r = sub.add_parser("resolve"); r.add_argument("work_dir"); r.add_argument("ids", nargs="+")
     f = sub.add_parser("refresh"); f.add_argument("work_dir")
+    cv = sub.add_parser("convert", help="변환(④) 진행을 열린 화면에 알린다 — 승인 뒤 start, 인도 뒤 done(실패면 fail)")
+    cv.add_argument("work_dir"); cv.add_argument("--phase", required=True, choices=CONVERT_PHASES)
+    cv.add_argument("--note", default="", help="화면에 함께 보일 한 줄(예: 예상 3쪽)")
     t = sub.add_parser("stop"); t.add_argument("work_dir")
     st = sub.add_parser("status", help="허브 상태(켜짐·PID·메모리·리뷰 중인 건·남은 연결 파일)")
     st.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -1603,6 +1687,8 @@ def main(argv=None):
         return resolve(a.work_dir, a.ids)
     if a.cmd == "refresh":
         return refresh(a.work_dir)
+    if a.cmd == "convert":
+        return convert(a.work_dir, a.phase, a.note)
     return stop(a.work_dir)
 
 

@@ -829,3 +829,134 @@ def test_view_only_case_cache_is_released_when_idle(tmp_path):
     finally:
         srv.hub.stop.set()
         srv.server_close()
+
+
+# ---------------------------------------------------------------------------
+# 승인 뒤 — 변환 진행 표시·인도본 내려받기·허브 유지('26.9.28 사용자 지적: '승인 · 변환' 뒤 화면이 꺼져 인도본을 못 받음)
+# ---------------------------------------------------------------------------
+
+def _events(resp):
+    def event():
+        name = data = None
+        while True:
+            line = resp.readline().decode("utf-8").rstrip("\n")
+            if line.startswith("event: "):
+                name = line[7:]
+            elif line.startswith("data: "):
+                data = json.loads(line[6:])
+            elif line == "" and name:
+                return name, data
+    return event
+
+
+def test_final_hwpx_downloads_with_korean_name_and_blocks_other_paths(tmp_path):
+    """final/의 인도본만 내려준다 — 한글 파일명은 RFC 5987, 경로 이탈·다른 확장자·없는 파일은 404."""
+    srv, base = _start(tmp_path)
+    (tmp_path / "final").mkdir()
+    name = "r01_20260928_시험 보고(안).hwpx"
+    (tmp_path / "final" / name).write_bytes(b"PK\x03\x04hwpx")
+    (tmp_path / "final" / "메모.txt").write_text("x", encoding="utf-8")
+    (tmp_path / "secret.hwpx").write_bytes(b"no")
+    try:
+        st = json.loads(_get(srv.case_url + "api/state"))
+        assert [f["name"] for f in st["finals"]] == [name] and st["finals"][0]["rev"] == "r01"
+        url = "http://127.0.0.1:%d" % srv.server_address[1] + st["finals"][0]["url"]
+        resp = urllib.request.urlopen(url, timeout=5)
+        assert resp.read() == b"PK\x03\x04hwpx"
+        assert resp.headers["Content-Type"] == "application/hwp+zip"
+        cd = resp.headers["Content-Disposition"]
+        assert cd.startswith("attachment;") and "filename*=UTF-8''" + urllib.parse.quote(name) in cd
+        for bad in ("final/메모.txt", "final/..%2Fsecret.hwpx", "final/%2E%2E/secret.hwpx", "final/없음.hwpx", "final/"):
+            try:
+                urllib.request.urlopen(srv.case_url + urllib.parse.quote(bad, safe="/%"), timeout=5)
+                assert False, bad
+            except urllib.error.HTTPError as e:
+                assert e.code == 404, bad
+    finally:
+        srv.shutdown()
+
+
+def test_convert_signal_is_logged_and_pushed_to_open_tabs(tmp_path):
+    """승인 뒤 CLI 신호(start → done)가 기록에 남고 열린 탭에 convert 이벤트로 간다 — done에는 인도본 목록이 실린다."""
+    srv, base = _start(tmp_path)
+    resp = urllib.request.urlopen(base + "/api/events", timeout=10)
+    event = _events(resp)
+    try:
+        name, hello = event()
+        assert name == "hello" and hello["convert"] is None and hello["finals"] == []
+        _post(base + "/api/decision", {"decision": "approved", "factcheck": "경량"})
+        assert event()[0] == "items"
+        _post(base + "/api/convert", {"phase": "start"})
+        name, d = event()
+        assert name == "convert" and d["convert"]["phase"] == "start" and d["finals"] == []
+        (tmp_path / "final").mkdir()
+        (tmp_path / "final" / "r01_20260928_시험 보고.hwpx").write_bytes(b"PK")
+        _post(base + "/api/convert", {"phase": "done", "note": "3쪽"})
+        name, d = event()
+        assert name == "convert" and d["convert"]["phase"] == "done" and d["convert"]["note"] == "3쪽"
+        assert [f["rev"] for f in d["finals"]] == ["r01"]
+        assert [e["phase"] for e in rs.read_events(srv.log_path) if e.get("type") == "convert"] == ["start", "done"]
+        assert json.loads(_get(srv.case_url + "api/state"))["convert"]["phase"] == "done"
+        assert _post_code(base + "/api/convert", {"phase": "rm -rf"})[0] == 400
+    finally:
+        srv.live.stop.set()
+        resp.close()
+        srv.shutdown()
+
+
+def test_closing_last_review_keeps_hub_while_a_tab_is_open(tmp_path, monkeypatch):
+    """마지막 건의 리뷰를 닫아도 열린 탭이 있으면 허브를 남긴다(인도본을 받을 수 있게) — 탭이 없어진 뒤 유예가 지나면 끈다."""
+    monkeypatch.setattr(rs, "HUB_LINGER_SEC", 0.5)
+    monkeypatch.setattr(rs, "CLI_WATCH_SEC", 0.2)
+    monkeypatch.setattr(rs, "KEEPALIVE_SEC", 0.3)      # 닫힌 탭은 다음 연결 유지 줄을 쓰다 실패할 때 빠진다
+    srv, base = _start(tmp_path)
+    resp = urllib.request.urlopen(base + "/api/events", timeout=10)
+    event = _events(resp)
+    done = threading.Event()
+    try:
+        assert event()[0] == "hello"
+        r = _post(srv.case_url + "api/deactivate", {})
+        assert r["server_stopped"] is False and r["linger"] is True
+        time.sleep(1.0)
+        assert json.loads(_get(base + "/api/hub"))["hub"] is True          # 탭이 열려 있는 동안은 산다
+        resp.close()                                                       # 탭 닫기(허브 stop 이벤트는 건드리지 않는다)
+        def gone():
+            try:
+                _get(base + "/api/hub")
+                return False
+            except OSError:
+                return True
+        deadline = time.time() + 8
+        while time.time() < deadline and not gone():
+            time.sleep(0.2)
+        assert gone(), "탭을 닫고 유예가 지났는데 허브가 남았다"
+        done.set()
+    finally:
+        if not done.is_set():
+            srv.live.stop.set()
+            resp.close()
+            srv.shutdown()
+
+
+def test_refresh_and_convert_do_not_need_a_draft(tmp_path):
+    """게이트①(초안 전)에도 갱신·변환 신호가 통한다 — 종전에는 doc 기본값이 초안이라 400으로 막혔다('26.9.28 실측)."""
+    (tmp_path / "10_outline.md").write_text("# 아웃라인\n", encoding="utf-8")
+    srv = rs.make_server(tmp_path)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        assert _post(srv.case_url + "api/refresh", {})["ok"] is True
+        assert _post(srv.case_url + "api/convert", {"phase": "start"})["ok"] is True
+    finally:
+        srv.shutdown()
+
+
+def test_convert_cli_without_server_does_not_block_export(tmp_path, capsys):
+    """리뷰 서버 없이 변환해도 신호가 변환을 막지 않는다 — exit 1과 사유만."""
+    assert rs.main(["convert", str(tmp_path), "--phase", "done"]) == 1
+    assert json.loads(capsys.readouterr().out)["signalled"] is False
+
+
+def test_overlay_shows_convert_progress_and_download():
+    html = rs.overlay()
+    assert 'id="rv-final"' in html and "addEventListener('convert'" in html
+    assert "변환 중" in html and "인도본 받기" in html and "변환 실패" in html

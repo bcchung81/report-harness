@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.6.3-green.svg)
+![version](https://img.shields.io/badge/version-0.6.4-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -329,6 +329,8 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 `all`이면 리뷰 중인 건 전부, `닫기`면 그 건의 리뷰를 닫는다. 서버(3333) 자체는 `/report-review 상태`로 확인하고
 `재시작`(서버 코드를 고쳤거나 메모리를 비울 때 — 리뷰 중인 건은 그대로 다시 등록)·`끄기`(허브 전체와 대기 작업까지
 정리)로 올리고 내린다. 서버는 띄운 Claude 세션과 함께 꺼지므로, 새 세션에서는 다시 연다.
+'승인 · 변환'을 누르면 알약이 '변환 중' → '인도본 받기'로 바뀌어 변환된 hwpx를 리뷰어에서 바로 내려받는다(탐색 서랍의
+'인도본' 목록도 같다). 리뷰를 닫아도 탭이 열려 있는 동안 서버가 남는다.
 
 ## 시작하기
 
