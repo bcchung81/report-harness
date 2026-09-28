@@ -73,6 +73,23 @@ Claude Code를 실행한 뒤 프롬프트에 순서대로 입력한다.
 
 > 설치 대신 `/plugin` 메뉴에서 GUI로 골라 설치해도 된다.
 
+### 1-1. clone해서 바로 쓰기
+
+저장소를 받아 그대로 쓸 수도 있다(내부망 반입본·고친 판 시험 등). 파이썬 패키지 설치 단계는 없다.
+
+```bash
+git clone https://github.com/bcchung81/report-harness.git
+```
+
+- **이번 세션만** — `claude --plugin-dir ./report-harness`. 설치 없이 이 폴더를 플러그인으로 불러온다(스킬·커맨드·훅·MCP 전부).
+- **계속 쓰기** — Claude Code 안에서 `/plugin marketplace add ./report-harness` → `/plugin install report-harness@report-harness`.
+  갱신은 `git pull` 뒤 `claude plugin marketplace update report-harness` → `claude plugin update report-harness@report-harness`
+  (버전이 올라갔을 때만 받아진다, §6-1).
+
+Claude Code는 **clone 폴더 밖의 업무 폴더**에서 여는 것을 권한다. 설정 파일이 없으면 작업폴더(`reports/`)와 운영
+규칙(`.report-harness/`)이 실행 위치에 생긴다 — clone 폴더 안에서 써도 두 폴더는 gitignore와 배포 가드
+(`scripts/package_check.sh`)가 막지만, 기관 자료는 공개 저장소 밖에 두는 편이 안전하다. 경로를 고정하려면 §8.
+
 ## 2. 설치 확인
 
 **① 스킬·커맨드 등록 확인**

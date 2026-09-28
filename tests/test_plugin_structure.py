@@ -124,3 +124,21 @@ def test_kordoc_version_in_docs_matches_mcp_pin():
             for m in re.findall(r"kordoc@\d+\.\d+\.\d+", p.read_text(encoding="utf-8")):
                 seen.setdefault(m, []).append(p.name)
     assert set(seen) <= {pin}, {k: v for k, v in seen.items() if k != pin}
+
+
+def test_default_output_dirs_are_gitignored_and_banned(monkeypatch, tmp_path):
+    """clone한 폴더에서 바로 쓰면(claude --plugin-dir .) 설정 없는 기본 거처가 저장소 안에 생긴다 — 기관 보고서·운영
+    규칙이 public 저장소로 넘어가지 않게 gitignore와 배포 가드(package_check.sh)가 둘 다 막아야 한다('26.9.28 점검)."""
+    import subprocess, sys
+    sys.path.insert(0, str(ROOT / "skills/report-pipeline/scripts"))
+    import harness_config
+    monkeypatch.setenv("REPORT_HARNESS_CONFIG", str(tmp_path / "없음.json"))
+    monkeypatch.chdir(ROOT)
+    cfg = harness_config.load_config()
+    guard = (ROOT / "scripts/package_check.sh").read_text(encoding="utf-8")
+    for key in ("reports_dir", "state_dir"):
+        rel = pathlib.Path(cfg[key]).resolve().relative_to(ROOT).as_posix()
+        probe = f"{rel}/20260101/0900_시험/20_draft.md"
+        r = subprocess.run(["git", "-C", str(ROOT), "check-ignore", "-q", "--no-index", probe])
+        assert r.returncode == 0, f"{rel}/ 가 gitignore되지 않았다"
+        assert f'"{rel}"' in guard, f"{rel} 가 package_check.sh 금지 목록에 없다"

@@ -171,6 +171,13 @@ def test_compare_ignores_readback_escapes():
     assert not [i for i in compare_texts(src, rt) if i["rule"] == "content-dropped"]
 
 
+def test_compare_ignores_readback_dollar_escape():
+    """되읽기는 `$`도 `\\$`로 이스케이프한다 — 달러 금액이 든 문장·표 칸이 통째로 소실로 잡혔다('26.9.28 PDCA 건 8건)."""
+    src = " ㅇ 월 $100씩 결제\n| 구 분 | 월 요금 |\n| --- | --- |\n| 서버 | $20 |\n"
+    rt = " ㅇ 월 \\$100씩 결제\n| 구 분 | 월 요금 |\n| --- | --- |\n| 서버 | \\$20 |\n"
+    assert not [i for i in compare_texts(src, rt) if i["rule"] == "content-dropped"]
+
+
 def test_content_pieces_flattens_table_cells():
     pieces = content_pieces("| 구 분 | 내 용 |\n| --- | --- |\n| 도입 | 절차 점검 |\n")
     assert pieces == ["구 분", "내 용", "도입", "절차 점검"]

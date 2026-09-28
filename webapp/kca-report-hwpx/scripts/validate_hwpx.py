@@ -228,7 +228,8 @@ def has_markdown_leftover(line, title=None, src_pieces=frozenset()):
 
 # 되읽기가 붙이는 마크다운 이스케이프(`~` → `\~` 등)와 생성기 머리말. 문장 대조 전에
 # 걷어내지 않으면 멀쩡한 문장이 통째로 '소실'로 잡힌다('26.9.10 실측 — 4건에서 47조각).
-UNESCAPE = re.compile(r"\\([~*_`#\[\]])")
+# `$`도 `\$`로 온다 — 달러 금액이 든 문장·표 칸 8건이 소실로 잡혔다('26.9.28 PDCA 건).
+UNESCAPE = re.compile(r"\\([~*_`#\[\]$])")
 RT_PREAMBLE = re.compile(r"^(?:\[포맷:|📑|!\[)")
 SENT_LEAD = re.compile(r"^\s*(?:[□ㅇ○▪·ㆍ＊※☞]|-|\*|\d+[.)])\s*")
 RIGHT_TAG = re.compile(r"</?right>")

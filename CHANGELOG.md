@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.6 (2026-09-28)
+
+git clone 직후 바로 쓸 수 있는지 점검했다(새로 clone → 테스트 → 격리 설정 폴더에서 로컬 마켓플레이스 설치·`plugin details`
+→ 빈 업무 폴더에서 첫 실행·자가진단).
+
+- **CI 복구** — 0.6.3부터 GitHub CI(ubuntu)가 `test_status_and_down_close_hub_waiters_and_leftover_state` 한 건으로 실패하고
+  있었다. 리눅스는 fork 직후 잠깐 부모의 명령줄이 보여, 대기 프로세스를 띄운 직후의 `ps` 확인이 빗나갔다(macOS는
+  posix_spawn이라 로컬에서 재현되지 않음). 테스트가 명령줄이 바뀔 때까지 기다린다 — 제품 코드는 그대로다.
+- **기본 산출 거처 제외** — 설정 없이 돌리면 실행 위치에 `reports/`·`.report-harness/`가 생기는데 gitignore에 없어, clone
+  폴더 안에서 쓰면 기관 보고서·운영 규칙이 `git add -A` 한 번에 공개 저장소로 넘어갈 수 있었다. gitignore와 배포 가드
+  (`package_check.sh`) 금지 목록에 넣고, 둘이 설정 기본값과 어긋나면 테스트가 잡는다. 루트 `.env`·`.env.*`도 제외.
+- **clone 설치 안내** — 설치 문서 §1-1과 README에 `claude --plugin-dir ./report-harness`(세션 한정)·로컬 마켓플레이스 설치를 적었다.
+- **왕복 대조 `$` 오탐** — 되읽기가 `$`를 `\$`로 이스케이프하는데 대조가 걷어내지 않아, 달러 금액이 든 문장·표 칸이
+  '내용 누락'으로 잡혔다('26.9.28 실변환 8건). 이스케이프 목록에 `$`를 넣었다(웹앱 사본·패키지 동기화).
+
 ## 0.6.5 (2026-09-28)
 
 - **배포 저장소 일원화** — `kca-deep/report-harness`를 삭제해 저장소를 `bcchung81/report-harness` 하나로 모았다.

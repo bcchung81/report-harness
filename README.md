@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.6.5-green.svg)
+![version](https://img.shields.io/badge/version-0.6.6-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -339,6 +339,9 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 | **하네스** — 개발 노트북, 전 구간 | [docs/install-harness.md](docs/install-harness.md) | `/plugin install report-harness@report-harness` |
 | **웹앱 스킬** — Claude·ChatGPT·Gemini | [docs/install-webapp.md](docs/install-webapp.md) | 스킬 파일 하나 업로드 |
 | **claudian 위키** — 선택 | [bcchung81/claudian](https://github.com/bcchung81/claudian) | 별도 저장소 `INSTALL.md` |
+
+저장소를 clone했다면 설치 없이 `claude --plugin-dir ./report-harness`로 바로 쓰거나 `/plugin marketplace add ./report-harness`
+로 로컬 설치한다([설치 문서 §1-1](docs/install-harness.md#1-1-clone해서-바로-쓰기)).
 
 이미 설치했다면 갱신은 `claude plugin marketplace update report-harness` → `claude plugin update report-harness@report-harness`
 → Claude Code 재시작. 첫 요청에서 운영 규칙이 새 판에 맞춰진다(직접 쌓은 규칙은 그대로). 판마다 바뀐 것은

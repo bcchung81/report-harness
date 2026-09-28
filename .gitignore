@@ -14,6 +14,16 @@ docs/analysis/
 # 하네스 코드는 이 폴더에 의존하지 않는다(경로는 ~/.claude/report-harness.json 설정 주입).
 report/
 
+# 하네스 기본 산출 거처 — 설정 파일(~/.claude/report-harness.json) 없이 실행하면 실행 위치(cwd) 기준으로
+# reports/(작업폴더)·.report-harness/(rules.md·lessons.jsonl)가 생긴다. 이 저장소를 clone한 폴더에서 바로 쓰면
+# (claude --plugin-dir .) 기관 보고서·운영 규칙이 여기 쌓이므로 report/와 같은 사유로 제외한다('26.9.28 점검).
+reports/
+.report-harness/
+
+# 인증키(LAW_OC 등)를 담은 환경 파일 — 저장소 루트에 두는 일이 잦다
+.env
+.env.*
+
 # dist/는 추적한다 ('26.9.10 전환). 종전에 제외한 이유는 'zip 바이트가 빌드마다 달라
 # 이력에 쌓인다'였는데, 빌드를 결정론으로 바꿔(멤버 정렬 + 고정 타임스탬프) 내용이 같으면
 # 바이트도 같아진 뒤로는 그 사유가 사라졌다. 배포 대상이 5종(claude·chatgpt·gemini·codex·

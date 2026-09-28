@@ -761,6 +761,10 @@ def test_status_and_down_close_hub_waiters_and_leftover_state(tmp_path, capsys):
     leftover = c / "history/drafts/.review_server.json"                  # 비정상 종료로 남은 연결 파일
     leftover.write_text(json.dumps({"port": port}), encoding="utf-8")
     waiter = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "review_server.py", "wait"])
+    for _ in range(100):                     # 리눅스는 fork 직후 잠깐 부모(pytest)의 명령줄이 보인다 — exec가 끝날 때까지 기다린다
+        if rs._is_wait(waiter.pid):           # (CI ubuntu에서 0.6.3부터 `[] == [pid]`로 실패, macOS는 posix_spawn이라 재현 안 됨)
+            break
+        time.sleep(0.05)
     now = time.time()
     (a / "history/drafts/.review_owner.json").write_text(json.dumps(
         {"owner": "s1", "pid": waiter.pid, "waiting": True, "seen": now, "since": now, "waiter": waiter.pid}),
