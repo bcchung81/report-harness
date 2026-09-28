@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.6.4-green.svg)
+![version](https://img.shields.io/badge/version-0.6.5-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -342,7 +342,7 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 
 이미 설치했다면 갱신은 `claude plugin marketplace update report-harness` → `claude plugin update report-harness@report-harness`
 → Claude Code 재시작. 첫 요청에서 운영 규칙이 새 판에 맞춰진다(직접 쌓은 규칙은 그대로). 판마다 바뀐 것은
-[CHANGELOG](CHANGELOG.md)와 [릴리스](https://github.com/kca-deep/report-harness/releases)에 있다.
+[CHANGELOG](CHANGELOG.md)와 [릴리스](https://github.com/bcchung81/report-harness/releases)에 있다.
 
 더 들어가려면 — [의존성과 라이선스](docs/licenses.md)에 원작자 고지 전문이,
 [개발자용](docs/developing.md)에 로컬 검증·패키징·테스트가 있다.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.5 (2026-09-28)
+
+- **배포 저장소 일원화** — `kca-deep/report-harness`를 삭제해 저장소를 `bcchung81/report-harness` 하나로 모았다.
+  플러그인 매니페스트(홈페이지·저장소·마켓플레이스 소유자)와 설치 안내를 옮겼다. 설치는
+  `/plugin marketplace add bcchung81/report-harness` → `/plugin install report-harness@report-harness`다.
+  README·웹앱 설치 문서의 릴리스 링크, 개발 문서의 태그·릴리스 명령(`deploy` 원격 푸시 삭제)도 같다.
+  지난 절(0.5.x)의 kca-deep 안내는 당시 기록이라 그대로 둔다.
+
 ## 0.6.4 (2026-09-28)
 
 - **승인 뒤 화면에서 인도본 받기** — 종전에는 리뷰어에서 '승인 · 변환'을 누르면 게이트② 절차가 곧바로 `stop`을 불러

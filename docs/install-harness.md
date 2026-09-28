@@ -59,7 +59,7 @@ unset ANTHROPIC_API_KEY
 Claude Code를 실행한 뒤 프롬프트에 순서대로 입력한다.
 
 ```
-/plugin marketplace add kca-deep/report-harness
+/plugin marketplace add bcchung81/report-harness
 ```
 
 이 저장소는 **플러그인이면서 동시에 마켓플레이스**다(`.claude-plugin/marketplace.json`).

@@ -9,7 +9,7 @@
 ## 실무자: 설치
 
 자기 플랫폼용 파일을 하나 받아 올리면 끝이다. 파일은 운영자에게 받거나
-[릴리스 페이지](https://github.com/kca-deep/report-harness/releases/latest)의 첨부 파일에서 내려받는다.
+[릴리스 페이지](https://github.com/bcchung81/report-harness/releases/latest)의 첨부 파일에서 내려받는다.
 
 | 플랫폼 | 받을 파일 | 등록 경로 |
 |---|---|---|

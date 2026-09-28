@@ -46,7 +46,7 @@ bash scripts/package_check.sh
 
 설치본은 **버전으로** 갱신을 판단한다. 격리 설정 폴더(`CLAUDE_CONFIG_DIR`)로 배포 저장소를 설치한 뒤 새 커밋을 푸시하고
 `claude plugin update report-harness@report-harness`를 돌리면, 버전이 같을 때는 `already at the latest version`으로
-끝나고 설치본은 옛 커밋에 머문다('26.9.25 재현). 배포 저장소(`kca-deep/report-harness`)로 내보내는 묶음마다
+끝나고 설치본은 옛 커밋에 머문다('26.9.25 재현). 배포 저장소(`bcchung81/report-harness`, 원격 origin — '26.9.28 kca-deep 저장소 삭제로 일원화)로 내보내는 묶음마다
 `.claude-plugin/plugin.json`·`marketplace.json`의 버전을 함께 올리고(`test_plugin_structure.py`가 둘의 일치를 본다)
 CHANGELOG에 절을 단다.
 
@@ -55,15 +55,15 @@ CHANGELOG에 절을 단다.
 
 ```bash
 claude plugin tag . -m "report-harness %s — 한 줄 요약"
-git push origin refs/tags/report-harness--v{버전} && git push deploy refs/tags/report-harness--v{버전}
-gh release create report-harness--v{버전} -R kca-deep/report-harness --notes-file <CHANGELOG 해당 절> dist/kca-report-hwpx-*
+git push origin refs/tags/report-harness--v{버전}
+gh release create report-harness--v{버전} -R bcchung81/report-harness --notes-file <CHANGELOG 해당 절> dist/kca-report-hwpx-*
 ```
 
 설치·갱신 경로를 사용자 설정을 건드리지 않고 재현하려면:
 
 ```bash
 export CLAUDE_CONFIG_DIR=$(mktemp -d)
-claude plugin marketplace add kca-deep/report-harness
+claude plugin marketplace add bcchung81/report-harness
 claude plugin install report-harness@report-harness
 claude plugin details report-harness@report-harness      # 스킬·훅·MCP 구성과 상시 토큰 비용
 claude plugin validate . --strict                        # 저장소 매니페스트 검증(루트 CLAUDE.md 경고는 의도 — 개발자용 문서)

@@ -2,14 +2,14 @@
   "name": "report-harness",
   "description": "기관보고서(개조식·hwpx) 작성 하네스 배포 마켓플레이스",
   "owner": {
-    "name": "kca-deep",
-    "url": "https://github.com/kca-deep"
+    "name": "bcchung81",
+    "url": "https://github.com/bcchung81"
   },
   "plugins": [
     {
       "name": "report-harness",
       "description": "기관보고서 하네스 — 자료조사·분석·초안(개조식)·hwpx 변환 4단계 파이프라인. 복리축적(lessons→rules)·시간예산 30분·게이트 3회.",
-      "version": "0.6.4",
+      "version": "0.6.5",
       "source": "./",
       "author": {
         "name": "bcchung81"
