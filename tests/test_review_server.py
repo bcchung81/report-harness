@@ -1,5 +1,5 @@
 """라이브 리뷰 서버 — 창을 닫지 않고 코멘트를 여러 번 보내고, 초안 변경이 바로 보인다 (review_server.py)."""
-import sys, os, json, time, pathlib, subprocess, threading, urllib.request, urllib.error, re
+import sys, os, json, time, pathlib, subprocess, threading, urllib.request, urllib.error, re, shutil
 import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "skills/report-pipeline/scripts"))
 import review_server as rs
@@ -430,8 +430,9 @@ def test_left_rail_holds_navigation_not_top_bar():
     assert "classList.toggle('rv-dopen'" in ov and "(min-width:1640px)" not in ov
     assert "zoom:var(--rv-z,1)" in ov and "/ var(--rv-z,1))" in ov              # zoom이 여백에도 걸리므로 나눠 준다
     fit = re.search(r"function fitPage\(\)\{.*?setProperty\('--rv-note-w'.*?\}", ov, re.S).group(0)
-    assert "drawer?DRAWER_W:RAIL_W" in fit and "--rv-note-w" in fit
-    assert "fitPage();" in re.search(r"function openDrawer\(t\)\{.*?\n.*?\n", ov, re.S).group(0)
+    assert "layoutFor(vw,!!drawer,pw)" in fit and "--rv-note-w" in fit           # 서랍이 열렸는지가 배치에 들어간다
+    opening = ov[ov.index("function openDrawer(t){"):ov.index("let glideT")]
+    assert "fitPage()" in opening and opening.index("glide()") < opening.index("fitPage()")   # 애니메이션을 켠 뒤 자리를 바꾼다
     assert "addEventListener('resize',()=>{fitPage(); layoutNotes()})" in ov
     # 쪽수 탐침은 쪽 안에서 재야 쪽이 축소돼도 문단과 같은 좌표계다
     pag = re.search(r"function paginate\(\)\{.*?layoutNotes\(\) \}", ov, re.S).group(0)
@@ -640,6 +641,103 @@ def test_sent_comment_is_held_for_grace_so_it_can_be_undone(tmp_path):
         assert [x["comment"] for x in rs.collect_pending(srv.log_path, grace=5)] == ["남는다"]
     finally:
         srv.shutdown()
+
+
+def test_overlay_switches_documents_in_place_without_reload():
+    """왼쪽 목록(자료 포함)에서 문서를 눌러도 화면을 새로 읽지 않는다 — 오른쪽 문서 영역만 바꾼다('26.9.30 사용자 지적).
+    종전에는 목록 항목이 일반 링크(location 이동)라 누를 때마다 서랍·스크롤·연결이 통째로 초기화됐다."""
+    ov = rs.overlay()
+    for need in ("function navigate(", "history.pushState", "history.replaceState", "addEventListener('popstate'",
+                 "a.dataset.doc=d.doc", "function connect(", "es.close()"):
+        assert need in ov, need
+    # 문서 바꾸기는 navigate 하나로 — 페이지 이동은 그 안의 실패 대비 한 곳만 남는다
+    assert len(re.findall(r"location\.href=docURL\(", ov)) == 1
+    assert "navigate(a.dataset.doc)" in ov and "navigate(ds[j].doc)" in ov and "run:()=>navigate(d.doc)" in ov
+    body = ov[ov.index("async function navigate("):ov.index("// 직접 수정")]
+    assert "location.href=docURL(" in body and "catch" in body                    # 못 읽으면 종전처럼 페이지 이동으로 되돌아간다
+    # 목록 클릭 가로채기 — 새 탭·복사 같은 보조 클릭과 내려받기 줄(download)은 브라우저에 맡긴다
+    hook = body[body.index("$('rv-tree').addEventListener('click'"):]
+    for need in ("ev.metaKey", "ev.ctrlKey", "ev.shiftKey", "ev.altKey", "ev.button", "a.hasAttribute('download')", "ev.preventDefault()"):
+        assert need in hook, need
+    # 문서마다 다른 값(문서·권한·쪽 종류·저장 이름공간)은 상수가 아니라 문서를 바꿀 때 함께 바뀌는 상태여야 한다
+    assert "let RVX=window.__RV||{}, DOC, PERM, DOCMODE, NS;" in ov and "function setDoc(" in ov
+    # 문서를 바꿀 때 문서별 상태를 새 문서 것으로 갈아 끼운다 — 권한·바뀐 곳·쓰던 글·연결
+    for step in ("setDoc(pg.rv)", "applyDocUI()", "markChanged(get('rv-prev',null),now)", "restoreCompose()", "connect()", "drawTree()", "paginate()"):
+        assert step in body, step
+    assert body.index("saveCompose()") < body.index("setDoc(pg.rv)")              # 쓰던 글은 떠나는 문서 몫으로 먼저 남긴다
+
+
+def _layout_block():
+    m = re.search(r"/\*LAYOUT-BEGIN\*/(.*?)/\*LAYOUT-END\*/", rs.overlay(), re.S)
+    assert m, "배치 계산 블록(LAYOUT-BEGIN~END)이 없다"
+    return m.group(1)
+
+
+def _layout_table(widths, page_w=793.7):
+    """오버레이의 배치 계산(layoutFor)을 node로 그대로 실행해 폭 표를 얻는다 — 브라우저 없이 검사."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node 없음 — 배치 계산 표 검사는 건너뛴다")
+    js = (_layout_block() + "\nconst rows=[];for(const open of [false,true])for(const vw of " + json.dumps(widths)
+          + ")rows.push(Object.assign({vw:vw,open:open},layoutFor(vw,open," + str(page_w) + ")));"
+          "console.log(JSON.stringify({rows:rows,k:{GAP,RIGHT_M,NOTE_MIN,NOTE_MAX,Z_MIN,Z_FLOOR,RAIL_R,DRAWER_R}}))")
+    out = subprocess.run([node, "-e", js], capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout)
+
+
+def test_layout_keeps_gaps_and_never_scales_page_up():
+    """좌(아이콘 줄·서랍)·가운데(쪽)·우(메모 열)는 어느 창 폭에서도 최소 간격을 두고, 쪽은 100%보다 키우지 않는다
+    ('26.9.30 사용자 지시: 너무 붙지 않게 · 브라우저 전체 활용 · 넓은 화면은 100% 고정). 종전에는 서랍↔쪽 12px,
+    좁은 창에서 메모가 쪽을 최대 376px 덮고, 2560px에서 좌우가 각 640px 비었다."""
+    t = _layout_table([768, 860, 940, 1000, 1009, 1024, 1100, 1280, 1366, 1440, 1512, 1728, 1920, 2200, 2560, 3440])
+    k, eps, page_w = t["k"], 1e-6, 793.7
+    for r in t["rows"]:
+        tag = f"vw={r['vw']} 서랍={'열림' if r['open'] else '닫힘'}"
+        assert r["z"] <= 1 + eps, tag                                             # 쪽은 키우지 않는다(100% 고정)
+        if not r["fit"]:
+            assert r["vw"] < 900, tag                                             # 메모가 쪽을 덮는 배치는 아주 좁은 창뿐(1024px도 쪽을 줄여 비켜 선다)
+            continue
+        page_r = r["ml"] + page_w * r["z"]
+        assert k["Z_FLOOR"] - eps <= r["z"] <= 1 + eps, tag
+        if r["open"] and not r["over"]:
+            assert r["z"] >= k["Z_MIN"] - eps, tag                                # 서랍이 쪽을 미는 배치는 쪽을 0.7 밑으로 줄이지 않는다
+        assert k["NOTE_MIN"] - eps <= r["nw"] <= k["NOTE_MAX"] + eps, tag
+        assert r["ml"] - r["L"] >= k["GAP"] - eps, tag                            # 왼쪽 패널 ↔ 쪽
+        assert r["noteX"] - page_r >= k["GAP"] - eps, tag                         # 쪽 ↔ 메모 열 — 겹치지 않는다
+        assert r["vw"] - (r["noteX"] + r["nw"]) >= k["RIGHT_M"] - eps, tag        # 메모 열 ↔ 창 오른쪽
+    rows = {(r["vw"], r["open"]): r for r in t["rows"]}
+    # 서랍이 쪽을 밀 자리가 없으면 쪽 위에 얹는다(밀 수 있는 폭에서는 밀어서 쪽과 겹치지 않는다)
+    assert not rows[(1728, True)]["over"] and rows[(1280, True)]["over"] and not rows[(1280, False)]["over"]
+    assert all(not r["over"] for r in t["rows"] if not r["open"])
+    # 넓은 창 — 메모 열을 넓히고 남는 폭은 좌우에 같게 나눠 [쪽|메모] 묶음이 가운데에 온다(서랍이 열려도 쏠리지 않는다)
+    for open_ in (False, True):
+        r = rows[(2560, open_)]
+        left_slack = r["ml"] - (r["L"] + k["GAP"])
+        right_slack = r["vw"] - (r["noteX"] + r["nw"]) - k["RIGHT_M"]
+        assert r["z"] == 1 and r["nw"] == k["NOTE_MAX"] and abs(left_slack - right_slack) < 1, open_
+        assert left_slack > 100                                                   # 실제로 남는 폭을 양옆에 나눴다
+
+
+def test_layout_keeps_gaps_when_page_is_wider_than_paper():
+    """쪽 폭 값이 달라도(md 보기 등) 같은 규칙이 지켜진다."""
+    for page_w in (700, 900):
+        t = _layout_table([1280, 1600, 2000], page_w)
+        for r in t["rows"]:
+            if r["fit"]:
+                assert r["noteX"] - (r["ml"] + page_w * r["z"]) >= t["k"]["GAP"] - 1e-6, (page_w, r["vw"], r["open"])
+
+
+def test_overlay_layout_is_resize_safe():
+    """창 크기를 바꿔도 어긋나지 않는다 — 메모 자리는 쪽의 (전환 중일 수 있는) 실제 위치가 아니라 계산값으로 잡고,
+    쪽 이동 애니메이션은 서랍 여닫을 때만 켠다. 선 레이어는 문서 크기로 제 폭을 정하지 않는다(가로 스크롤이 남던 결함)."""
+    ov = rs.overlay()
+    assert "layoutFor(" in ov and "LAY.noteX" in ov
+    assert "pg.getBoundingClientRect().right" not in ov[ov.index("function notesX("):ov.index("function anchorY(")]
+    assert re.search(r"^\.page\{[^}]*transition", ov, re.M) is None                # 평소엔 쪽이 애니메이션 없이 제자리에 선다
+    assert "body.rv-gliding .page{transition:margin-left" in ov                    # 서랍 여닫을 때만
+    assert "svg.setAttribute('width',d.scrollWidth)" not in ov and "svg.setAttribute('height',d.scrollHeight)" not in ov
+    assert "body.rv-dover.rv-dopen::after" in ov                                   # 서랍이 쪽 위에 얹힐 때 뒤를 살짝 어둡게
 
 
 def test_overlay_interactive_components():

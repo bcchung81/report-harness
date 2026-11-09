@@ -11,7 +11,7 @@ html,body{background:var(--rv-desk)!important}
 body{padding:60px 0 48px}
 /* 쪽은 왼쪽 아이콘 줄 옆, 오른쪽을 메모 열로 비운다(줄 80 + 쪽 794 + 간격 28 + 메모 380 + 여유 20).
    왼쪽 여백(--rv-ml)·배율(--rv-z)·메모 폭은 fitPage()가 창 폭과 서랍 상태로 정한다 — zoom은 여백에도 걸리므로 나눠 준다 */
-.page{transition:margin-left .2s ease;zoom:var(--rv-z,1);margin:16px 0 16px calc(var(--rv-ml, max(92px, calc((100vw - 1302px) / 2 + 92px))) / var(--rv-z,1))!important;box-shadow:0 2px 6px rgba(30,28,20,.10),0 18px 40px rgba(30,28,20,.08)!important}
+.page{zoom:var(--rv-z,1);margin:16px 0 16px calc(var(--rv-ml, max(108px, calc((100vw - 1302px) / 2 + 108px))) / var(--rv-z,1))!important;box-shadow:0 2px 6px rgba(30,28,20,.10),0 18px 40px rgba(30,28,20,.08)!important}
 /* 서랍이 열려도 쪽을 덮지 않는다 — 폭과 관계없이 쪽을 서랍 오른쪽으로 밀고, 모자라면 메모 폭 → 쪽 배율 순으로 줄인다(fitPage).
    종전에는 1640px 이상에서만 밀고 그보다 좁으면 덮었다('26.9.25 사용자 지적 — 노트북 폭에서 서랍이 본문을 가림) */
 .rv-ui{font:13px/1.5 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;color:var(--rv-ink)}
@@ -151,9 +151,10 @@ kbd{font:11px ui-monospace,Menlo,monospace;background:rgba(255,255,255,.2);borde
 .rv-edit .bar button{border:0;border-radius:8px;padding:5px 12px;font:700 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif;cursor:pointer}
 .rv-edit .save{background:var(--rv-blue);color:#fff}
 .rv-edit .cancel{background:#EEF1F5;color:#344054}
-td.rv-editing,th.rv-editing{padding:2px!important}
-td.rv-editing .rv-edit,th.rv-editing .rv-edit{padding:4px;border-width:1.5px}
-td.rv-editing textarea,th.rv-editing textarea{font-size:12pt}
+/* 표 칸 — 칸 안에 넣으면 좁은 열 폭으로 세로로 깨지므로 칸은 그대로 두고 표시만, 편집창은 칸 밖 팝오버로 띄운다 */
+td.rv-editing,th.rv-editing{outline:2px dashed var(--rv-blue);outline-offset:-2px;background:#F7FBFE!important}
+.rv-edit.pop{position:absolute;z-index:44;width:min(480px,calc(100vw - 32px));box-shadow:0 12px 32px rgba(15,23,42,.22);font:14px/1.6 "Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+.rv-edit.pop textarea{font-size:14px;min-height:3.4em}
 .rv-directbtn{border:1px dashed var(--rv-blue);border-radius:999px;padding:4px 11px;background:#fff;color:var(--rv-blue);font-size:12px;font-weight:700;cursor:pointer}
 #rv-toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,10px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:60;display:flex;align-items:center;gap:12px;max-width:560px;background:#1f2430;color:#fff;border-radius:12px;padding:10px 14px;font:12.5px/1.55 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;box-shadow:0 10px 26px rgba(0,0,0,.25)}
 #rv-toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
@@ -234,6 +235,10 @@ body.rv-docmode .rv-formonly{display:none!important}
 .rv-note.stchg{animation:rvstchg 1.6s ease-out}
 @keyframes rvstchg{0%{box-shadow:0 0 0 3px rgba(0,128,192,.55),0 6px 18px rgba(30,28,20,.10)}100%{box-shadow:0 6px 18px rgba(30,28,20,.10)}}
 #rv-lines{transition:opacity .15s}body.rv-gliding #rv-lines{opacity:0}
+/* 쪽 이동 애니메이션은 서랍을 여닫을 때만 — 평소(창 크기 변경 등)에는 바로 제자리에 서야 메모·선이 쪽과 어긋나지 않는다 */
+body.rv-gliding .page{transition:margin-left .2s ease}
+/* 서랍이 쪽을 밀 자리가 없는 좁은 창 — 서랍이 쪽 위에 얹힌다(클릭은 그대로 통과) */
+body.rv-dover.rv-dopen::after{content:"";position:fixed;inset:0;z-index:37;background:rgba(27,23,96,.07);pointer-events:none}
 #rv-notes.glide .rv-note{transition:left .2s ease,top .2s ease,box-shadow .2s}
 /* 메모 진행 단계 — 보냄 → 확인 중 → 반영됨 */
 .rv-track{display:flex;gap:4px;margin-top:3px}.rv-track i{flex:1;height:4px;border-radius:2px;background:#E6E2D8}
@@ -372,17 +377,22 @@ body.rv-docmode .rv-formonly{display:none!important}
  const DTITLE={nav:'탐색',hist:'코멘트 이력',page:'쪽 미리보기'};
  let target=null, kind='수정', filter='all', last=[], selEl=null, anchor=null, pickRange=null, drawer=null;
  const expanded=new Set();
- const RVX=window.__RV||{}, BASE=RVX.base||'', DOC=RVX.doc||'20_draft.md', PERM=RVX.perm||{comment:true,edit:true,approve:true};
- const DOCMODE=RVX.mode==='doc';
+ let RVX=window.__RV||{}, DOC, PERM, DOCMODE, NS;                       // 문서마다 다른 값 — 문서를 바꾸면(navigate) setDoc이 함께 바꾼다
+ const BASE=RVX.base||'';
+ function setDoc(rv){ RVX=rv; DOC=rv.doc||'20_draft.md'; PERM=rv.perm||{comment:true,edit:true,approve:true}; DOCMODE=rv.mode==='doc'; NS=BASE+'|'+DOC }
+ setDoc(RVX);
  const API=u=>BASE+u+(u.indexOf('?')<0?'?':'&')+'doc='+encodeURIComponent(DOC);        // 허브 — 건 주소 + 문서 인자
  const docURL=d=>BASE+'/d/'+encodeURIComponent(d);
  const mine=x=>(x.doc||'20_draft.md')===DOC;
- const NS=BASE+'|'+DOC, kk=k=>/^rv-(drawer|res-open|cases-open)$/.test(k)?k:k+'|'+NS;                                // 문서마다 따로 기억(바뀐 곳·쓰던 글·스크롤)
+ const kk=k=>/^rv-(drawer|res-open|cases-open)$/.test(k)?k:k+'|'+NS;                                // 문서마다 따로 기억(바뀐 곳·쓰던 글·스크롤)
  const get=(k,d)=>{try{const v=ss.getItem(kk(k));return v===null?d:JSON.parse(v)}catch(e){return d}}, put=(k,v)=>{try{ss.setItem(kk(k),JSON.stringify(v))}catch(e){}};
- if(DOCMODE)document.body.classList.add('rv-docmode');
- (function(){ const ro=document.getElementById('rv-ro'); if(!PERM.comment){ro.textContent='보기 전용'; ro.hidden=false} else if(!PERM.edit){ro.textContent=((RVX.docs||[]).find(d=>d.doc===RVX.doc)||{}).record?'기록 — 코멘트만':'코멘트만'; ro.hidden=false}
-  if(!PERM.approve)document.getElementById('rv-approve-open').style.display='none';
-  if(!PERM.comment)document.getElementById('rv-general').style.display='none' })();
+ function applyDocUI(){                                                  // 문서의 종류·권한에 따라 다른 화면 조각 — 처음과 문서를 바꿀 때
+  document.body.classList.toggle('rv-docmode',DOCMODE);
+  const ro=document.getElementById('rv-ro'); ro.hidden=true;
+  if(!PERM.comment){ro.textContent='보기 전용'; ro.hidden=false} else if(!PERM.edit){ro.textContent=((RVX.docs||[]).find(d=>d.doc===RVX.doc)||{}).record?'기록 — 코멘트만':'코멘트만'; ro.hidden=false}
+  document.getElementById('rv-approve-open').style.display=PERM.approve?'':'none';
+  document.getElementById('rv-general').style.display=PERM.comment?'':'none' }
+ applyDocUI();
  const HL=window.CSS&&CSS.highlights&&window.Highlight;
  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
  $('rv-title').textContent=document.title.replace(/ — 리뷰$/,'');
@@ -391,7 +401,7 @@ body.rv-docmode .rv-formonly{display:none!important}
  const blkOf=n=>{let e=n&&(n.nodeType===1?n:n.parentElement); while(e&&!(e.classList&&e.classList.contains('blk')))e=e.parentElement; return e};
  const addrOf=b=>{let e=b; while(e&&!(e.dataset&&e.dataset.addr))e=e.nextElementSibling; return e?e.dataset.addr:(b&&b.dataset.addr||'')};
  const blockBy=a=>a&&a!=='전체'?document.querySelector('.blk[data-addr="'+CSS.escape(a)+'"]'):null;
- function gotoItem(x){ if(mine(x))return goto(x.addr); try{sessionStorage.setItem('rv-goto|'+BASE+'|'+(x.doc||''),JSON.stringify(x.addr))}catch(e){} location.href=docURL(x.doc) }
+ function gotoItem(x){ if(mine(x))return goto(x.addr); navigate(x.doc,{addr:x.addr}) }
  function goto(a){const b=blockBy(a); if(!b)return; b.scrollIntoView({behavior:'smooth',block:'center'}); b.classList.add('rv-flashblk'); setTimeout(()=>b.classList.remove('rv-flashblk'),1400)}
  const y0=get('rv-y',null); if(y0!==null){window.scrollTo(0,y0); try{ss.removeItem('rv-y')}catch(e){}}
  // 바뀐 곳
@@ -406,28 +416,42 @@ body.rv-docmode .rv-formonly{display:none!important}
   changed.forEach(a=>{const s=document.createElement('button'); s.className='rv-chg-chip'; s.textContent=a; s.onclick=()=>goto(a); box.appendChild(s)}) }
  // 서랍 — 아이콘 줄에서 연다
  function openDrawer(t){ drawer=(drawer===t||!t)?null:t; put('rv-drawer',drawer);
-  $('rv-drawer').classList.toggle('on',!!drawer); document.body.classList.toggle('rv-dopen',!!drawer); $('rv-dtitle').textContent=DTITLE[drawer]||''; fitPage();
+  $('rv-drawer').classList.toggle('on',!!drawer); document.body.classList.toggle('rv-dopen',!!drawer); $('rv-dtitle').textContent=DTITLE[drawer]||'';
   document.querySelectorAll('#rv-rail .rv-railbtn[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===drawer));
-  document.querySelectorAll('.rv-dsec').forEach(s=>s.classList.toggle('on',s.dataset.t===drawer)); glide() }
+  document.querySelectorAll('.rv-dsec').forEach(s=>s.classList.toggle('on',s.dataset.t===drawer));
+  glide(); fitPage() }                                                          // 쪽 이동 애니메이션(rv-gliding)을 먼저 켠 뒤 자리를 바꾼다
  let glideT=null;
  function glide(){ const L=$('rv-notes'); document.body.classList.add('rv-gliding'); clearTimeout(glideT);   // 쪽이 밀린 뒤 메모가 따라간다
   glideT=setTimeout(()=>{ L.classList.add('glide'); layoutNotes(); glideT=setTimeout(()=>{L.classList.remove('glide'); document.body.classList.remove('rv-gliding')},230) },210) }
  document.querySelectorAll('#rv-rail .rv-railbtn[data-t]').forEach(b=>b.onclick=()=>openDrawer(b.dataset.t));
  $('rv-dclose').onclick=()=>openDrawer(null); $('rv-pages-btn').onclick=()=>openDrawer('page');
- // 쪽 맞춤 — 왼쪽 자리(아이콘 줄, 서랍이 열리면 서랍까지)는 늘 비운다. 쪽과 메모 열이 다 들어가지 않으면 메모 폭을
- // 먼저 줄이고(380→300), 그래도 모자라면 쪽을 비율로 줄인다(글자·폭이 함께 줄어 줄바꿈·쪽수는 그대로). 쪽이 75% 밑으로
- // 작아져야 하면 메모는 종전처럼 쪽 위에 겹쳐 띄우고 쪽만 창에 맞춘다(하한 50% — 그보다 좁은 창만 가로 스크롤)
- const RAIL_W=92, DRAWER_W=420, NOTE_W=380, NOTE_MIN=300, NOTE_SIDE=40, Z_KEEP=0.75, Z_FLOOR=0.5;
+ // 쪽 맞춤 — 왼쪽 패널(아이콘 줄, 서랍이 열리면 서랍까지)·쪽·메모 열을 창 폭에서 나눈다('26.9.30 사용자 지시: 서로 붙지 않게,
+ // 브라우저 전체 활용). 셋 사이에는 늘 간격을 둔다(패널↔쪽 32, 쪽↔메모 32, 메모↔창 24). 쪽은 100%보다 키우지 않는다.
+ //  넓을 때 — 메모 열을 넓히고(380→440), 그래도 남는 폭은 양쪽에 같게 나눠 [쪽|메모] 묶음을 가운데에 둔다(서랍이 열려도 쏠리지 않는다)
+ //  좁아질 때 — 메모 열을 먼저 줄이고(→300), 그다음 쪽을 비율로 줄인다(글자·폭이 함께 줄어 줄바꿈·쪽수는 그대로)
+ //  서랍이 열려 쪽이 0.7 밑으로 줄어야 하면 — 서랍은 쪽을 밀지 않고 쪽 위에 얹는다(뒤를 살짝 어둡게)
+ //  그래도 0.5로도 모자란 아주 좁은 창(900px 안팎 미만)만 메모가 쪽 가장자리에 겹친다(fit=false)
+ /*LAYOUT-BEGIN*/
+ const RAIL_R=76, DRAWER_R=408, GAP=32, RIGHT_M=24, NOTE_W=380, NOTE_MIN=300, NOTE_MAX=440, Z_MIN=0.7, Z_FLOOR=0.5, NOTE_EDGE=12;
+ function layoutFor(vw,open,pw){
+  let L=open?DRAWER_R:RAIL_R, over=false, avail=vw-L-GAP*2-RIGHT_M;                        // 쪽+메모 열에 쓸 폭
+  if(open&&avail<pw*Z_MIN+NOTE_MIN){ over=true; L=RAIL_R; avail=vw-L-GAP*2-RIGHT_M }        // 서랍이 쪽을 밀 자리가 없다 — 서랍이 쪽 위에 얹힌다
+  let z=1, nw, ml=L+GAP, fit=true;
+  if(avail>=pw+NOTE_W){ nw=Math.min(NOTE_MAX,avail-pw); ml+=(avail-pw-nw)/2 }
+  else if(avail>=pw+NOTE_MIN){ nw=avail-pw }
+  else if(avail>=pw*Z_FLOOR+NOTE_MIN){ nw=NOTE_MIN; z=(avail-nw)/pw }                        // 서랍이 미는 배치는 위에서 0.7 밑이면 얹기로 돌렸으므로 여기 0.5~0.7은 닫힘·얹힘 배치만
+  else{ fit=false; nw=NOTE_MIN; z=Math.min(1,Math.max(Z_FLOOR,(vw-L-GAP-RIGHT_M)/pw)) }
+  return {z:z, ml:ml, nw:nw, L:L, over:over, fit:fit, noteX:fit?ml+pw*z+GAP:Math.max(NOTE_EDGE,vw-nw-NOTE_EDGE)} }
+ /*LAYOUT-END*/
+ let LAY=null;
  function fitPage(){ const pg=pagesEl()[0], rs=document.documentElement.style; if(!pg)return;
-  const vw=document.documentElement.clientWidth, L=drawer?DRAWER_W:RAIL_W, pw=parseFloat(getComputedStyle(pg).width)||794;
-  let z=1, nw=NOTE_W, ml=Math.max(L,(vw-(RAIL_W+pw+NOTE_SIDE+NOTE_W))/2+RAIL_W);
-  if(vw-L-pw-NOTE_SIDE-NOTE_W<0){ nw=NOTE_MIN; ml=L; z=Math.min(1,(vw-L-NOTE_SIDE-nw)/pw);
-   if(z<Z_KEEP)z=Math.min(1,Math.max(Z_FLOOR,(vw-L-16)/pw)) }
-  rs.setProperty('--rv-z',String(Math.round(z*1000)/1000)); rs.setProperty('--rv-ml',Math.round(ml)+'px'); rs.setProperty('--rv-note-w',nw+'px') }
+  const vw=document.documentElement.clientWidth, pw=parseFloat(getComputedStyle(pg).width)||794;
+  LAY=layoutFor(vw,!!drawer,pw);
+  rs.setProperty('--rv-z',String(Math.round(LAY.z*1000)/1000)); rs.setProperty('--rv-ml',Math.round(LAY.ml)+'px'); rs.setProperty('--rv-note-w',LAY.nw+'px');
+  document.body.classList.toggle('rv-dover',LAY.over) }
  // 여백 메모 열 — 문단 높이에 맞춰 세우고 겹치면 아래로, 작성 카드는 제자리 우선
  const NOTE_GAP=10;
- function notesX(){ const pg=pagesEl()[0], vw=document.documentElement.clientWidth, w=$('rv-pop').offsetWidth||380;
-  let x=(pg?pg.getBoundingClientRect().right:vw-w-40)+28; if(x+w>vw-12)x=Math.max(12,vw-w-12); return x+window.scrollX }
+ function notesX(){ if(!LAY)fitPage(); return (LAY?LAY.noteX:NOTE_EDGE)+window.scrollX }   // 쪽의 (전환 중일 수 있는) 실제 위치가 아니라 계산값 — 창을 줄이거나 서랍을 여닫아도 어긋나지 않는다
  function anchorY(addr){ const b=blockBy(addr); if(b)return b.getBoundingClientRect().top+window.scrollY-4;
   const pg=pagesEl()[0]; return (pg?pg.getBoundingClientRect().top+window.scrollY:80)+40 }
  function layoutNotes(){
@@ -440,7 +464,7 @@ body.rv-docmode .rv-formonly{display:none!important}
    if(cTop!==null&&y<cBot+NOTE_GAP&&y+h>cTop-NOTE_GAP)y=cBot+NOTE_GAP; n.el.style.top=y+'px'; n.top=y; prev=y+h });
   drawLines(notes,x,on?cTop:null); drawMini() }
  function drawLines(notes,x,cTop){
-  const svg=$('rv-lines'), d=document.documentElement; svg.setAttribute('width',d.scrollWidth); svg.setAttribute('height',d.scrollHeight);
+  const svg=$('rv-lines'); svg.setAttribute('width',1); svg.setAttribute('height',1);   // 선은 svg 밖으로 그린다(overflow:visible) — 문서 크기로 폭을 정하면 스스로 커져 스크롤이 남았다
   const seg=(addr,top,cls)=>{ const b=blockBy(addr); if(!b)return ''; const r=b.getBoundingClientRect(), x1=r.right+window.scrollX+6, y1=r.top+window.scrollY+12, x2=x-4, y2=top+16, m=(x1+x2)/2;
    return '<path class="'+cls+'" d="M'+x1+' '+y1+' C '+m+' '+y1+', '+m+' '+y2+', '+x2+' '+y2+'"></path>' };
   let html=''; notes.forEach(n=>{ if(!n.el.classList.contains('mini'))html+=seg(n.el.dataset.addr,n.top,n.el.classList.contains('hot')?'hot':'') });
@@ -589,7 +613,7 @@ body.rv-docmode .rv-formonly{display:none!important}
    box.appendChild(h); if(!open)return;
    const list=document.createElement('div'); list.className=g==='stage'?'rv-steps':'rv-docs'; box.appendChild(list);
    ds.forEach(d=>{ const a=document.createElement('a'), on=d.doc===DOC, tag=act&&!gtag?permTag(d.perm,d):'', n=openCount(d.doc);
-    a.className=(g==='stage'?'rv-step':'rv-doc')+(on?' on':''); a.href=docURL(d.doc); a.title=d.title||d.label;
+    a.className=(g==='stage'?'rv-step':'rv-doc')+(on?' on':''); a.href=docURL(d.doc); a.dataset.doc=d.doc; a.title=d.title||d.label;   // 주소는 새 탭·복사용, 누르면 navigate
     a.innerHTML=(g==='stage'?'<span class="dot">'+esc(d.num)+'</span>':'')
      +'<span class="tx"><span class="lb">'+(g!=='stage'&&d.num?'<span class="nb">'+esc(d.num)+'</span>':'')+esc(d.label)+'</span>'+(d.sub?'<span class="sb">'+esc(d.sub)+'</span>':'')+'</span>'
      +(d.drift?'<span class="drf" title="초안의 절·표·도식 중 이 문서에 없는 것 — 게이트② 승인 때 반영 결과가 덧붙습니다">어긋남 '+d.drift+'</span>':'')
@@ -630,11 +654,11 @@ body.rv-docmode .rv-formonly{display:none!important}
  $('rv-case').onclick=ev=>{ev.stopPropagation(); showCases($('rv-cases').hidden)};
  document.addEventListener('click',ev=>{ if(!$('rv-cases').hidden&&!(ev.target.closest&&ev.target.closest('.rv-navcase')))showCases(false) });
  $('rv-find').oninput=()=>{ showCases(false); drawTree(); if(findQ()&&!hubCache)loadCases(); else drawCaseHits() };
- $('rv-find').onkeydown=ev=>{ if(ev.key==='Enter'){const a=document.querySelector('#rv-tree a, #rv-casehits a'); if(a)location.href=a.href}
+ $('rv-find').onkeydown=ev=>{ if(ev.key==='Enter'){const a=document.querySelector('#rv-tree a, #rv-casehits a'); if(a){ if(a.dataset.doc)navigate(a.dataset.doc); else location.href=a.href }}
   if(ev.key==='Escape'&&findQ()){ev.stopPropagation(); ev.target.value=''; ev.target.dispatchEvent(new Event('input'))} };
  document.addEventListener('keydown',ev=>{ const t=ev.target; if(ev.metaKey||ev.ctrlKey||ev.altKey||(t.closest&&t.closest('input,textarea,select,[contenteditable="true"]')))return;
   if(ev.key!=='['&&ev.key!==']')return; const ds=RVX.docs||[], i=ds.findIndex(d=>d.doc===DOC), j=i+(ev.key===']'?1:-1);
-  if(i>=0&&j>=0&&j<ds.length){ev.preventDefault(); location.href=docURL(ds[j].doc)} });
+  if(i>=0&&j>=0&&j<ds.length){ev.preventDefault(); navigate(ds[j].doc)} });
  // 쪽 나눔 미리보기 — 실제로 그려진 높이를 한글 본문 높이(247mm)로 나눈다. 붙임은 새 쪽에서 시작한다.
  let pgTry=0;
  function paginate(){
@@ -669,20 +693,26 @@ body.rv-docmode .rv-formonly{display:none!important}
   if(target&&target.addr&&target.addr!=='전체'){ const b=blockBy(target.addr);
    if(b&&(!anchor||!anchor.el||!anchor.el.isConnected)){ if(HL)CSS.highlights.delete('rv-range'); if(selEl)selEl.classList.remove('rv-sel'); selEl=b; b.classList.add('rv-sel'); anchor={el:b,addr:target.addr} } }
   drawList(); paginate(); $('rv-conn').textContent='갱신 '+hms() }
- function applyPatch(d){
+ function swapAll(d){                                                      // 문서 모양(css)·제목·쪽 전부 갈아 끼운다 — 패치 전체판과 문서 바꾸기가 함께 쓴다
   if(d.css){const os=document.head.querySelector('style'); if(os)os.textContent=d.css}
   if(d.title){document.title=d.title+' — 리뷰'; $('rv-title').textContent=d.title}
-  if(d.all){ const olds=pagesEl(), at=olds[0]||$('rv-bar'); d.all.forEach(h=>document.body.insertBefore(frag(h),at)); olds.forEach(o=>o.remove()) }
-  else{ const ps=pagesEl();
+  if(d.all){ const olds=pagesEl(), at=olds[0]||$('rv-bar'); d.all.forEach(h=>document.body.insertBefore(frag(h),at)); olds.forEach(o=>o.remove()) } }
+ function applyPatch(d){
+  swapAll(d);
+  if(!d.all){ const ps=pagesEl();
    Object.keys(d.pages||{}).forEach(i=>{const o=ps[+i]; if(o)o.replaceWith(frag(d.pages[i]))});
    const ps2=pagesEl();
    (d.blocks||[]).forEach(x=>{const o=ps2[x.p]&&ps2[x.p].children[x.i]; if(o)o.replaceWith(frag(x.html))});
    (d.lines||[]).forEach(x=>{const o=ps2[x.p]&&ps2[x.p].children[x.i]; if(o){o.id='L'+x.line; o.dataset.line=x.line}}) }
   afterSwap(d.changed||[]) }
+ // 서버가 문서 주소마다 내려 주는 완성 화면에서 문서 모양·제목·쪽과 그 문서의 __RV(권한·문서 목록·버전)를 꺼낸다
+ function parseDocPage(text){ const nd=new DOMParser().parseFromString(text,'text/html');
+  const m=[...nd.scripts].map(x=>x.textContent.match(/^\s*window\.__RV=([\s\S]*\});\s*$/)).find(Boolean), st=nd.head.querySelector('style');
+  return {rv:m?JSON.parse(m[1]):null, css:st?st.textContent:'', title:nd.title.replace(/ — 리뷰$/,''), pages:[...nd.querySelectorAll('body > section.page')].map(x=>x.outerHTML)} }
  async function fullSwap(){
-  const nd=new DOMParser().parseFromString(await (await fetch(location.pathname,{cache:'no-store'})).text(),'text/html'), prev=snap();
-  const m=[...nd.scripts].map(x=>x.textContent.match(/window\.__RV=(\{.*?\});/)).find(Boolean); if(m){const r=JSON.parse(m[1]); ver=r.ver; boot=r.boot}
-  applyPatch({css:nd.head.querySelector('style').textContent, all:[...nd.querySelectorAll('body > section.page')].map(x=>x.outerHTML)});
+  const pg=parseDocPage(await (await fetch(location.pathname,{cache:'no-store'})).text()), prev=snap();
+  if(pg.rv){ver=pg.rv.ver; boot=pg.rv.boot}
+  applyPatch({css:pg.css, all:pg.pages});
   const now=snap(); afterSwap(Object.keys(now).filter(a=>prev[a]!==now[a])) }
  const setConn=(ok,t)=>{$('rv-dot').className=ok?'rv-dot':'rv-dot bad'; if(t)$('rv-conn').textContent=t};
  const CLI_TXT={waiting:['CLI 대기 중','Claude 세션이 이 보고서의 코멘트를 기다리고 있습니다'],
@@ -691,21 +721,60 @@ body.rv-docmode .rv-formonly{display:none!important}
  let cliState=null;
  function setCli(c){ const el=$('rv-cli'); cliState=c&&c.state||cliState; const on=!!(RVX.case||{}).active&&!!cliState&&!conv; el.classList.toggle('on',on); if(!on)return;   // 변환 신호 뒤에는 코멘트 처리 상태를 보이지 않는다
   const t=CLI_TXT[cliState]||CLI_TXT.none; el.dataset.s=cliState; el.textContent=t[0]; el.title=t[1] }
- const es=new EventSource(API('/api/events'));
- es.addEventListener('hello',ev=>{ const d=JSON.parse(ev.data); setConn(true,/^갱신/.test($('rv-conn').textContent)?'':'연결됨');
-  if(ui!==null&&d.ui!==ui)return fullReload(); ui=d.ui;
-  last=d.items; finals=d.finals||[]; conv=d.convert||null; drawList(); setCli(d.cli);
-  if(d.version!==ver||d.boot!==boot){boot=d.boot; fullSwap()} });
- es.addEventListener('cli',ev=>setCli(JSON.parse(ev.data)));
- es.addEventListener('items',ev=>{last=JSON.parse(ev.data); drawList()});
- es.addEventListener('convert',ev=>{ const d=JSON.parse(ev.data); conv=d.convert; finals=d.finals||[]; drawList(); setCli(null); $('rv-approve-pop').classList.remove('on');
-  if(conv.phase==='done'&&finals[0])toast('변환 완료 — 인도본 '+(finals[0].rev||'')+' 받을 수 있습니다',false,{label:'받기',run:()=>$('rv-final').click()},15000);
-  else if(conv.phase==='fail')toast('변환 실패 — 초안(20_draft.md)은 그대로입니다'+(conv.note?' · '+conv.note:''),true);
-  else if(conv.phase==='start')toast('변환 중 — 끝나면 이 화면에서 인도본을 받습니다') });
- es.addEventListener('patch',ev=>{ const d=JSON.parse(ev.data);
-  if(d.from!==ver){fullSwap(); return}
-  applyPatch(d); ver=d.to });
- es.onerror=()=>setConn(false,'연결 끊김 — 다시 잇는 중');
+ let es=null;
+ function connect(){ if(es)es.close(); es=new EventSource(API('/api/events'));      // 연결은 문서마다 — 문서를 바꾸면 닫고 그 문서 것으로 다시 연다
+  es.addEventListener('hello',ev=>{ const d=JSON.parse(ev.data); setConn(true,/^갱신/.test($('rv-conn').textContent)?'':'연결됨');
+   if(ui!==null&&d.ui!==ui)return fullReload(); ui=d.ui;
+   last=d.items; finals=d.finals||[]; conv=d.convert||null; drawList(); setCli(d.cli);
+   if(d.version!==ver||d.boot!==boot){boot=d.boot; fullSwap()} });
+  es.addEventListener('cli',ev=>setCli(JSON.parse(ev.data)));
+  es.addEventListener('items',ev=>{last=JSON.parse(ev.data); drawList()});
+  es.addEventListener('convert',ev=>{ const d=JSON.parse(ev.data); conv=d.convert; finals=d.finals||[]; drawList(); setCli(null); $('rv-approve-pop').classList.remove('on');
+   if(conv.phase==='done'&&finals[0])toast('변환 완료 — 인도본 '+(finals[0].rev||'')+' 받을 수 있습니다',false,{label:'받기',run:()=>$('rv-final').click()},15000);
+   else if(conv.phase==='fail')toast('변환 실패 — 초안(20_draft.md)은 그대로입니다'+(conv.note?' · '+conv.note:''),true);
+   else if(conv.phase==='start')toast('변환 중 — 끝나면 이 화면에서 인도본을 받습니다') });
+  es.addEventListener('patch',ev=>{ const d=JSON.parse(ev.data);
+   if(d.from!==ver){fullSwap(); return}
+   applyPatch(d); ver=d.to });
+  es.onerror=()=>setConn(false,'연결 끊김 — 다시 잇는 중') }
+ connect();
+ // 문서 바꾸기 — 왼쪽 목록·빠른 이동·[ ]·다른 문서의 코멘트가 모두 여기로 온다('26.9.30 사용자 지적: 자료를 누를 때마다 화면이 새로고침).
+ // 서버가 그 문서 주소에 내려 주는 화면을 받아 오른쪽 문서 영역과 문서별 상태(권한·코멘트·바뀐 곳·쓰던 글)만 갈아 끼운다.
+ // 서랍·목록 스크롤·찾기 칸은 그대로 남는다. 못 읽으면 종전처럼 그 주소로 이동한다(문서 주소는 그대로 유효).
+ const scrollMem={}; let navSeq=0;
+ const docFromPath=()=>{ const m=/\/d\/([^/]+)$/.exec(location.pathname); try{return m?decodeURIComponent(m[1]):null}catch(e){return null} };
+ function clearCompose(){ kind='수정'; $('rv-text').value=''; $('rv-scope').checked=false; $('rv-text').placeholder=PH['수정'];
+  document.querySelectorAll('.rv-kind').forEach(b=>b.classList.toggle('on',b.dataset.k==='수정')) }   // 저장하지 않는다 — 쓰던 글은 떠나는 문서 몫으로 이미 남겼다
+ async function navigate(doc,opt){ opt=opt||{};
+  if(doc===DOC){ if(opt.addr)goto(opt.addr); return true }
+  const seq=++navSeq; document.body.style.cursor='progress';
+  try{
+   const r=await fetch(docURL(doc),{cache:'no-store'}); if(!r.ok)throw new Error('응답 '+r.status);
+   const pg=parseDocPage(await r.text()); if(!pg.rv||pg.rv.doc!==doc||!pg.pages.length)throw new Error('문서 화면이 아니다');
+   if(seq!==navSeq)return false;                                          // 그 사이 다른 문서를 눌렀다 — 마지막 것만 그린다
+   scrollMem[DOC]=scrollY; saveCompose();
+   if(selEl)selEl.classList.remove('rv-sel'); selEl=null; target=null; anchor=null; if(HL)CSS.highlights.delete('rv-range');
+   $('rv-pop').classList.remove('on'); endEdit(); hidePick(); clearCompose();
+   setDoc(pg.rv); ver=pg.rv.ver; boot=pg.rv.boot;
+   if(opt.push!==false)history.pushState({doc:doc},'',docURL(doc));
+   swapAll({css:pg.css,title:pg.title,all:pg.pages}); applyDocUI();
+   const now=snap(); changed=get('rv-changed',[]); markChanged(get('rv-prev',null),now); put('rv-prev',now);
+   restoreCompose(); connect(); fitPage(); drawChanged(); drawTree(); drawList(); paginate(); grow();
+   scrollTo(0,opt.push===false?(scrollMem[doc]||0):0);
+   if(opt.addr)goto(opt.addr);                                            // 쪽은 위에서 동기로 들어갔다 — 프레임을 기다리지 않는다(백그라운드 탭은 프레임이 멈춘다)
+   return true
+  }catch(e){
+   if(seq!==navSeq)return false;
+   console.warn('문서를 제자리에서 바꾸지 못해 페이지를 이동합니다:',e);
+   if(opt.push===false)location.reload();                                 // 뒤로·앞으로로 온 경우 — 주소는 이미 그 문서다
+   else{ if(opt.addr)try{ss.setItem('rv-goto|'+BASE+'|'+doc,JSON.stringify(opt.addr))}catch(_){} location.href=docURL(doc) }
+   return false
+  }finally{ if(seq===navSeq)document.body.style.cursor='' } }
+ $('rv-tree').addEventListener('click',ev=>{ const a=ev.target.closest&&ev.target.closest('a[data-doc]');
+  if(!a||a.hasAttribute('download')||ev.defaultPrevented||ev.button||ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey)return;   // 새 탭·창으로 여는 클릭은 브라우저에 맡긴다
+  ev.preventDefault(); navigate(a.dataset.doc) });
+ history.replaceState({doc:DOC},'');
+ addEventListener('popstate',()=>{ const d=docFromPath(); if(d&&d!==DOC)navigate(d,{push:false}) });
  // 직접 수정 — 문장(□ ㅇ - ※·제목·발신·캡션)과 병합 없는 표의 칸. 두 번 누르거나 작성 카드의 '직접 고치기'.
  const EDIT_KINDS=new Set(['title','sending','dae','yo','dash','cham','star','caption','other']);
  const kindOf=b=>[...b.classList].find(c=>EDIT_KINDS.has(c)||c==='table'||c==='formula');
@@ -714,14 +783,18 @@ body.rv-docmode .rv-formonly{display:none!important}
   if(action){ const b=document.createElement('button'); b.type='button'; b.className='act'; b.textContent=action.label; b.onclick=ev=>{ev.stopPropagation(); t.className='rv-ui'; action.run()}; t.appendChild(b) }
   t.className='rv-ui on'+(warn?' warn':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='rv-ui',ms||(warn?6000:3000)); return sp }
  let editing=null;
- function endEdit(){ if(!editing)return; const e=editing; editing=null; if(e.box&&e.box.isConnected)e.box.remove(); if(e.hide&&e.hide.isConnected)e.hide.style.display=''; if(e.cell&&e.cell.isConnected){e.cell.classList.remove('rv-editing'); e.cell.innerHTML=e.cellHTML} }
+ function endEdit(){ if(!editing)return; const e=editing; editing=null; if(e.box&&e.box.isConnected)e.box.remove(); if(e.hide&&e.hide.isConnected)e.hide.style.display=''; if(e.cell&&e.cell.isConnected)e.cell.classList.remove('rv-editing') }
+ // 표 칸 편집창 — 칸 아래에 문서 좌표로 띄운다(스크롤을 따라가고, 화면 오른쪽 밖으로 나가지 않는다)
+ function placePop(box,cell){ const r=cell.getBoundingClientRect(), w=box.offsetWidth, vw=document.documentElement.clientWidth;
+  box.style.left=Math.max(16,Math.min(r.left+scrollX,vw+scrollX-w-16))+'px'; box.style.top=(r.bottom+scrollY+6)+'px' }
+ addEventListener('resize',()=>{ if(editing&&editing.pop&&editing.cell&&editing.cell.isConnected)placePop(editing.box,editing.cell) });
  function editorBox(fields,onSave){ const box=document.createElement('div'); box.className='rv-edit';
   const row=document.createElement('div'); row.className='row';
   if(fields.mark){const m=document.createElement('span'); m.className='mk'; m.textContent=fields.mark; row.appendChild(m)}
   let lead=null; if(fields.lead!==null&&fields.lead!==undefined){lead=document.createElement('input'); lead.value=fields.lead; lead.setAttribute('aria-label','굵은 머리말'); row.appendChild(lead)}
   const ta=document.createElement('textarea'); ta.value=fields.body; ta.setAttribute('aria-label','본문'); row.appendChild(ta); box.appendChild(row);
   const bar=document.createElement('div'); bar.className='bar';
-  bar.innerHTML='<span style="flex:1">⌘↵ 저장 · Esc 취소 — 기호·굵은 머리말 표기는 자동</span>';
+  bar.innerHTML='<span style="flex:1">'+(fields.hint||'⌘↵ 저장 · Esc 취소 — 기호·굵은 머리말 표기는 자동')+'</span>';
   const cancel=document.createElement('button'); cancel.className='cancel'; cancel.textContent='취소'; cancel.onclick=ev=>{ev.stopPropagation(); endEdit()};
   const save=document.createElement('button'); save.className='save'; save.textContent='저장'; save.onclick=ev=>{ev.stopPropagation(); onSave(lead?lead.value:null,ta.value,save)};
   bar.append(cancel,save); box.appendChild(bar);
@@ -734,6 +807,7 @@ body.rv-docmode .rv-formonly{display:none!important}
    if(r.status===409){toast(d.error,true); endEdit(); return}
    if(!r.ok){toast(d.error||'저장하지 못했습니다',true); btn.disabled=false; return}
    if(!d.changed){endEdit(); return}
+   if(editing&&editing.pop&&editing.box.isConnected)editing.box.remove();   // 칸 밖 팝오버는 새 조각과 함께 사라지지 않으니 직접 지운다
    editing=null;                                   // 새 조각이 곧 들어온다(서버가 다시 그려 보낸다)
    if(d.issues&&d.issues.length)toast('저장했습니다 — 검사: '+d.issues.slice(0,2).map(x=>x.rule+(x.message?' '+x.message:'')).join(' · '),true);
    else toast('저장했습니다 — 초안에 반영하고 다시 그렸습니다');
@@ -748,9 +822,9 @@ body.rv-docmode .rv-formonly{display:none!important}
   if(table.querySelector('[rowspan],[colspan]')){toast('병합된 표의 칸은 코멘트로 요청해 주세요',true); return}
   const rows=[...table.querySelectorAll('tr')], tr=cell.parentElement, row=rows.indexOf(tr), col=[...tr.children].indexOf(cell);
   const src=await (await fetch(API('/api/source?line='+b.dataset.line+'&row='+row+'&col='+col),{cache:'no-store'})).json(); if(src.error){toast(src.error,true); return}
-  const html=cell.innerHTML; cell.classList.add('rv-editing'); cell.innerHTML='';
-  const box=editorBox({body:src.text},(lead,body,btn)=>saveEdit({kind:'cell',line:src.line,raw:src.raw,col:src.col,text:body,addr:addrOf(b)},btn));
-  cell.appendChild(box); editing={box:box,cell:cell,cellHTML:html} }
+  const box=editorBox({body:src.text,hint:'⌘↵ 저장 · Esc 취소'},(lead,body,btn)=>saveEdit({kind:'cell',line:src.line,raw:src.raw,col:src.col,text:body,addr:addrOf(b)},btn));
+  box.classList.add('pop'); cell.classList.add('rv-editing'); document.body.appendChild(box); placePop(box,cell); editing={box:box,cell:cell,pop:true};
+  setTimeout(()=>box.scrollIntoView({block:'nearest'}),60) }
  function startEdit(b,el){ if(!PERM.edit){toast(PERM.comment?'이 문서는 직접 고칠 수 없습니다 — 코멘트로 요청해 주세요':'보기 전용 건입니다',true); return}
   if(+(b.dataset.lines||1)>1){toast('여러 줄에 걸친 문단은 코멘트로 요청해 주세요',true); return}
   const k=kindOf(b); if(!k){toast('이 항목은 코멘트로 요청해 주세요(도식·붙임 띠 등)',true); return}
@@ -785,7 +859,7 @@ body.rv-docmode .rv-formonly{display:none!important}
   document.querySelectorAll('.blk[data-addr]').forEach(b=>{ const a=b.dataset.addr; if(!a||seen.has(a)||!JUMP.test(a))return; seen.add(a);
    out.push({g:'이 문서',k:a,t:(b.innerText||'').replace(a,'').replace(/\s+/g,' ').trim().replace(/^□\s*/,'').slice(0,90),run:()=>goto(a)}) });   // 여백 주소 글자는 뺀다
   last.filter(x=>x.type==='feedback'&&x.status!=='withdrawn').forEach((x,i)=>out.push({g:'코멘트',k:'#'+(i+1)+' '+(LABEL[x.status]||''),t:x.comment,s:(mine(x)?'':((RVX.docs||[]).find(d=>d.doc===x.doc)||{label:x.doc}).label+' · ')+(x.addr||'전체'),run:()=>gotoItem(x)}));
-  (RVX.docs||[]).forEach(d=>out.push({g:'이 보고서의 문서',k:d.num||(d.group==='research'?'자료':'문서'),t:d.label,s:d.sub||'',cur:d.doc===DOC,run:()=>{location.href=docURL(d.doc)}}));
+  (RVX.docs||[]).forEach(d=>out.push({g:'이 보고서의 문서',k:d.num||(d.group==='research'?'자료':'문서'),t:d.label,s:d.sub||'',cur:d.doc===DOC,run:()=>navigate(d.doc)}));
   (hubCache||[]).forEach(c=>{ if(c.date===c0.date&&c.name===c0.name)return; out.push({g:'다른 보고서',k:ymd(c.date),t:c.title||c.name,s:c.active?'리뷰 중':c.stage,run:()=>{location.href=c.url}}) });
   const cmds=[['탐색 서랍 열기',()=>openDrawer('nav')],['코멘트 이력 열기',()=>openDrawer('hist')],['단축키 도움말',()=>showHelp(true)]];
   if(PERM.comment)cmds.push(['전체 의견 쓰기',()=>$('rv-general').click()]);
@@ -826,9 +900,10 @@ body.rv-docmode .rv-formonly{display:none!important}
  window.addEventListener('resize',()=>{fitPage(); layoutNotes()});
  drawChanged(); drawCaseBtn(); drawTree(); openDrawer(get('rv-drawer',null));
  if(get('rv-opened',0)){ put('rv-opened',0); toast('이 보고서 리뷰를 열었습니다 — Claude 세션이 wait --all을 걸면 코멘트가 넘어갑니다') }
- const cp=get('rv-compose',null);
- if(cp){ $('rv-text').value=cp.text||''; setKind(cp.kind||'수정'); $('rv-scope').checked=cp.scope==='rule';
-  if(cp.target){ const t=cp.target; if(t.addr==='전체')openPop(t,{panel:true}); else{const el=blockBy(t.addr); if(el)openPop(t,{el:el,addr:t.addr})} } }
+ function restoreCompose(){ const cp=get('rv-compose',null);                     // 이 문서에서 쓰던 글 — 처음과 문서를 바꿀 때
+  if(cp){ $('rv-text').value=cp.text||''; setKind(cp.kind||'수정'); $('rv-scope').checked=cp.scope==='rule';
+   if(cp.target){ const t=cp.target; if(t.addr==='전체')openPop(t,{panel:true}); else{const el=blockBy(t.addr); if(el)openPop(t,{el:el,addr:t.addr})} } } }
+ restoreCompose();
  (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{ paginate();
   try{const g=sessionStorage.getItem('rv-goto|'+BASE+'|'+DOC); if(g){sessionStorage.removeItem('rv-goto|'+BASE+'|'+DOC); goto(JSON.parse(g))}}catch(e){} });
 })();
