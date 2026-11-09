@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.7.0-green.svg)
+![version](https://img.shields.io/badge/version-0.7.1-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -252,11 +252,12 @@ report-harness/
 │   │   └── assets/          기관 표준 양식 · 도식 Pool · 머리말 배너 · 리뷰어 화면
 │   ├── report-research/     ① 조사 — 방법은 자유, 산출 계약만 강제
 │   ├── report-writing/      보고서 설계 지침 입구 — report-craft.md를 따로 부른다
+│   ├── report-analyze/ · report-draft/ · report-export/ · report-review/ · report-doctor/
+│   │                        단계 입구 — Claude Code `/이름` · Codex `$이름` (report-pipeline에 위임)
 │   ├── cross-verify/        교차검증 — 다중 CLI 패널 + 수치 근거 대조
 │   │   └── scripts/verify_claims.py   패널이 지어낸 수치·오귀속 검출
 │   └── humanizer/           윤문 — AI 문체 흔적 제거 (MIT © DaleSeo)
 │
-├── commands/                슬래시 커맨드 7종
 ├── hooks/                   안전망 훅 2종 — hwpx 검증 우회 차단 · 초안(20_draft.md) 린트
 │
 ├── webapp/kca-report-hwpx/  ★ 웹앱 배포판 원본 — MCP 없이 자립
@@ -319,7 +320,7 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 | `"이어서 해줘"` | 마지막 작업폴더를 찾아 그 지점부터 |
 
 단계를 직접 짚고 싶으면 `/report-research` · `/report-analyze` · `/report-draft` ·
-`/report-export`를 쓴다. 진단은 `/report-doctor`, 리뷰 화면을 직접 열 때는 `/report-review`. 보고서 짜임새만 점검하고 싶으면 `"이 아웃라인 설계 점검해줘"` —
+`/report-export`를 쓴다(Codex에서는 같은 이름을 `$`로 — `$report-draft`). 진단은 `/report-doctor`, 리뷰 화면을 직접 열 때는 `/report-review`. 보고서 짜임새만 점검하고 싶으면 `"이 아웃라인 설계 점검해줘"` —
 `report-writing` 스킬이 목적·결론·근거 구조 지침(`report-craft.md`)으로 본다.
 
 게이트①·②의 아웃라인과 초안은 **라이브 리뷰어**(`http://127.0.0.1:3333`)에서 본다. 한글 양식에 가깝게(쪽 경계·예상

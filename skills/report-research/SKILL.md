@@ -5,6 +5,11 @@ description: "기관보고서 작성을 위한 자료조사 스킬 — 조사 '�
 
 # report-research — 산출 계약 중심 조사 스킬
 
+> 부르는 법 — Claude Code `/report-research [주제]` · Codex `$report-research [주제]` · report-pipeline ① 단계 위임.
+> 인자: `$ARGUMENTS` — 조사 주제로 쓴다(비었거나 치환되지 않은 자리표시자로 보이면 — Codex는 치환하지 않는다 — 사용자가
+> 스킬 이름 뒤에 쓴 말을 인자로 본다). 주제가 없으면 "어떤 주제를 조사할까요?"만 묻는다. 작업폴더가 없으면 만들고, 이어가는
+> 건이면 기존 폴더를 다시 쓴다(§2-1).
+
 이 스킬은 **조사 방법을 규정하지 않는다.** 환경에 있는 조사 도구(번들 MCP `kordoc`·`korean-law`
 + 사용자 환경의 insane-search, firecrawl, Context7, youtube-transcript, WebSearch·WebFetch 등)를
 자유롭게 선택해 조사하라. 강제되는 것은 단 하나 — **조사 산출물이 아래 계약대로 작업폴더에

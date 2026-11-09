@@ -9,7 +9,7 @@ for banned in "form" "docs/analysis" "report" "reports" ".report-harness" "skill
   if git -c core.quotepath=false ls-files | grep -q "^$banned/"; then echo "FATAL: $banned 이 추적됨 — 배포 금지 대상"; exit 1; fi
 done
 # tests/는 PII 탐지 픽스처(가짜 연락처)가 있어 제외 — 배포·공개 문서 계층 전부를 훑는다
-for dir in skills commands webapp hooks scripts docs; do
+for dir in skills webapp hooks scripts docs; do
   python3 scripts/pii_scan.py "$dir/"
 done
 # 버전 가드(경고) — 설치본은 버전으로 갱신을 판단한다. 배포 저장소와 내용이 다른데 버전이 같으면 설치자의
@@ -20,7 +20,7 @@ if git rev-parse -q --verify refs/remotes/deploy/main >/dev/null; then
   ver() { python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" 2>/dev/null; }
   deployed=$(git show refs/remotes/deploy/main:.claude-plugin/plugin.json 2>/dev/null | ver)
   current=$(ver < .claude-plugin/plugin.json)
-  if ! git diff --quiet refs/remotes/deploy/main -- skills commands hooks .mcp.json .claude-plugin \
+  if ! git diff --quiet refs/remotes/deploy/main -- skills hooks .mcp.json .claude-plugin \
      && [ "$deployed" = "$current" ]; then
     echo "WARN: 배포 저장소와 플러그인 내용이 다른데 버전이 같다($current) — 올리지 않으면 설치자가 갱신을 받지 못한다"
   fi

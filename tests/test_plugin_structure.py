@@ -95,10 +95,23 @@ def test_skill_docs_call_scripts_via_skill_dir():
     assert not bad, "저장소 상대경로 스크립트 호출: " + ", ".join(bad)
 
 
-def test_commands_and_bundle():
-    for c in ["report-research", "report-analyze", "report-draft", "report-export",
-              "report-doctor", "report-review"]:
-        assert (ROOT / "commands" / f"{c}.md").is_file()
+STAGE_ENTRIES = ["report-research", "report-analyze", "report-draft", "report-export", "report-doctor", "report-review",
+                 "cross-verify"]
+
+
+def test_stage_entries_are_skills_not_commands():
+    """단계 입구 7종은 같은 이름의 스킬이다('26.11.10 0.7.1) — Claude Code는 스킬도 `/이름 인자`로 부르고 `$ARGUMENTS`를
+    치환하며(실측), Codex는 플러그인 커맨드를 부르지 못하고 스킬을 `$이름`으로 부른다(TUI 실측: `/` 팝업은 내장 명령뿐,
+    커맨드는 `$ARGUMENTS`가 있으면 이관조차 안 됨). 커맨드 폴더를 되살리면 Codex에서 입구가 사라진다."""
+    assert not (ROOT / "commands").exists()
+    for c in STAGE_ENTRIES:
+        t = (ROOT / "skills" / c / "SKILL.md").read_text(encoding="utf-8")
+        assert t.startswith("---") and f"name: {c}\n" in t and "description:" in t, c
+        assert f"/{c}" in t and f"${c}" in t, c                                   # 두 실행기의 부르는 법을 적는다
+        assert "CLAUDE_PLUGIN_ROOT" not in t, c                                   # 스킬 안에서는 보장되지 않는 변수
+    for c in ("report-analyze", "report-draft", "report-export", "report-review"):
+        t = (ROOT / "skills" / c / "SKILL.md").read_text(encoding="utf-8")
+        assert "../report-pipeline/SKILL.md" in t and t.count("$ARGUMENTS") == 1, c   # 두 번 쓰면 치환 뒤 문장이 깨진다
     assert (ROOT / "skills/humanizer/SKILL.md").is_file()
 
 
@@ -119,7 +132,7 @@ def test_kordoc_version_in_docs_matches_mcp_pin():
     pin = next(a for a in json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["kordoc"]["args"]
                if a.startswith("kordoc@"))
     seen = {}
-    for g in ("docs/*.md", "commands/*.md", "skills/*/SKILL.md", "skills/*/references/*.md", "README.md", "CLAUDE.md"):
+    for g in ("docs/*.md", "skills/*/SKILL.md", "skills/*/references/*.md", "README.md", "CLAUDE.md"):
         for p in ROOT.glob(g):
             for m in re.findall(r"kordoc@\d+\.\d+\.\d+", p.read_text(encoding="utf-8")):
                 seen.setdefault(m, []).append(p.name)

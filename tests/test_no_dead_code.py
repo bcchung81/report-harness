@@ -24,7 +24,7 @@ def test_no_orphan_scripts():
     """어느 문서·훅·테스트도 부르지 않는 스크립트가 있으면 안 된다."""
     callers = "".join(
         p.read_text(encoding="utf-8", errors="ignore")
-        for g in ("skills/*/SKILL.md", "skills/*/references/*.md", "commands/*.md",
+        for g in ("skills/*/SKILL.md", "skills/*/references/*.md",
                   "hooks/*", "tests/*.py", "scripts/*.py", "docs/*.md",
                   "webapp/kca-report-hwpx/SKILL.md")
         for p in ROOT.glob(g)) + (ROOT / "README.md").read_text(encoding="utf-8")

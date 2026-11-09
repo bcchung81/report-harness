@@ -81,3 +81,18 @@ def test_installed_copy_check_covers_user_commands(tmp_path):
     (tmp_path / "commands" / "report-export.md").write_text("new", encoding="utf-8")
     (tmp_path / "commands" / "report-review.md").write_text("r", encoding="utf-8")
     assert doctor.installed_copy_check(repo, inst, files)["상태"] == doctor.OK
+
+
+def test_installed_copy_check_flags_old_command_copies_that_became_skills(tmp_path):
+    """0.7.1 — 단계 커맨드가 같은 이름의 스킬로 옮겨 갔다. 사용자 커맨드 폴더의 옛 사본은 스킬과 이름이 겹치니 지울 대상."""
+    repo, inst = tmp_path / "repo", tmp_path / "skills"
+    (repo / "skills" / "report-draft").mkdir(parents=True)
+    (repo / "skills" / "report-draft" / "SKILL.md").write_text("s", encoding="utf-8")
+    (inst / "report-draft").mkdir(parents=True)
+    (inst / "report-draft" / "SKILL.md").write_text("s", encoding="utf-8")
+    files = ["skills/report-draft/SKILL.md"]
+    assert doctor.installed_copy_check(repo, inst, files)["상태"] == doctor.OK
+    (tmp_path / "commands").mkdir()
+    (tmp_path / "commands" / "report-draft.md").write_text("옛 커맨드", encoding="utf-8")
+    out = doctor.installed_copy_check(repo, inst, files)
+    assert out["상태"] == doctor.WARN and "스킬로 옮겨 감" in out["값"] and "지운다" in out["조치"]

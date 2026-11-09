@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.1 (2026-11-10)
+
+**단계 입구를 Codex에서도 같은 이름으로** — `/report-research`·`/report-analyze`·`/report-draft`·`/report-export`·
+`/report-doctor`·`/report-review`·`/cross-verify` 7종을 커맨드(`commands/`)에서 **같은 이름의 스킬**로 옮겼다.
+Claude Code는 지금처럼 `/report-draft 건명`, Codex는 `$report-draft 건명`으로 부른다.
+
+- **왜** — Codex는 플러그인 커맨드를 부르지 못한다. TUI 실측('26.11.10, codex 0.167.0): `/` 메뉴는 내장 명령만 받고(`/rep` →
+  no matches), 플러그인 커맨드는 설치 때 `source-command-<이름>` 스킬로 옮겨 오는데 `$ARGUMENTS`·`$1` 같은 자리표시자가
+  있으면 옮기지 않아 7종 중 `report-export` 하나만 `$source-command-report-export`로 남았다. 스킬은 `$` 메뉴에 제 이름으로 뜬다.
+- Claude Code는 플러그인 스킬도 `/이름`·`/report-harness:이름`으로 부르고 `$ARGUMENTS`를 치환한다(실측) — 사용법은 그대로다.
+  Codex는 자리표시자를 치환하지 않으므로, 스킬은 "비었거나 치환되지 않은 자리표시자로 보이면 스킬 이름 뒤에 쓴 말을
+  인자로 본다"로 적었다. `report-research`·`cross-verify`는 이미 같은 이름의 스킬이 있어 커맨드의 인자 처리만 합쳤다.
+  `/report-doctor`의 `${CLAUDE_PLUGIN_ROOT}` 경로는 스킬 경로 규약(형제 `report-pipeline`)으로 바꿨다.
+- 개발 노트북 — 옛 `~/.claude/commands/report-*.md`·`cross-verify.md` 사본은 스킬과 이름이 겹치므로 지운다. `doctor.py`의
+  '설치 사본'이 남은 사본을 경고한다. 테스트가 `commands/`의 부활과 입구 스킬의 형식(두 실행기 부르는 법·자리표시자 1회)을 지킨다.
+- 설치 문서 §1-2 — Codex 첫 실행 때 뜨는 훅 신뢰 창("2 hooks are new or changed")과 `$` 입구.
+
 ## 0.7.0 (2026-11-10)
 
 **Codex에서도 돈다** — 같은 플러그인을 OpenAI Codex CLI(0.167.0에서 확인)에 설치해 4단계 전 구간을 쓴다. Codex가

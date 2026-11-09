@@ -3,11 +3,12 @@
 
 ## 로컬에서 직접 검증
 
-플러그인 설치 없이 스킬·커맨드를 바로 시험하려면 복사한다.
+플러그인 설치 없이 스킬을 바로 시험하려면 복사한다. 단계 입구(`/report-draft` 등)도 스킬이라 이것으로 끝이다 — 0.7.1에
+커맨드를 같은 이름의 스킬로 옮겼으니(Codex는 플러그인 커맨드를 부르지 못한다) 옛 `~/.claude/commands/report-*.md`·
+`cross-verify.md` 사본은 지운다(`doctor.py`가 남은 사본을 경고한다).
 
 ```bash
 cp -R skills/* ~/.claude/skills/
-cp -R commands ~/.claude/
 ```
 
 동일 이름 스킬이 이미 있으면(예: 다른 출처의 `humanizer`) 덮어쓰지 말고 파일 단위로 병합할 것.
@@ -36,7 +37,7 @@ bash scripts/package_check.sh
 ```
 
 - `git ls-files`로 `form/`·`docs/analysis/`·`report/`가 추적 중인지 확인(추적 중이면 즉시 실패).
-- `scripts/pii_scan.py`로 `skills/`·`commands/`·`webapp/`·`hooks/`·`scripts/`·`docs/`를 스캔해
+- `scripts/pii_scan.py`로 `skills/`·`webapp/`·`hooks/`·`scripts/`·`docs/`를 스캔해
   전화번호·이메일 잔존을 검사한다(`tests/` 픽스처는 의도적 PII 예시를 포함하므로 제외).
 - 배포 원격(`deploy/main`)이 있는 노트북에서는 **버전 가드**도 본다 — 플러그인 내용이 배포 저장소와 다른데
   `plugin.json` 버전이 같으면 `WARN`을 낸다(실패는 아니다).

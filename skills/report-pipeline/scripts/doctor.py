@@ -166,7 +166,8 @@ def installed_copy_check(repo=None, installed=None, files=None):
     대상 스킬은 저장소 `skills/`의 하위 폴더 전부다 — 이름 목록을 따로 두면 새 스킬(cross-verify)이 빠졌다(리뷰 #2).
     커맨드도 본다(`installed` 옆 `commands/`) — 사용자 커맨드 폴더에 하네스 커맨드가 하나라도 있으면 사본을 쓰는 환경으로
     보고, 빠진 커맨드·다른 커맨드를 센다('26.9.25: `/report-export` 사본이 후처리 단계 문구가 빠진 옛 판이었고
-    `/report-doctor`는 등록돼 있지 않았다)."""
+    `/report-doctor`는 등록돼 있지 않았다). 0.7.1부터 단계 커맨드는 같은 이름의 스킬이라, 커맨드 폴더에 스킬과 이름이 같은
+    옛 사본이 남아 있으면 지울 대상으로 센다."""
     repo = pathlib.Path(repo) if repo else ROOT
     installed = pathlib.Path(installed) if installed else pathlib.Path.home() / ".claude" / "skills"
     if files is None:
@@ -196,12 +197,21 @@ def installed_copy_check(repo=None, installed=None, files=None):
         copy = installed / pathlib.Path(*parts[1:])
         if not copy.is_file() or copy.read_bytes() != (repo / f).read_bytes():
             stale.append("/".join(parts[1:]))
+    # 단계 커맨드는 0.7.1에 같은 이름의 스킬로 옮겨 갔다(Codex는 플러그인 커맨드를 부르지 못한다). 사용자 커맨드 폴더에
+    # 같은 이름의 옛 사본이 남아 있으면 스킬과 이름이 겹쳐 옛 판이 불릴 수 있다 — 지울 대상으로 센다.
+    skill_names = sorted({pathlib.PurePosixPath(f).parts[1] for f in files
+                          if pathlib.PurePosixPath(f).parts[:1] == ("skills",) and len(pathlib.PurePosixPath(f).parts) >= 3})
+    for n in skill_names:
+        if (commands / f"{n}.md").is_file() and f"commands/{n}.md" not in files:
+            present = True
+            stale.append(f"commands/{n}.md(스킬로 옮겨 감 — 지울 것)")
     if not present:
         return None                       # 사본을 쓰지 않는 환경(플러그인 설치)
     if not stale:
         return {"항목": "설치 사본", "상태": OK, "값": "~/.claude/skills 사본이 저장소와 일치", "조치": ""}
     return {"항목": "설치 사본", "상태": WARN, "값": f"사본과 다른 파일 {len(stale)}개 (예: {stale[0]})",
-            "조치": "커밋 뒤 `git archive HEAD skills/…`로 ~/.claude/skills 사본 교체, 커맨드는 `cp commands/*.md ~/.claude/commands/`"}
+            "조치": "커밋 뒤 `git archive HEAD skills/…`로 ~/.claude/skills 사본 교체, 스킬로 옮겨 간 옛 커맨드 사본"
+                    "(~/.claude/commands/report-*.md·cross-verify.md)은 지운다"}
 
 
 def classify_lessons(rows):

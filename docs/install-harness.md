@@ -81,7 +81,7 @@ Claude Code를 실행한 뒤 프롬프트에 순서대로 입력한다.
 git clone https://github.com/bcchung81/report-harness.git
 ```
 
-- **이번 세션만** — `claude --plugin-dir ./report-harness`. 설치 없이 이 폴더를 플러그인으로 불러온다(스킬·커맨드·훅·MCP 전부).
+- **이번 세션만** — `claude --plugin-dir ./report-harness`. 설치 없이 이 폴더를 플러그인으로 불러온다(스킬·훅·MCP 전부).
 - **계속 쓰기** — Claude Code 안에서 `/plugin marketplace add ./report-harness` → `/plugin install report-harness@report-harness`.
   갱신은 `git pull` 뒤 `claude plugin marketplace update report-harness` → `claude plugin update report-harness@report-harness`
   (버전이 올라갔을 때만 받아진다, §6-1).
@@ -103,8 +103,9 @@ codex plugin add report-harness@report-harness
 
 Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지를 확인한다.
 
-- **안전망 훅 신뢰** — Codex는 설치한 플러그인의 훅을 **사용자가 신뢰해야** 돌린다(신뢰 전에는 건너뛴다). `codex`를 열고
-  `/hooks`에서 report-harness 훅 2개(초안 린트·hwpx 검증)를 신뢰한다. 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
+- **안전망 훅 신뢰** — Codex는 설치한 플러그인의 훅을 **사용자가 신뢰해야** 돌린다(신뢰 전에는 건너뛴다). 설치 뒤 `codex`를
+  처음 열면 "2 hooks are new or changed" 창이 뜬다 — 검토(1) 또는 전부 신뢰(2)를 고른다. 나중에는 `/hooks`에서 한다.
+  훅은 초안 린트·hwpx 검증 2개다. 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
   신뢰하지 않아도 파이프라인은 돌지만(스킬이 린트·검증을 직접 부른다) 모델이 건너뛸 때 막아 줄 장치가 꺼진다.
 - **kordoc MCP** — 플러그인의 `.mcp.json`이 `kordoc@4.15.3`(실전 점검을 통과한 고정판)을 띄운다. 이미
   `~/.codex/config.toml`에 `[mcp_servers.kordoc]`을 직접 등록해 두었다면 **그쪽이 우선하고 플러그인 것은 건너뛴다** —
@@ -114,7 +115,7 @@ Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지�
 
 | | Claude Code | Codex |
 |---|---|---|
-| 단계 커맨드 | `/report-draft`·`/report-review` 등 | 없음 — 말로 요청한다(`/skills`에서 `report-harness:report-pipeline` 확인) |
+| 단계 입구 | `/report-draft 건명`·`/report-review` 등 | 같은 이름을 `$`로 — `$report-draft 건명`·`$report-review`(입력창에 `$report`를 치면 목록이 뜬다). Codex의 `/` 메뉴는 내장 명령만 받는다 |
 | 게이트 질문 | 선택지 클릭 | 번호 선택지에 답한다 |
 | 라이브 리뷰어 | 세션 백그라운드 작업 | 서버를 세션과 떼어 띄우고(샌드박스 밖 실행을 승인해야 뜬다) 코멘트는 `wait`가 붙잡고 기다린다 — 인도 뒤 닫고, 다 쓰면 “리뷰 서버 꺼줘”(`review_server.py down`) |
 
@@ -124,15 +125,15 @@ Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지�
 
 ## 2. 설치 확인
 
-**① 스킬·커맨드 등록 확인**
+**① 스킬 등록 확인**
 
 ```
 /report-
 ```
 
 까지 입력했을 때 `report-research` · `report-analyze` · `report-draft` · `report-export` ·
-`report-doctor` · `report-review` 6종이 자동완성에 뜨면 커맨드가 붙은 것이다. `/report-review`는 아웃라인·초안을
-라이브 리뷰어(`http://127.0.0.1:3333/`)로 여는 커맨드다 — 인자가 없으면 가장 최근 작업폴더를 연다. 서버 자체는
+`report-doctor` · `report-review` 6종이 자동완성에 뜨면 붙은 것이다(단계 입구도 스킬이다 — Codex는 `$report-`). `/report-review`는
+아웃라인·초안을 라이브 리뷰어(`http://127.0.0.1:3333/`)로 여는 입구다 — 인자가 없으면 가장 최근 작업폴더를 연다. 서버 자체는
 `/report-review 상태`·`재시작`·`끄기`로 확인하고 올리고 내린다.
 
 **설치 직후 `/report-doctor`를 한 번 돌리는 것을 권한다.** 실행 환경·스크립트·규약·인증과
@@ -190,7 +191,7 @@ hwpx 없이 md만 나오는데** 처음 쓰는 사람은 이를 실패로 인지
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| `/report-*` 커맨드가 안 뜬다 | 플러그인 미설치 또는 재시작 필요 | `/plugin` 메뉴에서 설치 상태 확인 후 Claude Code 재시작 |
+| `/report-*`가 안 뜬다 | 플러그인 미설치 또는 재시작 필요 | `/plugin` 메뉴에서 설치 상태 확인 후 Claude Code 재시작 |
 | `/mcp`에서 `kordoc` 연결 실패 | npx 다운로드 실패 / 네트워크 | `npx -y kordoc@4.15.3 mcp`(`.mcp.json`에 고정된 버전)를 터미널에서 직접 실행해 오류 확인 |
 | hwpx가 안 만들어지고 md만 나온다 | `kordoc` 미연결 | 위와 동일. 연결 복구 후 `"hwpx로 변환해줘"`로 ④단계만 재실행 |
 | 법령 조사가 안 된다 | `LAW_OC` 미등록 | [korean-law 키 발급](licenses.md#korean-law-api-키-발급--무료-1분) 참조 후 재시작 |

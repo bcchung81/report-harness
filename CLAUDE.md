@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | | 무엇 | 어디에 |
 |---|---|---|
-| **하네스** | `skills/` + `commands/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code 플러그인(Codex도 같은 매니페스트로 설치 — 커맨드만 없음) |
+| **하네스** | `skills/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code·Codex 플러그인(같은 매니페스트). 단계 입구도 스킬 — `commands/`를 되살리지 말 것(Codex가 못 부른다) |
 | **웹앱 스킬** | `webapp/kca-report-hwpx/` — ③초안·④변환만, MCP 없이 자립 | claude.ai·ChatGPT·Gemini 업로드 / Codex·Antigravity는 `.agents/skills/`에 설치 |
 | **claudian 위키** | 별도 저장소([bcchung81/claudian](https://github.com/bcchung81/claudian)) | 선택 결합 |
 

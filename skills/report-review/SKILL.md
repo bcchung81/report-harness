@@ -1,11 +1,20 @@
 ---
+name: report-review
 description: "라이브 리뷰어 열기·닫기 — 작업폴더의 아웃라인·초안을 한글 양식에 가까운 화면으로 띄우고 코멘트를 받아 반영, 상태·재시작·끄기 (report-pipeline 게이트①·②)"
 ---
 
-report-pipeline 스킬을 로드하고 **라이브 리뷰어**를 연다. 서버·코멘트 처리 규칙은 SKILL.md 게이트② 절 그대로 따른다 —
-이 커맨드는 그 절차를 사용자가 원할 때 바로 시작하는 입구다(게이트①·② 밖에서 초안을 다시 보고 싶을 때도 쓴다).
+# report-review — 라이브 리뷰어 입구
 
-1. **작업폴더를 정한다** — `$ARGUMENTS`로 고른다.
+> 부르는 법 — Claude Code `/report-review [작업폴더|건명|all|닫기|상태|재시작|끄기]` · Codex `$report-review …`(같은 인자).
+
+같은 플러그인의 `report-pipeline` 스킬(이 SKILL.md가 있는 폴더의 형제 `../report-pipeline/SKILL.md`)을 읽고 **라이브
+리뷰어**를 연다. 서버·코멘트 처리 규칙은 그 SKILL.md 게이트② 절 그대로 따른다 — 이 스킬은 그 절차를 사용자가 원할 때
+바로 시작하는 입구다(게이트①·② 밖에서 초안을 다시 보고 싶을 때도 쓴다). 아래 `PIPE` = `$SKILL_DIR/../report-pipeline`
+(`SKILL_DIR` = 이 SKILL.md가 있는 디렉토리). **Codex**에서는 그 SKILL.md §0 실행기 표대로 한다 — 'Bash 백그라운드'는
+`nohup … &`로 떼어 띄우기(샌드박스 밖 실행 승인), `wait`는 앞에서 기다리기, 완료 알림 대신 명령이 끝나는 것을 본다.
+
+1. **작업폴더를 정한다** — 인자 `$ARGUMENTS`로 고른다(비었거나 치환되지 않은 자리표시자로 보이면 — Codex — 사용자가 스킬
+   이름 뒤에 쓴 말을 인자로 본다).
    - 비었으면 `reports_dir`(`harness_config.py`) 아래 날짜 폴더를 최신순으로 훑어 `20_draft.md` 또는 `10_outline.md`가
      있는 가장 최근 작업폴더를 쓴다.
    - 경로면 그 폴더, 건명·슬러그 일부면 부분일치 폴더(최신순). 여러 건이 맞으면 선택지로 고르게 한다.
@@ -23,12 +32,12 @@ report-pipeline 스킬을 로드하고 **라이브 리뷰어**를 연다. 서버
 
    서버 코드를 고친 뒤(설치본 갱신 포함)나 메모리를 비울 때는 재시작, 보고서 작업을 모두 마쳤으면 끄기다. 건 하나만
    닫을 때는 `닫기`를 쓴다. 서버는 띄운 Claude 세션의 백그라운드 작업이라 세션을 닫으면 함께 꺼진다 — 다음 세션에서 이
-   커맨드로 다시 연다.
+   스킬로 다시 연다.
 
 2. **서버를 띄운다** — Bash 백그라운드로:
 
    ```
-   python3 "$SKILL_DIR/scripts/review_server.py" serve {work_dir}
+   python3 "$PIPE/scripts/review_server.py" serve {work_dir}
    ```
 
    출력의 `url`을 사용자에게 1줄로 알린다(기본 `http://127.0.0.1:3333/`). `joined: true`면 이미 떠 있는 허브에
@@ -37,13 +46,13 @@ report-pipeline 스킬을 로드하고 **라이브 리뷰어**를 연다. 서버
 3. **코멘트를 기다린다** — Bash 백그라운드로:
 
    ```
-   python3 "$SKILL_DIR/scripts/review_server.py" wait {work_dir}
+   python3 "$PIPE/scripts/review_server.py" wait {work_dir}
    ```
 
    이 세션에서 같은 건의 `wait`가 이미 돌고 있으면 새로 띄우지 않는다. exit 3이면 다른 세션이 그 건을 잡고 있다 —
    출력의 `held`·`hint`를 그대로 알린다(같은 세션의 이전 wait가 남아 있으면 그 작업을 멈추고 다시 띄운다).
 
-4. **코멘트가 오면** SKILL.md 게이트② 처리 그대로 한다 — 해당 항목의 데이터(`20_draft.md`·`figures/` 명세)만 고치고
+4. **코멘트가 오면** report-pipeline SKILL.md 게이트② 처리 그대로 한다 — 해당 항목의 데이터(`20_draft.md`·`figures/` 명세)만 고치고
    lint·감사를 다시 돌린 뒤 `review_server.py resolve {work_dir} f…`로 '반영됨'을 표시하고 다음 `wait`를 다시 띄운다.
    이 루프 안에서 스크립트·참조 문서는 고치지 않는다. '승인 · 변환'이 오면 게이트② 승인 절차로 넘어간다.
 

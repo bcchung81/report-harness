@@ -1,13 +1,19 @@
 ---
-description: 하네스 자가진단 — 실행 환경·스크립트·규약·인증·MCP 연결을 순서대로 점검하고 막힌 지점을 지목한다
+name: report-doctor
+description: "하네스 자가진단 — 실행 환경·스크립트·규약·인증·MCP 연결을 순서대로 점검하고 막힌 지점을 지목한다"
 ---
 
+# report-doctor — 하네스 자가진단
+
+> 부르는 법 — Claude Code `/report-doctor` · Codex `$report-doctor`. 말로 "하네스 점검해줘"도 같다.
+
 하네스가 정상 동작할 수 있는 상태인지 점검한다. **첫 실행 전이나 결과가 이상할 때** 쓴다.
+`SKILL_DIR` = 이 SKILL.md가 있는 디렉토리 — 스크립트는 같은 플러그인의 형제 스킬 `report-pipeline`에 있다.
 
 ## 1. 환경 진단 (스크립트)
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT:-.}/skills/report-pipeline/scripts/doctor.py"
+python3 "$SKILL_DIR/../report-pipeline/scripts/doctor.py"
 ```
 
 종료 코드 — `0` 이상 없음 / `1` 경고(동작은 함) / `2` 치명(파이프라인 불가).
@@ -18,13 +24,15 @@ python3 "${CLAUDE_PLUGIN_ROOT:-.}/skills/report-pipeline/scripts/doctor.py"
   단계가 자동으로 맞추지만 바로 맞추려면 `sync_rules.py --apply`. '번호 충돌'이면 직접 쌓은 규칙을 R9NN으로 옮긴 뒤
   다시 실행한다.
 - **미조치 lesson** — 하네스 결함·기능 요청으로 기록됐지만 `resolved_by`가 없는 교훈. 고친 뒤 커밋·규칙 번호를 단다.
-- **설치 사본** — 저장소에서 돌렸을 때 `~/.claude/skills` 사본이 저장소와 다르다. 커밋 뒤 사본을 교체한다.
+- **설치 사본** — 저장소에서 돌렸을 때 `~/.claude/skills` 사본이 저장소와 다르거나, 스킬로 옮겨 간 옛 커맨드 사본
+  (`~/.claude/commands/report-*.md`)이 남아 있다. 커밋 뒤 사본을 교체하고 옛 커맨드 사본은 지운다.
 
 ## 2. kordoc MCP 연결 확인 (모델이 수행)
 
 스크립트는 MCP를 호출할 수 없으므로 **이 단계는 직접 확인한다.**
 
-`mcp__kordoc__parse_document`를 이 저장소의 아무 md 파일에 시험 호출해 응답이 오는지 본다.
+`mcp__kordoc__parse_document`를 번들 양식 `$SKILL_DIR/../report-pipeline/assets/250609_표준보고서_KCA_문서양식.hwp`(절대경로로
+바꿔 넘긴다)에 시험 호출해 응답이 오는지 본다 — md는 kordoc이 받지 않아 확장자 오류가 난다('26.11.10 Codex 실행에서 확인).
 도구가 목록에 없거나 호출이 실패하면 kordoc이 연결되지 않은 것이다.
 
 **미연결 시 증상** — 파이프라인이 ③ draft까지는 정상 동작하고 **④ export에서 hwpx 없이
