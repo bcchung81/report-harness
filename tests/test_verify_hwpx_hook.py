@@ -100,6 +100,25 @@ def test_mcp_non_producer_tools_ignored(good_hwpx):
     assert r.returncode == 0 and r.stdout.strip() == ""
 
 
+def test_codex_relative_path_resolves_against_session_cwd(raw_hwpx, tmp_path):
+    """Codex 페이로드(셸 = Bash, `cwd` 포함) — 명령 속 상대경로는 훅 프로세스 위치가 아니라 세션 cwd 기준이다."""
+    payload = {"hook_event_name": "PostToolUse", "tool_name": "Bash", "cwd": str(raw_hwpx.parent),
+               "tool_input": {"command": f"python3 postprocess_hwpx.py {raw_hwpx.name} --all"}, "tool_response": "ok\n"}
+    r = run_payload(payload, cwd=str(tmp_path))                     # 훅은 엉뚱한 곳에서 돈다
+    assert json.loads(r.stdout)["decision"] == "block" and "version.xml" in r.stdout
+
+
+def test_codex_plugin_root_variable_is_enough(tmp_path, raw_hwpx):
+    """Codex는 PLUGIN_ROOT도 준다 — 훅 사본만 따로 있어도 그 변수로 검증기를 찾는다."""
+    lone = tmp_path / "verify_hwpx_hook.py"
+    shutil.copy(HOOK, lone)
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_ROOT"}
+    env["PLUGIN_ROOT"] = str(ROOT)
+    r = subprocess.run([sys.executable, str(lone)], capture_output=True, text=True, env=env,
+                       input=json.dumps({"tool_name": "Bash", "tool_input": {"command": f"postprocess_hwpx.py '{raw_hwpx}' --all"}}))
+    assert json.loads(r.stdout)["decision"] == "block"
+
+
 def test_ignores_unrelated_commands(good_hwpx):
     assert run_hook("ls -la").stdout.strip() == ""
     assert run_hook(f"cat '{good_hwpx}'").stdout.strip() == ""

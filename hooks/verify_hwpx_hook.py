@@ -40,10 +40,9 @@ CANONICAL_MEMBERS = ("version.xml", "META-INF/container.xml", "Contents/content.
 
 
 def find_validator():
-    """플러그인 루트 우선, 없으면 저장소 상대 경로."""
-    root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    """플러그인 루트 우선(Codex는 PLUGIN_ROOT·CLAUDE_PLUGIN_ROOT 둘 다 준다), 없으면 저장소 상대 경로."""
     here = os.path.dirname(os.path.abspath(__file__))
-    for base in (root, os.path.dirname(here)):
+    for base in (os.environ.get("CLAUDE_PLUGIN_ROOT", ""), os.environ.get("PLUGIN_ROOT", ""), os.path.dirname(here)):
         if not base:
             continue
         p = os.path.join(base, "skills", "report-pipeline", "scripts", "validate_hwpx.py")
@@ -144,6 +143,8 @@ def main():
     paths, seen = [], set()
     for p in candidates:
         p = p.strip("'\"")
+        if not os.path.isabs(p) and data.get("cwd"):     # 상대경로는 도구를 부른 세션 위치 기준(Codex는 훅 cwd가 다를 수 있다)
+            p = os.path.join(data["cwd"], p)
         if p not in seen and os.path.isfile(p):
             seen.add(p)
             paths.append(p)

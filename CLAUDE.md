@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | | 무엇 | 어디에 |
 |---|---|---|
-| **하네스** | `skills/` + `commands/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code 플러그인 |
+| **하네스** | `skills/` + `commands/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code 플러그인(Codex도 같은 매니페스트로 설치 — 커맨드만 없음) |
 | **웹앱 스킬** | `webapp/kca-report-hwpx/` — ③초안·④변환만, MCP 없이 자립 | claude.ai·ChatGPT·Gemini 업로드 / Codex·Antigravity는 `.agents/skills/`에 설치 |
 | **claudian 위키** | 별도 저장소([bcchung81/claudian](https://github.com/bcchung81/claudian)) | 선택 결합 |
 
@@ -34,6 +34,7 @@ python3 skills/report-pipeline/scripts/consolidate_rules.py --check   # 규칙 �
 python3 skills/report-pipeline/scripts/sync_rules.py        # 시드 ↔ 운영 규칙 차이(--apply로 반영)
 python3 scripts/build_seed_lineage.py                        # 시드를 고친 뒤 — 배포 시드 줄 지문(계보) 갱신
 python3 scripts/smoke_pipeline.py --runs 1                   # 실전 점검 — 헤드리스 전 구간 + 결정론 채점(로그인·kordoc 필요, CI 아님)
+python3 scripts/smoke_pipeline.py --cli codex --runs 1       # 같은 점검을 Codex로(플러그인 설치·로그인 필요, 격리는 CODEX_HOME)
 ```
 
 의존성 설치 단계가 없다 — **모든 런타임 스크립트는 파이썬 표준 라이브러리만 쓴다**(웹앱

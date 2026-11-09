@@ -5,13 +5,16 @@
 스크립트를 부품별로 보지만, 이 점검은 LLM이 SKILL.md를 읽고 실제로 끝까지 가는지를 본다. 규칙 판본을 바꿔 돌리면
 규칙 문구 슬림화 같은 변경의 A/B가 된다(`--rules`).
 
-    python3 scripts/smoke_pipeline.py [--runs N] [--rules <rules.md>] [--out <dir>] [--model <m>]
+    python3 scripts/smoke_pipeline.py [--runs N] [--rules <rules.md>] [--out <dir>] [--model <m>] [--cli claude|codex]
     python3 scripts/smoke_pipeline.py --score-only <out dir>      # 이미 돈 결과만 다시 채점
 
 - 격리: 실행마다 임시 폴더에 설정 파일을 두고 `REPORT_HARNESS_CONFIG`로 가리킨다 — 산출물·규칙·교훈이 운영 폴더
   (`~/.claude/report-harness.json`의 reports_dir·state_dir)에 섞이지 않는다.
 - 헤드리스 세션은 `claude -p … --dangerously-skip-permissions`로 돈다. 자기 하네스와 이 스크립트의 가상 자료로만
   쓰고, CI에서는 돌리지 않는다(로그인된 Claude Code와 kordoc MCP가 필요하다. 1회 약 10분·수 달러).
+- `--cli codex`('26.11.10)는 같은 요청문을 `codex exec`로 돌린다 — Codex에 플러그인으로 설치된 하네스를 읽고(`codex plugin
+  add report-harness@report-harness`), 훅은 신뢰 없이 이번 실행에만 켠다(`--dangerously-bypass-hook-trust`). 격리하려면
+  `CODEX_HOME`을 따로 두고 그곳에 설치한다. 채점은 같다(비용·턴 수는 Codex가 내지 않아 비어 있다).
 - 게이트 질문은 요청문에 미리 답해 둔다 — 사람이 답할 수 없다.
 - 세션은 이 저장소가 아니라 설치된 하네스(`~/.claude/skills` 사본 또는 플러그인)를 읽는다 — 사본이 저장소와 다르면
   멈춘다(`--allow-stale`로 넘김). 안전망 훅 2종은 플러그인으로 설치돼 있을 때만 돈다.
@@ -120,12 +123,36 @@ def score(run_dir):
     return out
 
 
-def preflight(rules=None, allow_stale=False):
+def codex_plugin_dir(codex_home=None):
+    """Codex에 설치된 하네스 플러그인 사본(`{CODEX_HOME}/plugins/cache/{마켓}/report-harness/{버전}`) — 저장소 버전 우선."""
+    home = pathlib.Path(codex_home or os.environ.get("CODEX_HOME") or pathlib.Path.home() / ".codex")
+    found = sorted(home.glob("plugins/cache/*/report-harness/*/skills"))
+    if not found:
+        return None
+    ver = json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+    same = [d for d in found if d.parent.name == ver]
+    return (same or found)[-1].parent
+
+
+def session_command(cli="claude", model=None, max_turns=150):
+    """헤드리스 세션 명령 — 요청문(PROMPT)은 끝에 붙는다."""
+    if cli == "codex":
+        return (["codex", "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+                 "--dangerously-bypass-hook-trust", "--json"] + (["-m", model] if model else []) + [PROMPT])
+    return (["claude", "-p", PROMPT, "--dangerously-skip-permissions", "--max-turns", str(max_turns),
+             "--output-format", "json"] + (["--model", model] if model else []))
+
+
+def preflight(rules=None, allow_stale=False, cli="claude"):
     """실행 전 확인 → 오류 문구 목록. 설치 사본이 저장소와 다르면 세션이 옛 하네스로 돌아 결과가 이 저장소를 말하지
     않는다. 규칙 판본은 시드 번호를 모두 담아야 한다('26.9.25 코드 리뷰 #4)."""
     errors = []
-    if shutil.which("claude") is None:
-        errors.append("claude CLI가 없다")
+    if shutil.which(cli) is None:
+        errors.append(f"{cli} CLI가 없다")
+    plugin = codex_plugin_dir() if cli == "codex" else None
+    if cli == "codex" and plugin is None:
+        errors.append("Codex에 report-harness 플러그인이 없다 — `codex plugin marketplace add <저장소>` → "
+                      "`codex plugin add report-harness@report-harness`")
     if rules:
         if not rules.is_file():
             errors.append(f"규칙 파일 없음 {rules}")
@@ -134,15 +161,15 @@ def preflight(rules=None, allow_stale=False):
             if missing:
                 errors.append(f"규칙 판본에 시드 번호 {len(missing)}개가 없다({', '.join(missing[:5])}…) — 첫 단계가 되살려"
                               " A/B가 무효. 번호는 두고 본문을 줄인다")
-    if not allow_stale:
+    if not allow_stale and not (cli == "codex" and plugin is None):
         import doctor
-        copy = doctor.installed_copy_check(ROOT)
+        copy = doctor.installed_copy_check(ROOT, installed=plugin / "skills" if plugin else None)
         if copy and copy["상태"] != doctor.OK:
             errors.append(f"설치 사본이 저장소와 다르다({copy['값']}) — 사본을 교체하거나 --allow-stale")
     return errors
 
 
-def run_once(run_dir, rules=None, model=None, max_turns=150, timeout=2700):
+def run_once(run_dir, rules=None, model=None, max_turns=150, timeout=2700, cli="claude"):
     run_dir = pathlib.Path(run_dir)
     if run_dir.exists() and any(run_dir.iterdir()):
         raise FileExistsError(f"이미 결과가 있는 폴더 — 다른 --out을 준다: {run_dir}")
@@ -155,13 +182,16 @@ def run_once(run_dir, rules=None, model=None, max_turns=150, timeout=2700):
     cfg = run_dir / "config.json"
     cfg.write_text(json.dumps({"reports_dir": str(run_dir / "reports"), "state_dir": str(run_dir / "state")},
                               ensure_ascii=False), encoding="utf-8")
-    cmd = ["claude", "-p", PROMPT, "--dangerously-skip-permissions", "--max-turns", str(max_turns),
-           "--output-format", "json"] + (["--model", model] if model else [])
+    cmd = session_command(cli, model, max_turns)
     t0 = time.time()
     try:
         r = subprocess.run(cmd, cwd=run_dir / "cwd", env=dict(os.environ, REPORT_HARNESS_CONFIG=str(cfg)),
                            capture_output=True, text=True, timeout=timeout)
-        (run_dir / "session.json").write_text(r.stdout, encoding="utf-8")
+        if cli == "codex":                     # 이벤트 줄(JSONL)은 따로 두고, 채점이 읽는 요약은 종료 코드로 만든다
+            (run_dir / "session.jsonl").write_text(r.stdout, encoding="utf-8")
+            (run_dir / "session.json").write_text(json.dumps({"cli": "codex", "is_error": r.returncode != 0}), encoding="utf-8")
+        else:
+            (run_dir / "session.json").write_text(r.stdout, encoding="utf-8")
         (run_dir / "session.err").write_text(r.stderr, encoding="utf-8")
     except subprocess.TimeoutExpired:
         (run_dir / "session.err").write_text(f"timeout {timeout}s", encoding="utf-8")
@@ -189,6 +219,7 @@ def main(argv=None):
     ap.add_argument("--timeout", type=int, default=2700)
     ap.add_argument("--score-only", type=pathlib.Path, help="이미 돈 결과 폴더(또는 실행 폴더 하나)를 다시 채점")
     ap.add_argument("--allow-stale", action="store_true", help="설치 사본이 저장소와 달라도 돌린다")
+    ap.add_argument("--cli", choices=("claude", "codex"), default="claude", help="헤드리스 실행기(기본 claude)")
     a = ap.parse_args(argv)
     if a.score_only:
         if not a.score_only.is_dir():
@@ -201,14 +232,14 @@ def main(argv=None):
             return 2
         results = [score(p) for p in runs]
     else:
-        errors = preflight(a.rules, a.allow_stale)
+        errors = preflight(a.rules, a.allow_stale, a.cli)
         if errors:
             for e in errors:
                 print(f"error: {e}", file=sys.stderr)
             return 2
         out = a.out or pathlib.Path(tempfile.gettempdir()) / "report-harness-smoke" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         try:
-            results = [run_once(out / f"run{i + 1}", a.rules, a.model, a.max_turns, a.timeout) for i in range(a.runs)]
+            results = [run_once(out / f"run{i + 1}", a.rules, a.model, a.max_turns, a.timeout, a.cli) for i in range(a.runs)]
         except FileExistsError as e:
             print(f"error: {e}", file=sys.stderr)
             return 2

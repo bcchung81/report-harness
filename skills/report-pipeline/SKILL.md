@@ -18,6 +18,15 @@ research→draft→export, "기존 초안 고도화" = analyze→draft→export(
 `"$SKILL_DIR/scripts/…"` 형태다 — 저장소 상대경로를 쓰면 플러그인 설치 환경(cwd가 사용자
 프로젝트)에서 전부 깨진다.
 
+실행기: Claude Code와 **Codex**(같은 플러그인을 그대로 설치) 둘 다 이 지시서를 따른다. 스크립트·참조 문서·kordoc
+MCP 도구명(`mcp__kordoc__…`)·훅은 같고, 아래 세 가지만 실행기 도구에 맞춘다('26.11.10 codex 0.167 실측).
+
+| 이 문서의 표현 | Codex에서 |
+|---|---|
+| AskUserQuestion(선택지 질문) | 같은 선택지를 번호 목록으로 보이고(권장안 표시 그대로) 답을 기다린다 — 열린 질문으로 바꾸지 않는다 |
+| Bash 백그라운드 + 완료 알림 | 완료 알림이 없다. `review_server.py serve`·`restart`는 `nohup … >/dev/null 2>&1 &`로 떼어 띄우고(세션과 별개로 살아 있으니 인도 뒤 `stop`, 다 끝나면 `down`), `wait`는 앞에서 실행해 끝날 때까지 기다린다(오래 걸려도 정상 — 사용자가 화면에서 코멘트를 보내면 끝난다). 리뷰어 명령은 로컬 포트를 열고 붙으므로 **샌드박스 밖 실행 승인**을 받아 돌린다(샌드박스 안에서는 서버가 뜨지 않는다) |
+| 서브에이전트 | 멀티에이전트 도구가 있으면 그것으로, 없으면 차례로 처리한다(금기 2 — 본문 절별 병렬 집필 금지 — 는 그대로) |
+
 1. `python3 "$SKILL_DIR/scripts/harness_config.py"` 실행 → `reports_dir`·
    `state_dir`·`knowledge_vault`·`template_hwpx` 확보.
 2. **작업폴더 판정**:

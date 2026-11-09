@@ -15,19 +15,74 @@
 `20_draft.md` 하나이고 나머지는 파생물이라, 파일 이름이 정확히 `20_draft.md`일 때만 검사한다.
 
 검사 스크립트를 찾지 못하면 아무 것도 하지 않는다 — 훅이 작성을 막는 원인이 되면 안 된다.
+
+## 두 실행기의 페이로드
+
+- Claude Code — `Write`·`Edit`·`MultiEdit`, 경로는 `tool_input.file_path`(응답의 `filePath`).
+- Codex — 파일 편집이 `apply_patch` 하나이고 경로는 패치 본문(`tool_input.command`)의
+  `*** Add File:`·`*** Update File:`·`*** Move to:` 줄에 있다('26.11.10 codex 0.167 실측). 상대경로는
+  페이로드의 `cwd` 기준이다.
+- **셸로 쓴 초안**(`Bash`) — Codex는 초안을 `python3 - <<PY … write_text` 같은 셸 명령으로 쓰는 일이 잦다('26.11.10
+  실전 점검에서 초안 전량이 이 경로였다). 명령에 `20_draft`가 보이면 명령 속 경로, 없으면 `reports_dir` 아래 최근
+  초안을 후보로 삼고, **훅이 마지막으로 본 뒤 바뀐 초안만** 검사한다 — 초안을 읽기만 하는 명령마다 같은 위반을 되풀이해
+  막지 않게(본 시각은 임시 폴더 `report-harness-lint-seen.json`).
 """
 import json
 import os
+import re
 import subprocess
 import sys
+import tempfile
+import time
 
 DRAFT = "20_draft.md"
+PATCH_FILE = re.compile(r"^\*\*\* (?:Add File|Update File|Move to): (.+?)\s*$", re.M)
+DRAFT_IN_CMD = re.compile(r"[^\s\"'`=(),;<>|&]*20_draft\.md")
+RECENT_SEC = 600                     # 명령 속 경로를 못 찾을 때 '방금 쓴 초안'으로 볼 범위
+SEEN = os.path.join(tempfile.gettempdir(), "report-harness-lint-seen.json")
+
+
+def _seen_load():
+    try:
+        with open(SEEN, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def changed(paths):
+    """마지막으로 본 뒤 내용이 바뀐(mtime) 초안만 — 본 시각을 갱신한다."""
+    seen, out = _seen_load(), []
+    for p in paths:
+        m = os.stat(p).st_mtime_ns
+        if seen.get(p) != m:
+            out.append(p)
+            seen[p] = m
+    if out:
+        try:
+            with open(SEEN, "w", encoding="utf-8") as f:
+                json.dump(seen, f)
+        except OSError:
+            pass
+    return out
+
+
+def recent_drafts(scripts):
+    """설정의 reports_dir 아래 `{날짜}/{건}/20_draft.md` 중 최근에 바뀐 것(셸 명령이 경로를 조립해 쓴 경우)."""
+    try:
+        sys.path.insert(0, scripts)
+        import harness_config
+        base = harness_config.load_config()["reports_dir"]
+    except Exception:
+        return []
+    now = time.time()
+    return [str(p) for p in base.glob(f"*/*/{DRAFT}") if now - p.stat().st_mtime < RECENT_SEC]
 
 
 def find_scripts():
-    """플러그인 루트 우선, 없으면 저장소 상대 경로."""
+    """플러그인 루트 우선(Codex는 PLUGIN_ROOT·CLAUDE_PLUGIN_ROOT 둘 다 준다), 없으면 저장소 상대 경로."""
     here = os.path.dirname(os.path.abspath(__file__))
-    for base in (os.environ.get("CLAUDE_PLUGIN_ROOT", ""), os.path.dirname(here)):
+    for base in (os.environ.get("CLAUDE_PLUGIN_ROOT", ""), os.environ.get("PLUGIN_ROOT", ""), os.path.dirname(here)):
         if base:
             d = os.path.join(base, "skills", "report-pipeline", "scripts")
             if os.path.isfile(os.path.join(d, "lint_md_profile.py")):
@@ -35,12 +90,31 @@ def find_scripts():
     return None
 
 
-def target(data):
-    """훅 페이로드에서 방금 쓴 파일 — 초안이면 그 경로, 아니면 None."""
+def targets(data, scripts=None):
+    """훅 페이로드에서 방금 쓴 초안 경로 목록 — 초안이 아니면 빈 목록."""
     resp = data.get("tool_response") or {}
     inp = data.get("tool_input") or {}
-    path = (resp.get("filePath") if isinstance(resp, dict) else None) or inp.get("file_path") or ""
-    return path if os.path.basename(path) == DRAFT and os.path.isfile(path) else None
+    cmd = inp.get("command") if isinstance(inp.get("command"), str) else ""
+    shell = data.get("tool_name") == "Bash"
+    if shell and "20_draft" not in cmd:
+        return []                                        # 셸 명령 대부분은 여기서 끝난다(훅 비용)
+    paths = [(resp.get("filePath") if isinstance(resp, dict) else None) or inp.get("file_path") or ""]
+    if data.get("tool_name") == "apply_patch":
+        paths += PATCH_FILE.findall(cmd)
+    if shell:
+        paths += DRAFT_IN_CMD.findall(cmd)
+    out = []
+    for p in paths:
+        if p and not os.path.isabs(p) and data.get("cwd"):
+            p = os.path.join(data["cwd"], p)
+        if os.path.basename(p) == DRAFT and os.path.isfile(p) and p not in out:
+            out.append(os.path.abspath(p))
+    if shell:
+        if not out and scripts:
+            out = recent_drafts(scripts)
+        return changed(out)
+    changed(out)                                         # 편집 도구로 쓴 것도 '본 것'으로 남긴다 — 뒤이은 읽기 명령이 다시 막지 않게
+    return out
 
 
 def violations(scripts, path):
@@ -64,25 +138,28 @@ def main():
     except ValueError:
         print("lint_draft_hook: stdin 페이로드 파싱 실패 — 초안 린트를 건너뜀", file=sys.stderr)
         return
-    path = target(data)
-    scripts = find_scripts() if path else None
-    if not path or not scripts:
+    if data.get("cwd") and os.path.isdir(data["cwd"]):
+        os.chdir(data["cwd"])                            # 설정 없는 기본 reports_dir(실행 위치 기준)을 세션 위치로 맞춘다
+    scripts = find_scripts()
+    paths = targets(data, scripts) if scripts else []
+    if not paths:
         return
-    found = violations(scripts, path)
-    if not found:
-        return
-    lines = []
-    for name, vs in found:
-        rules = {}
-        for v in vs:
-            rules[v.get("rule", "?")] = rules.get(v.get("rule", "?"), 0) + 1
-        where = ", ".join(str(v.get("line")) for v in vs[:8])
-        lines.append(f"- {name}: {len(vs)}건 — " + ", ".join(f"{k} {n}건" for k, n in rules.items()) + f" (줄 {where})")
-    print(json.dumps({
-        "decision": "block",
-        "reason": f"초안 규칙 위반({os.path.basename(os.path.dirname(path))}/{DRAFT}) — md-profile.md와 rules.md의 [draft] "
-                  "항목을 보고 0건이 될 때까지 고친다.\n" + "\n".join(lines),
-    }, ensure_ascii=False))
+    blocks = []
+    for path in paths:
+        found = violations(scripts, path)
+        if not found:
+            continue
+        lines = []
+        for name, vs in found:
+            rules = {}
+            for v in vs:
+                rules[v.get("rule", "?")] = rules.get(v.get("rule", "?"), 0) + 1
+            where = ", ".join(str(v.get("line")) for v in vs[:8])
+            lines.append(f"- {name}: {len(vs)}건 — " + ", ".join(f"{k} {n}건" for k, n in rules.items()) + f" (줄 {where})")
+        blocks.append(f"초안 규칙 위반({os.path.basename(os.path.dirname(path))}/{DRAFT}) — md-profile.md와 rules.md의 [draft] "
+                      "항목을 보고 0건이 될 때까지 고친다.\n" + "\n".join(lines))
+    if blocks:
+        print(json.dumps({"decision": "block", "reason": "\n".join(blocks)}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

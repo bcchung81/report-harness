@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.6.7-green.svg)
+![version](https://img.shields.io/badge/version-0.7.0-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -293,7 +293,7 @@ A는 VDI 브라우저에** 놓는 형태로 갈린다.
 |---|---|---|---|
 | 역할 | 지식을 쌓고 재인용 | 조사→분석→초안→변환 | 초안 + hwpx 변환 |
 | 대상 | 자료를 계속 다루는 사람 | 운영자 | 실무자 |
-| 쓰는 곳 | 개발 노트북 (터미널 + Obsidian) | 개발 노트북 (Claude Code) | **VDI 브라우저** — claude.ai · ChatGPT · Gemini |
+| 쓰는 곳 | 개발 노트북 (터미널 + Obsidian) | 개발 노트북 (Claude Code · Codex) | **VDI 브라우저** — claude.ai · ChatGPT · Gemini |
 | 설치 | 저장소 클론 | 플러그인 + MCP | **스킬 파일 하나** |
 | 축적 | **지식** (acquired→wiki) | **규칙** (lessons→rules) | 없음 (정적) |
 | 없으면 | 신규 조사만 수행 | — | — |
@@ -337,6 +337,7 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 | | 설치 문서 | 첫 명령 |
 |---|---|---|
 | **하네스** — 개발 노트북, 전 구간 | [docs/install-harness.md](docs/install-harness.md) | `/plugin install report-harness@report-harness` |
+| **하네스 (Codex)** — 같은 플러그인 | [설치 문서 §1-2](docs/install-harness.md#1-2-codex에-설치) | `codex plugin add report-harness@report-harness` |
 | **웹앱 스킬** — Claude·ChatGPT·Gemini | [docs/install-webapp.md](docs/install-webapp.md) | 스킬 파일 하나 업로드 |
 | **claudian 위키** — 선택 | [bcchung81/claudian](https://github.com/bcchung81/claudian) | 별도 저장소 `INSTALL.md` |
 

@@ -1,8 +1,8 @@
-> report-harness 플러그인을 터미널(Claude Code)에 설치한다. 4단계 전 구간(조사·분석·초안·변환)과
+> report-harness 플러그인을 터미널(Claude Code — Codex는 §1-2)에 설치한다. 4단계 전 구간(조사·분석·초안·변환)과
 > 룰 복리축적을 쓰려면 이쪽이다. 웹앱만 쓸 사람은 [웹앱 스킬 설치](install-webapp.md)를 보면 된다.
 > 전체 소개는 [README](../README.md).
 
-# 하네스판 설치 — 터미널 (Claude Code)
+# 하네스판 설치 — 터미널 (Claude Code · Codex)
 
 ## 0. 사전 요구사항
 
@@ -89,6 +89,38 @@ git clone https://github.com/bcchung81/report-harness.git
 Claude Code는 **clone 폴더 밖의 업무 폴더**에서 여는 것을 권한다. 설정 파일이 없으면 작업폴더(`reports/`)와 운영
 규칙(`.report-harness/`)이 실행 위치에 생긴다 — clone 폴더 안에서 써도 두 폴더는 gitignore와 배포 가드
 (`scripts/package_check.sh`)가 막지만, 기관 자료는 공개 저장소 밖에 두는 편이 안전하다. 경로를 고정하려면 §8.
+
+### 1-2. Codex에 설치
+
+같은 플러그인을 **OpenAI Codex CLI**(플러그인 지원판 — 0.167.0에서 확인)에도 그대로 설치한다. Codex가 이 저장소의
+`.claude-plugin/` 매니페스트·`hooks/hooks.json`·`.mcp.json`을 읽으므로 따로 고친 판이 없다. 4단계 전 구간·규칙
+복리축적·hwpx 변환·안전망 훅이 같다. 터미널에서:
+
+```bash
+codex plugin marketplace add bcchung81/report-harness
+codex plugin add report-harness@report-harness
+```
+
+Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지를 확인한다.
+
+- **안전망 훅 신뢰** — Codex는 설치한 플러그인의 훅을 **사용자가 신뢰해야** 돌린다(신뢰 전에는 건너뛴다). `codex`를 열고
+  `/hooks`에서 report-harness 훅 2개(초안 린트·hwpx 검증)를 신뢰한다. 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
+  신뢰하지 않아도 파이프라인은 돌지만(스킬이 린트·검증을 직접 부른다) 모델이 건너뛸 때 막아 줄 장치가 꺼진다.
+- **kordoc MCP** — 플러그인의 `.mcp.json`이 `kordoc@4.15.3`(실전 점검을 통과한 고정판)을 띄운다. 이미
+  `~/.codex/config.toml`에 `[mcp_servers.kordoc]`을 직접 등록해 두었다면 **그쪽이 우선하고 플러그인 것은 건너뛴다** —
+  다른 판이면 변환 결과가 이 하네스의 점검과 달라질 수 있으니 그 항목을 지우거나 같은 판으로 맞춘다.
+
+쓰는 법은 말로 요청하는 것(“보고서 작성해줘”·“hwpx로 변환해줘”·“이어서 해줘”)이 같다. 다른 점은 셋이다.
+
+| | Claude Code | Codex |
+|---|---|---|
+| 단계 커맨드 | `/report-draft`·`/report-review` 등 | 없음 — 말로 요청한다(`/skills`에서 `report-harness:report-pipeline` 확인) |
+| 게이트 질문 | 선택지 클릭 | 번호 선택지에 답한다 |
+| 라이브 리뷰어 | 세션 백그라운드 작업 | 서버를 세션과 떼어 띄우고(샌드박스 밖 실행을 승인해야 뜬다) 코멘트는 `wait`가 붙잡고 기다린다 — 인도 뒤 닫고, 다 쓰면 “리뷰 서버 꺼줘”(`review_server.py down`) |
+
+설정 파일 위치는 Codex에서도 `~/.claude/report-harness.json`(또는 환경변수 `REPORT_HARNESS_CONFIG`)이다(§8).
+갱신은 `codex plugin marketplace upgrade report-harness` 뒤 `codex plugin add report-harness@report-harness`. 제거는
+`codex plugin remove report-harness@report-harness`.
 
 ## 2. 설치 확인
 

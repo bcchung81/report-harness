@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.0 (2026-11-10)
+
+**Codex에서도 돈다** — 같은 플러그인을 OpenAI Codex CLI(0.167.0에서 확인)에 설치해 4단계 전 구간을 쓴다. Codex가
+`.claude-plugin/` 매니페스트·`hooks/hooks.json`·`.mcp.json`을 그대로 읽어 따로 갈라진 판은 없다. 설치는
+`codex plugin marketplace add bcchung81/report-harness` → `codex plugin add report-harness@report-harness`(설치 문서 §1-2).
+
+- **안전망 훅 2종이 Codex 페이로드를 읽는다** — Codex는 셸을 `Bash`로 같게 넘기지만 파일 편집은 `apply_patch` 하나이고
+  경로가 패치 본문(`*** Update File:`·`*** Add File:`)에 있다(실측). 종전 초안 린트 훅은 `file_path`만 봐서 Codex의
+  초안 편집을 놓쳤다 — 패치 본문에서 경로를 찾고(상대경로는 세션 `cwd` 기준), matcher에 `apply_patch`를 더했다.
+  hwpx 검증 훅도 명령 속 상대경로를 세션 `cwd` 기준으로 푼다. 플러그인 루트는 `CLAUDE_PLUGIN_ROOT`·`PLUGIN_ROOT` 둘 다 본다.
+  Codex는 플러그인 훅을 `/hooks`에서 신뢰해야 돌린다.
+- **셸로 쓴 초안도 린트** — Codex는 초안을 편집 도구가 아니라 셸(`python3 - <<PY … write_text`)로 쓰는 일이 잦다(실전 점검에서
+  초안 전량이 이 경로). 린트 훅이 `Bash`도 받아, 명령에 `20_draft`가 보이면 명령 속 경로(없으면 `reports_dir` 아래 최근 초안)를
+  보고 **훅이 마지막으로 본 뒤 바뀐 초안만** 검사한다 — 읽기만 하는 명령마다 같은 위반을 되풀이해 막지 않는다. Claude Code에서
+  셸로 쓴 경우에도 같다.
+- **지시서의 실행기 차이 3가지** — `report-pipeline` §0에 표로: 선택지 질문 도구가 없으면 번호 선택지로 묻고, 백그라운드
+  완료 알림이 없으면 리뷰 서버를 세션과 떼어 띄우고 `wait`는 앞에서 기다리며, 서브에이전트는 멀티에이전트 도구로(없으면
+  차례로). 자료조사 팬아웃도 같다. 리뷰어 명령은 샌드박스 밖 실행 승인이 필요하다(샌드박스 안에서는 서버가 뜨지 않는다).
+  스크립트·참조 문서·kordoc 도구명(`mcp__kordoc__…`)은 그대로다.
+- **실전 점검 `--cli codex`** — `smoke_pipeline.py`가 같은 요청문을 `codex exec`로 돌리고 같은 결정론 채점을 한다(훅은 그
+  실행에만 신뢰 없이 켠다). 설치 사본 대조는 Codex 플러그인 캐시(`{CODEX_HOME}/plugins/cache/…`)를 본다.
+- **확인한 것**(격리 `CODEX_HOME`, codex 0.167.0) — 실전 점검 1회 인도(린트·감사 0·설계 칸·구조 검증·왕복 대조 통과, 1쪽,
+  147초, kordoc `generate_document`·`parse_document` 사용). 훅 3경로(셸로 쓴 초안·`apply_patch` 편집·kordoc 생성)가 차단·리마인더를
+  모델에 전달. 리뷰 서버 분리 실행 → `wait`가 화면 코멘트를 받아 → 초안 반영 → `resolve`까지.
+
 ## 0.6.7 (2026-11-10)
 
 라이브 리뷰어 화면 손질('26.9.30 사용자 지적·지시).

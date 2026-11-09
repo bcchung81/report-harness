@@ -61,3 +61,21 @@ def test_session_error_is_never_delivered(tmp_path):
     assert s["session_ok"] is False and s["delivered"] is False
     assert sp.main(["--score-only", str(tmp_path / "없음")]) == 2
     assert sp.main(["--score-only", str(run)]) == 1                       # 실행 폴더 하나도 받는다 — 미인도라 1
+
+
+def test_codex_session_command_runs_the_same_prompt_with_hooks_on():
+    """`--cli codex` — 같은 요청문을 codex exec로, 훅은 이번 실행에만 신뢰 없이 켠다('26.11.10)."""
+    cmd = sp.session_command("codex", model="m1")
+    assert cmd[:2] == ["codex", "exec"] and cmd[-1] == sp.PROMPT
+    assert "--dangerously-bypass-hook-trust" in cmd and "--json" in cmd and cmd[cmd.index("-m") + 1] == "m1"
+    assert sp.session_command()[:3] == ["claude", "-p", sp.PROMPT]          # 기본은 그대로 claude
+
+
+def test_codex_preflight_finds_installed_plugin_copy(tmp_path, monkeypatch):
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    assert any("플러그인이 없다" in e for e in sp.preflight(allow_stale=True, cli="codex"))
+    ver = json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))["version"]
+    for v in ("0.0.1", ver):
+        (tmp_path / f"plugins/cache/report-harness/report-harness/{v}/skills").mkdir(parents=True)
+    assert sp.codex_plugin_dir().name == ver                                # 저장소 버전 사본을 고른다
+    assert not any("플러그인이 없다" in e for e in sp.preflight(allow_stale=True, cli="codex"))
