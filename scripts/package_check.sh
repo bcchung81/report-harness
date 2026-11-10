@@ -4,12 +4,12 @@ set -e
 # report/는 기관 내부 산출물이라 가장 민감하다 — gitignore 한 줄이 지워져도 여기서 잡는다
 # 기관 양식 원본(경영관리 프레임워크)·디자인 시안(prototype)도 같은 취급 — 런타임은 원본을 읽지 않고 파생 패턴만 쓴다
 # reports/·.report-harness/는 설정 없이 돌린 기본 산출 거처(cwd 기준) — clone 폴더 안에서 쓰면 여기에 쌓인다('26.9.28)
-for banned in "form" "docs/analysis" "report" "reports" ".report-harness" "skills/report-pipeline/assets/경영관리프레임워크" "prototype"; do
+for banned in "form" "docs/analysis" "report" "reports" ".report-harness" "skills/report-pipeline/assets/경영관리프레임워크" "plugins/report-harness/skills/report-pipeline/assets/경영관리프레임워크" "prototype"; do
   # core.quotepath=false: 한글 경로가 8진 이스케이프로 출력되어 grep이 놓치는 것 방지
   if git -c core.quotepath=false ls-files | grep -q "^$banned/"; then echo "FATAL: $banned 이 추적됨 — 배포 금지 대상"; exit 1; fi
 done
 # tests/는 PII 탐지 픽스처(가짜 연락처)가 있어 제외 — 배포·공개 문서 계층 전부를 훑는다
-for dir in skills webapp hooks scripts docs; do
+for dir in skills plugins webapp hooks scripts docs; do
   python3 scripts/pii_scan.py "$dir/"
 done
 # 버전 가드(경고) — 설치본은 버전으로 갱신을 판단한다. 배포 저장소와 내용이 다른데 버전이 같으면 설치자의

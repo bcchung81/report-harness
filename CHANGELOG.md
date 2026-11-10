@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.4 (2026-11-10)
+
+**Codex 훅 오류 2종의 원인 해결.** 이 판으로 갱신하면 Codex에서 신뢰 창이 한 번 더 뜬다(설치 폴더가 바뀌므로) — 그 뒤로는
+문서 커밋으로 신뢰가 풀리지 않는다.
+
+- **`Hook failed — plugin contents changed; hook approval required`가 되풀이되던 원인** — Codex는 훅 신뢰를 플러그인 폴더
+  전체의 내용 지문으로 기록하고, 세션을 열 때마다 Git 마켓을 최신 커밋으로 자동 갱신한다(바이너리 문구 `configured marketplace
+  auto-upgrade` · 13:54 세션 시작 4초 뒤 캐시 교체 실측). 저장소 루트가 곧 플러그인이라 **README·docs만 바꾼 커밋에도** 지문이
+  바뀌었다(격리 실측: 문서만 바꿔 재설치 → `modified`). 그래서 Codex 전용 마켓 매니페스트 `.agents/plugins/marketplace.json`이
+  **실행 파일만 담은 사본 `plugins/report-harness/`**(스킬·훅·`.mcp.json`·매니페스트, 1.6MB)를 가리키게 했다 — Codex는 이 파일을
+  `.claude-plugin/marketplace.json`보다 먼저 읽는다. 같은 실측에서 사본 방식은 README를 바꿔도 `trusted`였다. Claude Code는 종전대로
+  루트를 쓴다. 사본은 `scripts/build_codex_plugin.py`가 git이 추적하는 원본에서 만들고 `test_codex_plugin.py`가 바이트 동일을 지킨다.
+- **`hook exited with code 1`** — 안전망 훅 2종이 예상 밖 페이로드(명령이 배열, `tool_input`이 문자열·없음, JSON이 객체가 아님)에서
+  파이썬 예외로 죽어 exit 1을 냈다. 모양을 가리지 않고 글자로 읽고(배열 명령은 이어 붙여 계속 검사), 그래도 예외가 나면 stderr에
+  사유만 남기고 0으로 끝낸다 — 안전망이 오류를 만들지 않는다. 회귀 테스트 3건.
+- 부수: Codex 설치본에 `.git`이 따라오지 않아, 자가진단의 '설치 사본' 점검이 Codex 캐시를 저장소로 오인하던 일이 없어진다.
+
 ## 0.7.3 (2026-11-10)
 
 문서판 — 실행 파일(스킬·훅·스크립트·MCP)은 0.7.2와 같다.

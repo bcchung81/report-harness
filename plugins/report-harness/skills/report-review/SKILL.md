@@ -1,0 +1,63 @@
+---
+name: report-review
+description: "라이브 리뷰어 열기·닫기 — 작업폴더의 아웃라인·초안을 한글 양식에 가까운 화면으로 띄우고 코멘트를 받아 반영, 상태·재시작·끄기 (report-pipeline 게이트①·②)"
+---
+
+# report-review — 라이브 리뷰어 입구
+
+> 부르는 법 — Claude Code `/report-review [작업폴더|건명|all|닫기|상태|재시작|끄기]` · Codex `$report-review …`(같은 인자).
+
+같은 플러그인의 `report-pipeline` 스킬(이 SKILL.md가 있는 폴더의 형제 `../report-pipeline/SKILL.md`)을 읽고 **라이브
+리뷰어**를 연다. 서버·코멘트 처리 규칙은 그 SKILL.md 게이트② 절 그대로 따른다 — 이 스킬은 그 절차를 사용자가 원할 때
+바로 시작하는 입구다(게이트①·② 밖에서 초안을 다시 보고 싶을 때도 쓴다). 아래 `PIPE` = `$SKILL_DIR/../report-pipeline`
+(`SKILL_DIR` = 이 SKILL.md가 있는 디렉토리). **Codex**에서는 그 SKILL.md §0 실행기 표대로 한다 — 'Bash 백그라운드'는
+`nohup … &`로 떼어 띄우기(샌드박스 밖 실행 승인), `wait`는 앞에서 기다리기, 완료 알림 대신 명령이 끝나는 것을 본다.
+
+1. **작업폴더를 정한다** — 인자 `$ARGUMENTS`로 고른다(비었거나 치환되지 않은 자리표시자로 보이면 — Codex — 사용자가 스킬
+   이름 뒤에 쓴 말을 인자로 본다).
+   - 비었으면 `reports_dir`(`harness_config.py`) 아래 날짜 폴더를 최신순으로 훑어 `20_draft.md` 또는 `10_outline.md`가
+     있는 가장 최근 작업폴더를 쓴다.
+   - 경로면 그 폴더, 건명·슬러그 일부면 부분일치 폴더(최신순). 여러 건이 맞으면 선택지로 고르게 한다.
+   - `all`(또는 `전체`)이면 폴더를 고르지 않고 3번의 `wait --all`만 띄운다 — 허브에서 리뷰 중인 건 전부를 받는다.
+   - `닫기`(또는 `stop`)면 그 건의 리뷰를 닫는다: `review_server.py stop {work_dir}`. 여기서 끝낸다.
+   - 고른 폴더에 `20_draft.md`도 `10_outline.md`도 없으면 "리뷰할 아웃라인·초안이 없습니다"로 끝낸다.
+
+   **서버 올리기·내리기**('26.9.27) — 아래 인자는 폴더를 고르지 않고 허브(3333) 전체에 쓴다. 결과는 1~2줄로 알린다.
+
+   | 인자 | 명령 | 알릴 것 |
+   |---|---|---|
+   | `상태`·`status` | `review_server.py status` | 켜짐·주소·PID·메모리·리뷰 중인 건과 CLI 상태 · `code_changed`면 "재시작 필요" · `stale_state`(남은 연결 파일) · 꺼져 있으면 "허브 없음" |
+   | `재시작`·`restart` | `review_server.py restart` — **Bash 백그라운드**(serve처럼 이 프로세스가 새 허브가 된다) | 다시 등록한 건. 열린 탭은 스스로 다시 붙고, 이 세션이 띄운 wait는 그대로 둔다(기록 파일을 본다) |
+   | `끄기`·`down` | `review_server.py down` | 닫은 건·끝낸 wait·지운 연결 파일. 이 세션의 백그라운드 wait·serve 작업은 끝났다는 알림이 온다 |
+
+   서버 코드를 고친 뒤(설치본 갱신 포함)나 메모리를 비울 때는 재시작, 보고서 작업을 모두 마쳤으면 끄기다. 건 하나만
+   닫을 때는 `닫기`를 쓴다. 서버는 띄운 Claude 세션의 백그라운드 작업이라 세션을 닫으면 함께 꺼진다 — 다음 세션에서 이
+   스킬로 다시 연다.
+
+2. **서버를 띄운다** — Bash 백그라운드로:
+
+   ```
+   python3 "$PIPE/scripts/review_server.py" serve {work_dir}
+   ```
+
+   출력의 `url`을 사용자에게 1줄로 알린다(기본 `http://127.0.0.1:3333/`). `joined: true`면 이미 떠 있는 허브에
+   합류한 것이고, `port_fallback`이면 3333을 다른 프로그램이 쓰고 있어 출력 `url`이 주소다.
+
+3. **코멘트를 기다린다** — Bash 백그라운드로:
+
+   ```
+   python3 "$PIPE/scripts/review_server.py" wait {work_dir}
+   ```
+
+   이 세션에서 같은 건의 `wait`가 이미 돌고 있으면 새로 띄우지 않는다. exit 3이면 다른 세션이 그 건을 잡고 있다 —
+   출력의 `held`·`hint`를 그대로 알린다(같은 세션의 이전 wait가 남아 있으면 그 작업을 멈추고 다시 띄운다).
+
+4. **코멘트가 오면** report-pipeline SKILL.md 게이트② 처리 그대로 한다 — 해당 항목의 데이터(`20_draft.md`·`figures/` 명세)만 고치고
+   lint·감사를 다시 돌린 뒤 `review_server.py resolve {work_dir} f…`로 '반영됨'을 표시하고 다음 `wait`를 다시 띄운다.
+   이 루프 안에서 스크립트·참조 문서는 고치지 않는다. '승인 · 변환'이 오면 게이트② 승인 절차로 넘어간다.
+
+5. 사용자가 "리뷰 닫아줘"라고 하면 `review_server.py stop {work_dir}`로 그 건의 리뷰를 닫는다. 승인으로 끝나면 바로 닫지 않는다 —
+   `convert --phase start` → 변환(④) → `convert --phase done`(실패면 fail) → `stop` 순서라야 화면에 '인도본 받기'가 뜬다('26.9.28).
+   "서버 꺼줘"·"리뷰어 전부 닫아줘"면 `review_server.py down`(허브 전체).
+
+진행 보고는 1줄 — "리뷰어 열림: {url} · 코멘트 대기 중".

@@ -153,3 +153,25 @@ def test_hooks_json_matcher_covers_the_primary_production_path():
     assert hit("mcp__kordoc__patch_document")
     assert not hit("mcp__kordoc__parse_document")
     assert not hit("Read")
+
+
+ODD_PAYLOADS = [
+    {"tool_name": "Bash", "tool_input": {"command": ["/bin/zsh", "-lc", "echo hi"]}},   # 명령이 배열
+    {"tool_name": "Bash", "tool_input": "echo hi"},                                     # tool_input이 문자열
+    {"tool_name": "Bash", "tool_input": None, "tool_response": None},
+    {"tool_name": None, "tool_input": {"command": 3}, "cwd": {"x": 1}},
+    ["not", "a", "dict"],
+]
+
+
+def test_odd_payloads_never_fail_the_hook():
+    """안전망이 실패를 만들면 안 된다 — 예상 밖 페이로드에도 exit 0·무출력('26.11.10 Codex 'hook exited with code 1')."""
+    for payload in ODD_PAYLOADS:
+        r = run_payload(payload)
+        assert r.returncode == 0 and r.stdout.strip() == "", (payload, r.returncode, r.stderr[-200:])
+
+
+def test_array_command_is_still_checked(raw_hwpx):
+    """명령이 배열로 와도 글자로 이어 붙여 검사한다 — 후처리 누락은 여전히 막는다."""
+    r = run_payload({"tool_name": "Bash", "tool_input": {"command": ["python3", "postprocess_hwpx.py", str(raw_hwpx), "--all"]}})
+    assert json.loads(r.stdout)["decision"] == "block"

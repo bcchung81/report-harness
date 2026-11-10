@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "kordoc": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "kordoc@4.24.59", "mcp"],
+      "note": "필수. hwp·hwpx·pdf·docx 파싱과 최종 hwpx 생성·검증을 담당한다. API 키 불필요. 버전 고정 — 새 판은 실전 점검(scripts/smoke_pipeline.py)을 통과한 뒤에만 올린다('26.11.10: 최신판 4.24.59로 올림 — Claude Code·Codex 실전 점검 통과)."
+    },
+    "korean-law": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "korean-law-mcp"],
+      "env": {
+        "LAW_OC": "${LAW_OC}"
+      },
+      "note": "선택. 법령·판례·행정규칙 근거 조사용. 법제처 Open API 인증키(OC)를 직접 발급받아 LAW_OC 환경변수로 넣어야 동작한다 — https://open.law.go.kr/LSO/openApi/guideList.do (무료). 키가 없으면 이 서버만 연결에 실패하고 나머지 기능은 정상 동작한다."
+    }
+  }
+}

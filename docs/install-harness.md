@@ -92,9 +92,10 @@ Claude Code는 **clone 폴더 밖의 업무 폴더**에서 여는 것을 권한�
 
 ### 1-2. Codex에 설치
 
-같은 플러그인을 **OpenAI Codex CLI**(플러그인 지원판 — 0.167.0에서 확인)에도 그대로 설치한다. Codex가 이 저장소의
-`.claude-plugin/` 매니페스트·`hooks/hooks.json`·`.mcp.json`을 읽으므로 따로 고친 판이 없다. 4단계 전 구간·규칙
-복리축적·hwpx 변환·안전망 훅이 같다. 터미널에서:
+같은 하네스를 **OpenAI Codex CLI**(플러그인 지원판 — 0.167.0에서 확인)에도 설치한다. Codex는 마켓 매니페스트를
+`.agents/plugins/marketplace.json` → `.claude-plugin/marketplace.json` 순으로 찾으므로, 이 저장소의 Codex용 매니페스트가 가리키는
+**실행 파일 사본 `plugins/report-harness/`**(스킬·훅·`.mcp.json`·매니페스트 — `scripts/build_codex_plugin.py`가 원본과 바이트 동일하게
+만든다)를 설치한다. 4단계 전 구간·규칙 복리축적·hwpx 변환·안전망 훅이 Claude Code판과 같다. 터미널에서:
 
 ```bash
 codex plugin marketplace add bcchung81/report-harness
@@ -105,11 +106,12 @@ Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지�
 
 - **안전망 훅 신뢰** — Codex는 설치한 플러그인의 훅을 **사용자가 신뢰해야** 돌린다(신뢰 전에는 건너뛴다). 설치 뒤 `codex`를
   처음 열면 "2 hooks are new or changed" 창이 뜬다 — 검토(1) 또는 전부 신뢰(2)를 고른다. 나중에는 `/hooks`에서 한다.
-  훅은 초안 린트·hwpx 검증 2개다. **판을 갱신할 때마다 같은 창이 다시 뜬다** — Codex가 신뢰를 플러그인 내용 지문
-  (`trusted_content_hash`)으로 기록해 훅 파일이 그대로여도 새 판이면 다시 묻는다('26.11.10 실측). 다시 신뢰하기 전에는
-  훅이 실패로 건너뛰어진다(`Hook failed — plugin contents changed; hook approval required`, `codex exec`에서는
-  `hook: PostToolUse Failed`). **신뢰는 갱신 뒤 새로 연 세션에서 한다** — 지문은 플러그인 폴더 전체(문서·테스트 포함)로
-  계산되고, 갱신 전부터 열린 세션·앱 서버 데몬은 옛 내용을 들고 있어 거기서 신뢰하면 옛 지문이 기록돼 계속 실패한다.
+  훅은 초안 린트·hwpx 검증 2개다. Codex는 신뢰를 **플러그인 폴더 전체의 내용 지문**(`trusted_content_hash`)으로 기록하고
+  세션을 열 때마다 Git 마켓을 최신 커밋으로 **자동 갱신**한다 — 폴더 안 파일이 하나라도 바뀌면 신뢰가 풀려 훅이 실패로
+  건너뛰어진다(`Hook failed — plugin contents changed; hook approval required`, `codex exec`에서는 `hook: PostToolUse Failed`).
+  0.7.3까지는 저장소 전체가 플러그인이라 README 커밋에도 풀렸고('26.11.10 실측 — README만 바꿔도 `modified`), 0.7.4부터는
+  실행 파일 사본만 설치해 **스킬·훅·MCP가 바뀐 판에서만** 다시 묻는다. **신뢰는 갱신 뒤 새로 연 세션에서 한다** — 갱신 전부터
+  열린 세션·앱 서버 데몬은 옛 내용을 들고 있어 거기서 신뢰하면 옛 지문이 기록돼 계속 실패한다.
   갱신 순서: `codex plugin marketplace upgrade report-harness` → `codex plugin add report-harness@report-harness` →
   `codex app-server daemon restart`(데몬을 쓰는 경우) → 열린 세션 모두 닫기 → 새 세션에서 신뢰. 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
   신뢰하지 않아도 파이프라인은 돌지만(스킬이 린트·검증을 직접 부른다) 모델이 건너뛸 때 막아 줄 장치가 꺼진다.

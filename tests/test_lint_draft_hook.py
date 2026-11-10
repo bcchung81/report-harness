@@ -102,3 +102,14 @@ def test_hook_is_registered_for_file_edits():
     entry = [e for e in cfg["hooks"]["PostToolUse"] if any("lint_draft_hook.py" in h["command"] for h in e["hooks"])]
     assert entry and all(t in entry[0]["matcher"] for t in ("Write", "Edit", "apply_patch", "Bash"))   # apply_patch = Codex 편집, Bash = 셸로 쓴 초안
     assert all("CLAUDE_PLUGIN_ROOT" in h["command"] for h in entry[0]["hooks"])               # Codex도 이 변수를 준다
+
+
+def test_odd_payloads_never_fail_the_hook(tmp_path):
+    """예상 밖 페이로드(명령 배열·문자열 tool_input·dict 아닌 JSON)에도 exit 0 — 안전망이 오류를 만들지 않는다('26.11.10)."""
+    env = {"PATH": "/usr/bin:/bin", "CLAUDE_PLUGIN_ROOT": str(ROOT), "TMPDIR": str(tmp_path)}
+    for payload in ({"tool_name": "Bash", "tool_input": {"command": ["/bin/zsh", "-lc", "echo hi"]}},
+                    {"tool_name": "Write", "tool_input": "x", "tool_response": ["y"]},
+                    {"tool_name": "Bash", "tool_input": {"command": "cat 20_draft.md"}, "cwd": 3},
+                    [1, 2, 3]):
+        r = subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload), capture_output=True, text=True, env=env)
+        assert r.returncode == 0 and r.stdout.strip() == "", (payload, r.stderr[-200:])

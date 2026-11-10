@@ -65,18 +65,26 @@ def strings(v):
 
 def targets(data):
     """(생산자인가, 정합까지 볼 단계인가, hwpx 후보 경로)."""
-    tool = data.get("tool_name") or ""
-    ti = data.get("tool_input") or {}
+    tool = data.get("tool_name") if isinstance(data.get("tool_name"), str) else ""
+    ti = data.get("tool_input") if isinstance(data.get("tool_input"), dict) else {}
     if tool.startswith("mcp__"):
         if not GENERATOR.search(tool):
             return False, False, []
         return True, False, [m for s in strings(ti) for m in HWPX.findall(s)]
-    cmd = ti.get("command") or ""
+    cmd = command_text(ti)
     if FINALIZER.search(cmd):
         return True, True, HWPX.findall(cmd)
     if GENERATOR.search(cmd):
         return True, False, HWPX.findall(cmd)
     return False, False, []
+
+
+def command_text(ti):
+    """tool_input에서 명령 글자 — 실행기마다 모양이 다르다(문자열·배열·없음). 어떤 모양이 와도 문자열로 돌려준다."""
+    cmd = ti.get("command") if isinstance(ti, dict) else None
+    if isinstance(cmd, (list, tuple)):
+        return " ".join(str(x) for x in cmd)
+    return cmd if isinstance(cmd, str) else ""
 
 
 def integrity(path):
@@ -137,13 +145,15 @@ def main():
         # 페이로드 스키마 변화로 안전망이 죽으면 조용히 사라지지 않게 흔적은 남긴다
         print("verify_hwpx_hook: stdin 페이로드 파싱 실패 — 훅이 검증을 건너뜀", file=sys.stderr)
         return
+    if not isinstance(data, dict):
+        return
     is_producer, canonical, candidates = targets(data)
     if not is_producer:
         return
     paths, seen = [], set()
     for p in candidates:
         p = p.strip("'\"")
-        if not os.path.isabs(p) and data.get("cwd"):     # 상대경로는 도구를 부른 세션 위치 기준(Codex는 훅 cwd가 다를 수 있다)
+        if not os.path.isabs(p) and isinstance(data.get("cwd"), str):     # 상대경로는 도구를 부른 세션 위치 기준(Codex는 훅 cwd가 다를 수 있다)
             p = os.path.join(data["cwd"], p)
         if p not in seen and os.path.isfile(p):
             seen.add(p)
@@ -186,4 +196,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # 안전망이 실패를 만들면 안 된다 — 예상 밖 페이로드로 예외가 나도 0으로 끝낸다. 종전에는 파이썬 예외가 exit 1이 돼
+    # Codex가 'hook exited with code 1'을 띄웠다('26.11.10 — 명령이 배열·tool_input이 문자열이면 죽던 경로)
+    try:
+        main()
+    except Exception as e:                                    # noqa: BLE001 — 훅 경계
+        print(f"verify_hwpx_hook: 예외로 검증을 건너뜀 — {type(e).__name__}: {e}", file=sys.stderr)
+    sys.exit(0)

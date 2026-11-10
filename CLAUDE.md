@@ -28,6 +28,7 @@ python3 -m pytest -q -k postprocess            # 이름 매칭
 
 bash scripts/package_check.sh                  # 배포 가드 — 금지 폴더 추적·PII 스캔
 python3 scripts/build_webapp_skill.py --target all   # dist/에 5플랫폼 패키지 (기준 9종 검사)
+python3 scripts/build_codex_plugin.py                # Codex 사본(plugins/report-harness/) 맞추기 — 실행 파일을 고친 뒤
 
 python3 skills/report-pipeline/scripts/doctor.py            # 자가진단
 python3 skills/report-pipeline/scripts/consolidate_rules.py --check   # 규칙 통폐합 현황
@@ -110,6 +111,14 @@ SKILL.md 안의 모든 스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태�
 - `webapp/references/rules.md`는 손으로 고치지 않는다 — 빌드가 매번 시드에서 재생성하며
   `[draft]`·`[export]` 태그만 싣는다.
 
+### Codex 사본은 바이트 동일해야 한다
+
+Codex는 `.agents/plugins/marketplace.json`이 가리키는 `plugins/report-harness/`(실행 파일만 — `skills/`·`hooks/`·`.mcp.json`·
+`.claude-plugin/plugin.json`)를 설치한다. Codex가 훅 신뢰를 플러그인 폴더 전체의 지문으로 기록하고 세션마다 마켓을 자동 갱신하기
+때문이다 — 루트가 플러그인이면 문서 커밋에도 모든 설치자의 훅이 풀린다('26.11.10 실측). **실행 파일을 고쳤으면
+`python3 scripts/build_codex_plugin.py`로 사본을 맞춘다**(`test_codex_plugin.py`가 바이트 동일·문서 미포함을 검사). Claude Code는
+종전대로 루트(`.claude-plugin/marketplace.json`, source `./`)를 쓴다. 사본만 손으로 고치지 않는다.
+
 ### hwpx 변환 — 후처리 생략 금지
 
 kordoc `generate_document` 산출물은 **아직 양식 정합이 아니다**. 순서가 고정돼 있다.
@@ -159,7 +168,8 @@ CI가 돌기 때문).
 | `test_postprocess_hwpx.py` | 후처리 규칙 회귀 |
 | `test_validate_hwpx.py` | 구조 검증·왕복 대조 회귀(되읽기 오탐 5종·literal-markup) |
 | `test_check_craft.py` · `test_sync_rules.py` · `test_doctor_lessons.py` | 설계 칸 검사(R094)·시드 동기화·교훈 스키마 판정 |
-| `test_lint_draft_hook.py` · `test_verify_hwpx_hook.py` | 안전망 훅 2종 — 대상 한정·block 조건 |
+| `test_lint_draft_hook.py` · `test_verify_hwpx_hook.py` | 안전망 훅 2종 — 대상 한정·block 조건·예상 밖 페이로드에도 exit 0 |
+| `test_codex_plugin.py` | Codex 사본(`plugins/report-harness/`)이 실행 파일 원본과 바이트 동일·문서 미포함, Codex 마켓이 사본을 가리킴 |
 | `test_smoke_pipeline.py` | 실전 점검 도구의 채점부(헤드리스 실행 자체는 CI 밖 — `scripts/smoke_pipeline.py`) |
 
 새 규칙(R0NN)을 추가하면 대체로 이 중 둘 이상을 함께 고쳐야 통과한다.

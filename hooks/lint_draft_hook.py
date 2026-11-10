@@ -92,20 +92,22 @@ def find_scripts():
 
 def targets(data, scripts=None):
     """훅 페이로드에서 방금 쓴 초안 경로 목록 — 초안이 아니면 빈 목록."""
-    resp = data.get("tool_response") or {}
-    inp = data.get("tool_input") or {}
-    cmd = inp.get("command") if isinstance(inp.get("command"), str) else ""
+    resp = data.get("tool_response") if isinstance(data.get("tool_response"), dict) else {}
+    inp = data.get("tool_input") if isinstance(data.get("tool_input"), dict) else {}
+    cmd = inp.get("command")
+    cmd = " ".join(str(x) for x in cmd) if isinstance(cmd, (list, tuple)) else (cmd if isinstance(cmd, str) else "")
     shell = data.get("tool_name") == "Bash"
     if shell and "20_draft" not in cmd:
         return []                                        # 셸 명령 대부분은 여기서 끝난다(훅 비용)
-    paths = [(resp.get("filePath") if isinstance(resp, dict) else None) or inp.get("file_path") or ""]
+    fp = resp.get("filePath") or inp.get("file_path") or ""
+    paths = [fp if isinstance(fp, str) else ""]
     if data.get("tool_name") == "apply_patch":
         paths += PATCH_FILE.findall(cmd)
     if shell:
         paths += DRAFT_IN_CMD.findall(cmd)
     out = []
     for p in paths:
-        if p and not os.path.isabs(p) and data.get("cwd"):
+        if p and not os.path.isabs(p) and isinstance(data.get("cwd"), str):
             p = os.path.join(data["cwd"], p)
         if os.path.basename(p) == DRAFT and os.path.isfile(p) and p not in out:
             out.append(os.path.abspath(p))
@@ -138,7 +140,9 @@ def main():
     except ValueError:
         print("lint_draft_hook: stdin 페이로드 파싱 실패 — 초안 린트를 건너뜀", file=sys.stderr)
         return
-    if data.get("cwd") and os.path.isdir(data["cwd"]):
+    if not isinstance(data, dict):
+        return
+    if isinstance(data.get("cwd"), str) and os.path.isdir(data["cwd"]):
         os.chdir(data["cwd"])                            # 설정 없는 기본 reports_dir(실행 위치 기준)을 세션 위치로 맞춘다
     scripts = find_scripts()
     paths = targets(data, scripts) if scripts else []
@@ -163,4 +167,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # 안전망이 실패를 만들면 안 된다 — 예상 밖 페이로드로 예외가 나도 0으로 끝낸다(종전 exit 1 → Codex 'hook exited with code 1')
+    try:
+        main()
+    except Exception as e:                                    # noqa: BLE001 — 훅 경계
+        print(f"lint_draft_hook: 예외로 린트를 건너뜀 — {type(e).__name__}: {e}", file=sys.stderr)
+    sys.exit(0)
