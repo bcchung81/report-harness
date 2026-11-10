@@ -107,7 +107,11 @@ Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지�
   처음 열면 "2 hooks are new or changed" 창이 뜬다 — 검토(1) 또는 전부 신뢰(2)를 고른다. 나중에는 `/hooks`에서 한다.
   훅은 초안 린트·hwpx 검증 2개다. **판을 갱신할 때마다 같은 창이 다시 뜬다** — Codex가 신뢰를 플러그인 내용 지문
   (`trusted_content_hash`)으로 기록해 훅 파일이 그대로여도 새 판이면 다시 묻는다('26.11.10 실측). 다시 신뢰하기 전에는
-  훅이 실패로 건너뛰어진다(`codex exec` 출력의 `hook: PostToolUse Failed`). 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
+  훅이 실패로 건너뛰어진다(`Hook failed — plugin contents changed; hook approval required`, `codex exec`에서는
+  `hook: PostToolUse Failed`). **신뢰는 갱신 뒤 새로 연 세션에서 한다** — 지문은 플러그인 폴더 전체(문서·테스트 포함)로
+  계산되고, 갱신 전부터 열린 세션·앱 서버 데몬은 옛 내용을 들고 있어 거기서 신뢰하면 옛 지문이 기록돼 계속 실패한다.
+  갱신 순서: `codex plugin marketplace upgrade report-harness` → `codex plugin add report-harness@report-harness` →
+  `codex app-server daemon restart`(데몬을 쓰는 경우) → 열린 세션 모두 닫기 → 새 세션에서 신뢰. 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
   신뢰하지 않아도 파이프라인은 돌지만(스킬이 린트·검증을 직접 부른다) 모델이 건너뛸 때 막아 줄 장치가 꺼진다.
 - **kordoc MCP** — 플러그인의 `.mcp.json`이 `kordoc@4.24.59`(실전 점검을 통과한 고정판)을 띄운다. 이미
   `~/.codex/config.toml`에 `[mcp_servers.kordoc]`을 직접 등록해 두었다면 **그쪽이 우선하고 플러그인 것은 건너뛴다** —
@@ -122,7 +126,7 @@ Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지�
 | 라이브 리뷰어 | 세션 백그라운드 작업 | 서버를 세션과 떼어 띄우고(샌드박스 밖 실행을 승인해야 뜬다) 코멘트는 `wait`가 붙잡고 기다린다 — 인도 뒤 닫고, 다 쓰면 “리뷰 서버 꺼줘”(`review_server.py down`) |
 
 설정 파일 위치는 Codex에서도 `~/.claude/report-harness.json`(또는 환경변수 `REPORT_HARNESS_CONFIG`)이다(§8).
-갱신은 `codex plugin marketplace upgrade report-harness` 뒤 `codex plugin add report-harness@report-harness`. 제거는
+갱신은 위 '안전망 훅 신뢰'의 순서대로(업그레이드 → 추가 → 세션 새로 열기 → 신뢰). 제거는
 `codex plugin remove report-harness@report-harness`.
 
 ## 2. 설치 확인

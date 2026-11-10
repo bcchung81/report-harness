@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.7.2-green.svg)
+![version](https://img.shields.io/badge/version-0.7.3-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -362,7 +362,9 @@ codex plugin add report-harness@report-harness
 1. **훅 신뢰** — 설치 뒤 `codex`를 처음 열면 "2 hooks are new or changed" 창이 뜬다. **2. Trust all and continue**를 고른다.
    신뢰하지 않으면 안전망 훅(초안 린트·hwpx 검증 우회 차단)이 돌지 않는다. 나중에 바꿀 때는 `/hooks`.
    **판을 갱신할 때마다 다시 신뢰한다** — Codex는 신뢰를 플러그인 내용 지문으로 기록해, 훅 파일이 그대로여도 새 판이면
-   같은 창이 다시 뜬다('26.11.10 실측: 0.7.1 → 0.7.2). 다시 신뢰하기 전까지 훅은 실패로 건너뛴다.
+   같은 창이 다시 뜬다('26.11.10 실측: 0.7.1 → 0.7.2). 다시 신뢰하기 전까지 훅은 실패로 건너뛴다
+   (`Hook failed — plugin contents changed; hook approval required`). **신뢰는 갱신 뒤에 새로 연 세션에서 한다** — 갱신 전부터
+   열려 있던 세션(과 앱 서버 데몬)은 옛 내용을 들고 있어, 거기서 신뢰하면 옛 지문이 기록돼 계속 실패한다('26.11.10 실측).
 2. **부르는 법** — Claude Code의 `/`를 `$`로 바꾸면 이름·인자가 같다. 말로 하는 요청("보고서 작성해줘")은 그대로다.
 
    | Claude Code | Codex |
@@ -377,8 +379,15 @@ codex plugin add report-harness@report-harness
    직접 등록해 두었다면 그쪽이 우선하니 같은 판으로 맞춘다.
 4. **라이브 리뷰어** — 서버를 세션과 떼어 띄우므로 Codex가 샌드박스 밖 실행 승인을 묻는다. 다 쓰면 `$report-review 끄기`.
 
-갱신은 `codex plugin marketplace upgrade report-harness` → `codex plugin add report-harness@report-harness`. 자세한 차이는
-[설치 문서 §1-2](docs/install-harness.md#1-2-codex에-설치).
+갱신은 다음 순서다. 자세한 차이는 [설치 문서 §1-2](docs/install-harness.md#1-2-codex에-설치).
+
+```bash
+codex plugin marketplace upgrade report-harness
+codex plugin add report-harness@report-harness
+codex app-server daemon restart      # 데몬이 옛 플러그인 상태를 들고 있으면 — 붙어 있던 세션은 끊긴다
+```
+
+그다음 **열려 있던 Codex 세션을 모두 닫고** 새로 연 세션의 신뢰 창(또는 `/hooks`)에서 신뢰한다.
 
 더 들어가려면 — [의존성과 라이선스](docs/licenses.md)에 원작자 고지 전문이,
 [개발자용](docs/developing.md)에 로컬 검증·패키징·테스트가 있다.
