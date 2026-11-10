@@ -361,6 +361,8 @@ codex plugin add report-harness@report-harness
 
 1. **훅 신뢰** — 설치 뒤 `codex`를 처음 열면 "2 hooks are new or changed" 창이 뜬다. **2. Trust all and continue**를 고른다.
    신뢰하지 않으면 안전망 훅(초안 린트·hwpx 검증 우회 차단)이 돌지 않는다. 나중에 바꿀 때는 `/hooks`.
+   **판을 갱신할 때마다 다시 신뢰한다** — Codex는 신뢰를 플러그인 내용 지문으로 기록해, 훅 파일이 그대로여도 새 판이면
+   같은 창이 다시 뜬다('26.11.10 실측: 0.7.1 → 0.7.2). 다시 신뢰하기 전까지 훅은 실패로 건너뛴다.
 2. **부르는 법** — Claude Code의 `/`를 `$`로 바꾸면 이름·인자가 같다. 말로 하는 요청("보고서 작성해줘")은 그대로다.
 
    | Claude Code | Codex |
