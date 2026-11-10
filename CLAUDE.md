@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | | 무엇 | 어디에 |
 |---|---|---|
-| **하네스** | `skills/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code·Codex 플러그인(같은 매니페스트). 단계 입구도 스킬 — `commands/`를 되살리지 말 것(Codex가 못 부른다) |
+| **하네스** | `skills/` + `hooks/` + `.mcp.json` — 4단계 전 구간, MCP 사용 | Claude Code·Codex 플러그인(같은 매니페스트 · 훅은 Claude Code만). 단계 입구도 스킬 — `commands/`를 되살리지 말 것(Codex가 못 부른다) |
 | **웹앱 스킬** | `webapp/kca-report-hwpx/` — ③초안·④변환만, MCP 없이 자립 | claude.ai·ChatGPT·Gemini 업로드 / Codex·Antigravity는 `.agents/skills/`에 설치 |
 | **claudian 위키** | 별도 저장소([bcchung81/claudian](https://github.com/bcchung81/claudian)) | 선택 결합 |
 
@@ -113,11 +113,12 @@ SKILL.md 안의 모든 스크립트 호출은 `"$SKILL_DIR/scripts/…"` 형태�
 
 ### Codex 사본은 바이트 동일해야 한다
 
-Codex는 `.agents/plugins/marketplace.json`이 가리키는 `plugins/report-harness/`(실행 파일만 — `skills/`·`hooks/`·`.mcp.json`·
-`.claude-plugin/plugin.json`)를 설치한다. Codex가 훅 신뢰를 플러그인 폴더 전체의 지문으로 기록하고 세션마다 마켓을 자동 갱신하기
-때문이다 — 루트가 플러그인이면 문서 커밋에도 모든 설치자의 훅이 풀린다('26.11.10 실측). **실행 파일을 고쳤으면
-`python3 scripts/build_codex_plugin.py`로 사본을 맞춘다**(`test_codex_plugin.py`가 바이트 동일·문서 미포함을 검사). Claude Code는
-종전대로 루트(`.claude-plugin/marketplace.json`, source `./`)를 쓴다. 사본만 손으로 고치지 않는다.
+Codex는 `.agents/plugins/marketplace.json`이 가리키는 `plugins/report-harness/`(실행 파일만 — `skills/`·`.mcp.json`·
+`.claude-plugin/plugin.json`)를 설치한다. **`hooks/`는 사본에 싣지 않는다** — Codex가 훅 신뢰를 플러그인 폴더 전체의 지문으로
+기록하고 세션마다 마켓을 자동 갱신해, 판이 바뀔 때마다 `plugin contents changed; hook approval required`가 되풀이됐다
+('26.11.10 실측 · 0.7.5에서 제외). 안전망 훅은 Claude Code 전용이고 Codex에서는 스킬이 부르는 린트·검증이 전부다. **스킬·MCP·
+매니페스트를 고쳤으면 `python3 scripts/build_codex_plugin.py`로 사본을 맞춘다**(`test_codex_plugin.py`가 바이트 동일·문서
+미포함·훅 미포함을 검사). Claude Code는 종전대로 루트(`.claude-plugin/marketplace.json`, source `./`)를 쓴다. 사본만 손으로 고치지 않는다.
 
 ### hwpx 변환 — 후처리 생략 금지
 
@@ -169,7 +170,7 @@ CI가 돌기 때문).
 | `test_validate_hwpx.py` | 구조 검증·왕복 대조 회귀(되읽기 오탐 5종·literal-markup) |
 | `test_check_craft.py` · `test_sync_rules.py` · `test_doctor_lessons.py` | 설계 칸 검사(R094)·시드 동기화·교훈 스키마 판정 |
 | `test_lint_draft_hook.py` · `test_verify_hwpx_hook.py` | 안전망 훅 2종 — 대상 한정·block 조건·예상 밖 페이로드에도 exit 0 |
-| `test_codex_plugin.py` | Codex 사본(`plugins/report-harness/`)이 실행 파일 원본과 바이트 동일·문서 미포함, Codex 마켓이 사본을 가리킴 |
+| `test_codex_plugin.py` | Codex 사본(`plugins/report-harness/`)이 실행 파일 원본과 바이트 동일·문서 미포함·훅 미포함, Codex 마켓이 사본을 가리킴 |
 | `test_smoke_pipeline.py` | 실전 점검 도구의 채점부(헤드리스 실행 자체는 CI 밖 — `scripts/smoke_pipeline.py`) |
 
 새 규칙(R0NN)을 추가하면 대체로 이 중 둘 이상을 함께 고쳐야 통과한다.

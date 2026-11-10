@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.5 (2026-11-10)
+
+**Codex에는 안전망 훅을 싣지 않는다** — `Hook failed — plugin contents changed; hook approval required`가 0.7.4 뒤에도 되풀이돼
+기능 자체를 Codex에서 껐다. Claude Code는 그대로다(훅 2종 유지).
+
+- **왜 0.7.4로 끝나지 않았나** — Codex는 훅 신뢰를 플러그인 폴더 전체의 내용 지문으로 기록한다. 실행 파일 사본만 설치하게
+  줄여도 판을 올릴 때마다(스킬 한 줄만 바뀌어도) 지문이 바뀌고, 갱신 전부터 열려 있던 세션에서 신뢰하면 옛 지문이 기록된다.
+  0.7.4 설치 직후 개발 노트북 실측: 기록된 지문 ≠ 현재 지문(`hooks/list` → `modified`), 도구 호출마다 오류.
+- **조치** — `scripts/build_codex_plugin.py`가 `hooks/`를 사본(`plugins/report-harness/`)에서 뺀다. 훅이 없으면 Codex가 신뢰를
+  묻지 않고 실패도 띄우지 않는다. 초안 린트·감사, hwpx 후처리·검증은 스킬이 단계마다 직접 부른다 — 모델이 건너뛸 때 막아 주는
+  장치만 Codex에서 없어진다(`report-pipeline` SKILL §0에 명시). `test_codex_plugin.py`가 사본에 훅이 되돌아오지 않게 지킨다.
+- **갱신** — Codex가 세션을 열 때 스스로 받는다. 열려 있던 세션은 닫고 새로 연다. `~/.codex/config.toml`에 남은
+  `[hooks.state."report-harness@report-harness:…"]` 항목은 쓰이지 않는다.
+
 ## 0.7.4 (2026-11-10)
 
 **Codex 훅 오류 2종의 원인 해결.** 이 판으로 갱신하면 Codex에서 신뢰 창이 한 번 더 뜬다(설치 폴더가 바뀌므로) — 그 뒤로는

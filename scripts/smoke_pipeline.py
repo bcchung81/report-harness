@@ -13,11 +13,11 @@
 - 헤드리스 세션은 `claude -p … --dangerously-skip-permissions`로 돈다. 자기 하네스와 이 스크립트의 가상 자료로만
   쓰고, CI에서는 돌리지 않는다(로그인된 Claude Code와 kordoc MCP가 필요하다. 1회 약 10분·수 달러).
 - `--cli codex`('26.11.10)는 같은 요청문을 `codex exec`로 돌린다 — Codex에 플러그인으로 설치된 하네스를 읽고(`codex plugin
-  add report-harness@report-harness`), 훅은 신뢰 없이 이번 실행에만 켠다(`--dangerously-bypass-hook-trust`). 격리하려면
+  add report-harness@report-harness`), 플러그인 훅은 없다(0.7.5부터 Codex 사본에 싣지 않는다 — `--dangerously-bypass-hook-trust`는 사용자 훅 신뢰 창을 넘길 뿐). 격리하려면
   `CODEX_HOME`을 따로 두고 그곳에 설치한다. 채점은 같다(비용·턴 수는 Codex가 내지 않아 비어 있다).
 - 게이트 질문은 요청문에 미리 답해 둔다 — 사람이 답할 수 없다.
 - 세션은 이 저장소가 아니라 설치된 하네스(`~/.claude/skills` 사본 또는 플러그인)를 읽는다 — 사본이 저장소와 다르면
-  멈춘다(`--allow-stale`로 넘김). 안전망 훅 2종은 플러그인으로 설치돼 있을 때만 돈다.
+  멈춘다(`--allow-stale`로 넘김). 안전망 훅 2종은 Claude Code에 플러그인으로 설치돼 있을 때만 돈다.
 - `--rules` 판본은 시드의 규칙 번호를 모두 담아야 한다 — 빠진 번호는 첫 단계(`sync_rules.py --apply`)가 되살려 A/B가
   무효가 된다. 줄이는 것은 본문으로 하고, 실행 뒤 운영본이 판본과 달라진 번호를 `rules_drift`로 보고한다.
 

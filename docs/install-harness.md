@@ -94,8 +94,8 @@ Claude Code는 **clone 폴더 밖의 업무 폴더**에서 여는 것을 권한�
 
 같은 하네스를 **OpenAI Codex CLI**(플러그인 지원판 — 0.167.0에서 확인)에도 설치한다. Codex는 마켓 매니페스트를
 `.agents/plugins/marketplace.json` → `.claude-plugin/marketplace.json` 순으로 찾으므로, 이 저장소의 Codex용 매니페스트가 가리키는
-**실행 파일 사본 `plugins/report-harness/`**(스킬·훅·`.mcp.json`·매니페스트 — `scripts/build_codex_plugin.py`가 원본과 바이트 동일하게
-만든다)를 설치한다. 4단계 전 구간·규칙 복리축적·hwpx 변환·안전망 훅이 Claude Code판과 같다. 터미널에서:
+**실행 파일 사본 `plugins/report-harness/`**(스킬·`.mcp.json`·매니페스트 — `scripts/build_codex_plugin.py`가 원본과 바이트 동일하게
+만든다)를 설치한다. 4단계 전 구간·규칙 복리축적·hwpx 변환이 Claude Code판과 같고, 안전망 훅만 싣지 않는다. 터미널에서:
 
 ```bash
 codex plugin marketplace add bcchung81/report-harness
@@ -104,17 +104,15 @@ codex plugin add report-harness@report-harness
 
 Codex 안에서 `/plugins`로 골라 설치해도 된다. 설치 뒤 두 가지를 확인한다.
 
-- **안전망 훅 신뢰** — Codex는 설치한 플러그인의 훅을 **사용자가 신뢰해야** 돌린다(신뢰 전에는 건너뛴다). 설치 뒤 `codex`를
-  처음 열면 "2 hooks are new or changed" 창이 뜬다 — 검토(1) 또는 전부 신뢰(2)를 고른다. 나중에는 `/hooks`에서 한다.
-  훅은 초안 린트·hwpx 검증 2개다. Codex는 신뢰를 **플러그인 폴더 전체의 내용 지문**(`trusted_content_hash`)으로 기록하고
-  세션을 열 때마다 Git 마켓을 최신 커밋으로 **자동 갱신**한다 — 폴더 안 파일이 하나라도 바뀌면 신뢰가 풀려 훅이 실패로
-  건너뛰어진다(`Hook failed — plugin contents changed; hook approval required`, `codex exec`에서는 `hook: PostToolUse Failed`).
-  0.7.3까지는 저장소 전체가 플러그인이라 README 커밋에도 풀렸고('26.11.10 실측 — README만 바꿔도 `modified`), 0.7.4부터는
-  실행 파일 사본만 설치해 **스킬·훅·MCP가 바뀐 판에서만** 다시 묻는다. **신뢰는 갱신 뒤 새로 연 세션에서 한다** — 갱신 전부터
-  열린 세션·앱 서버 데몬은 옛 내용을 들고 있어 거기서 신뢰하면 옛 지문이 기록돼 계속 실패한다.
-  갱신 순서: `codex plugin marketplace upgrade report-harness` → `codex plugin add report-harness@report-harness` →
-  `codex app-server daemon restart`(데몬을 쓰는 경우) → 열린 세션 모두 닫기 → 새 세션에서 신뢰. 훅을 고친 새 판을 받으면 다시 신뢰를 묻는다.
-  신뢰하지 않아도 파이프라인은 돌지만(스킬이 린트·검증을 직접 부른다) 모델이 건너뛸 때 막아 줄 장치가 꺼진다.
+- **안전망 훅은 없다(0.7.5부터)** — 초안 린트·hwpx 검증 훅 2개는 Claude Code 전용이다. Codex는 훅 신뢰를 **플러그인 폴더 전체의
+  내용 지문**(`trusted_content_hash`)으로 기록하고 세션을 열 때마다 Git 마켓을 최신 커밋으로 **자동 갱신**한다 — 폴더 안 파일이
+  하나라도 바뀌면 신뢰가 풀려 도구 호출마다 `Hook failed — plugin contents changed; hook approval required`가 떴다
+  (`codex exec`에서는 `hook: PostToolUse Failed`). 0.7.4에서 실행 파일 사본만 설치하게 줄였지만 판을 올릴 때마다, 또 갱신 전부터
+  열려 있던 세션에서 신뢰할 때마다(옛 지문이 기록된다) 되풀이돼 훅을 사본에서 뺐다. 신뢰 창이 뜨지 않고 오류도 나지 않는다.
+  린트·검증은 스킬이 단계마다 직접 부른다 — 다만 모델이 건너뛸 때 막아 주는 장치는 Codex에 없다.
+  0.7.4 이하에서 올라오면: `codex plugin marketplace upgrade report-harness` → `codex plugin add report-harness@report-harness` →
+  `codex app-server daemon restart`(데몬을 쓰는 경우) → 열린 세션을 닫고 새로 연다. `~/.codex/config.toml`에 남은
+  `[hooks.state."report-harness@report-harness:…"]` 항목은 쓰이지 않는다(지워도 된다).
 - **kordoc MCP** — 플러그인의 `.mcp.json`이 `kordoc@4.24.59`(실전 점검을 통과한 고정판)을 띄운다. 이미
   `~/.codex/config.toml`에 `[mcp_servers.kordoc]`을 직접 등록해 두었다면 **그쪽이 우선하고 플러그인 것은 건너뛴다** —
   다른 판이면 변환 결과가 이 하네스의 점검과 달라질 수 있으니 그 항목을 지우거나 같은 판으로 맞춘다.

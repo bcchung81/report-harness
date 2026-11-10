@@ -10,7 +10,12 @@ Codex는 플러그인 훅 신뢰를 **플러그인 폴더 전체의 내용 지�
 
 Codex는 마켓 매니페스트를 `.agents/plugins/marketplace.json` → `.claude-plugin/marketplace.json` 순으로 찾는다. 그래서
 Codex만 이 사본을 설치하고, Claude Code는 종전대로 루트(`.claude-plugin/marketplace.json`, source `./`)를 쓴다.
-신뢰는 실행 파일(스킬·훅·MCP·매니페스트)이 바뀐 판에서만 다시 묻는다.
+
+## 사본에 훅을 싣지 않는다(0.7.5)
+
+실행 파일만 담아도 판을 올릴 때마다(스킬 한 줄만 바뀌어도) 지문이 바뀌어 같은 오류가 되풀이됐고, 갱신 전부터 열려 있던
+세션에서 신뢰하면 옛 지문이 기록돼 계속 실패했다. 훅이 없으면 Codex가 신뢰를 묻지도, 실패를 띄우지도 않는다. 그래서
+`hooks/`는 사본에서 뺀다 — 안전망 훅은 Claude Code 전용이고, Codex에서는 스킬 지시서가 부르는 린트·검증이 그 일을 한다.
 
     python3 scripts/build_codex_plugin.py           # 사본을 원본에 맞춘다
     python3 scripts/build_codex_plugin.py --check   # 어긋남만 보고(exit 1) — 테스트가 같은 판정을 쓴다
@@ -27,7 +32,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REL = pathlib.PurePosixPath("plugins/report-harness")
 MARKET = pathlib.PurePosixPath(".agents/plugins/marketplace.json")
-RUNTIME = ("skills", "hooks", ".mcp.json", ".claude-plugin/plugin.json")
+RUNTIME = ("skills", ".mcp.json", ".claude-plugin/plugin.json")      # hooks/ 제외 — 위 '사본에 훅을 싣지 않는다'
 
 
 def runtime_files(root=ROOT):

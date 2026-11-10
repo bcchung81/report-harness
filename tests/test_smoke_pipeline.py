@@ -64,7 +64,7 @@ def test_session_error_is_never_delivered(tmp_path):
 
 
 def test_codex_session_command_runs_the_same_prompt_with_hooks_on():
-    """`--cli codex` — 같은 요청문을 codex exec로, 훅은 이번 실행에만 신뢰 없이 켠다('26.11.10)."""
+    """`--cli codex` — 같은 요청문을 codex exec로, 훅 신뢰 창은 넘긴다('26.11.10 · 0.7.5부터 플러그인 훅은 Codex에 없다)."""
     cmd = sp.session_command("codex", model="m1")
     assert cmd[:2] == ["codex", "exec"] and cmd[-1] == sp.PROMPT
     assert "--dangerously-bypass-hook-trust" in cmd and "--json" in cmd and cmd[cmd.index("-m") + 1] == "m1"
