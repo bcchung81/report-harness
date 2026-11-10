@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.2 (2026-11-10)
+
+- **kordoc 최신판으로 — `kordoc@4.15.3` → `4.24.59`**('26.11.9 배포 최신판). 고정 원칙(새 판은 실전 점검 통과 뒤에만)은
+  그대로 두고, 같은 날 `smoke_pipeline.py`를 Claude Code·Codex 양쪽에서 돌려 둘 다 인도했다(린트·감사 0·구조 검증·왕복 대조
+  통과, 1쪽 — Claude Code 59턴·531초, Codex 147초대·`generate_document`·`parse_document`·`render_document` 정상). 플러그인
+  `.mcp.json`·자가진단 복구 명령·설치 문서·README의 판 표기를 함께 올렸다(`test_plugin_structure`가 일치를 본다).
+- **README에 'Codex에서 쓰기'** — 설치 2줄, 첫 실행 때 뜨는 훅 신뢰 창("2 hooks are new or changed" → 2. Trust all and
+  continue), Claude Code `/` ↔ Codex `$` 대응표, 사용자 설정에 kordoc을 따로 등록했다면 같은 판으로 맞출 것, 리뷰어 끄기.
+
 ## 0.7.1 (2026-11-10)
 
 **단계 입구를 Codex에서도 같은 이름으로** — `/report-research`·`/report-analyze`·`/report-draft`·`/report-export`·

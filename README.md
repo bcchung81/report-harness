@@ -3,7 +3,7 @@
 **망분리 환경에서, 한 번 찾은 자료로 계속 보고서를 쓰는 파이프라인.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![version](https://img.shields.io/badge/version-0.7.1-green.svg)
+![version](https://img.shields.io/badge/version-0.7.2-green.svg)
 
 > **소개 발표자료(슬라이드 7장 · 약 3분 30초)** — <https://report-harness-deck.vercel.app>
 > 화살표 키로 넘기거나, `A` 키를 누르면 음성 낭독과 함께 자동 진행됩니다.
@@ -329,7 +329,8 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 승인 전에 안다. 게이트 밖에서 다시 보고 싶으면 `/report-review`로 연다 — 인자가 없으면 가장 최근 건,
 `all`이면 리뷰 중인 건 전부, `닫기`면 그 건의 리뷰를 닫는다. 서버(3333) 자체는 `/report-review 상태`로 확인하고
 `재시작`(서버 코드를 고쳤거나 메모리를 비울 때 — 리뷰 중인 건은 그대로 다시 등록)·`끄기`(허브 전체와 대기 작업까지
-정리)로 올리고 내린다. 서버는 띄운 Claude 세션과 함께 꺼지므로, 새 세션에서는 다시 연다.
+정리)로 올리고 내린다. 서버는 띄운 Claude 세션과 함께 꺼지므로, 새 세션에서는 다시 연다(Codex는 세션과 떼어 띄우므로
+`$report-review 끄기`로 내린다).
 '승인 · 변환'을 누르면 알약이 '변환 중' → '인도본 받기'로 바뀌어 변환된 hwpx를 리뷰어에서 바로 내려받는다(탐색 서랍의
 '인도본' 목록도 같다). 리뷰를 닫아도 탭이 열려 있는 동안 서버가 남는다.
 
@@ -349,6 +350,34 @@ A와 B를 겹쳐 쓰는 게 정상 운영이다. B에서 규칙이 쌓이면 그
 → Claude Code 재시작. 첫 요청에서 운영 규칙이 새 판에 맞춰진다(직접 쌓은 규칙은 그대로). 판마다 바뀐 것은
 [CHANGELOG](CHANGELOG.md)와 [릴리스](https://github.com/bcchung81/report-harness/releases)에 있다.
 
+### Codex에서 쓰기
+
+같은 플러그인을 그대로 설치한다 — Codex용 판이 따로 없다(Codex CLI 0.167.0에서 전 구간 실전 점검 통과).
+
+```bash
+codex plugin marketplace add bcchung81/report-harness
+codex plugin add report-harness@report-harness
+```
+
+1. **훅 신뢰** — 설치 뒤 `codex`를 처음 열면 "2 hooks are new or changed" 창이 뜬다. **2. Trust all and continue**를 고른다.
+   신뢰하지 않으면 안전망 훅(초안 린트·hwpx 검증 우회 차단)이 돌지 않는다. 나중에 바꿀 때는 `/hooks`.
+2. **부르는 법** — Claude Code의 `/`를 `$`로 바꾸면 이름·인자가 같다. 말로 하는 요청("보고서 작성해줘")은 그대로다.
+
+   | Claude Code | Codex |
+   |---|---|
+   | `/report-draft 건명` | `$report-draft 건명` |
+   | `/report-export` | `$report-export` |
+   | `/report-review 상태` | `$report-review 상태` |
+   | `/report-doctor` | `$report-doctor` |
+
+   Codex의 `/` 메뉴는 내장 명령만 받는다 — 입력창에 `$report`를 치면 단계 입구 목록이 뜬다. 게이트 질문은 번호 선택지로 답한다.
+3. **kordoc** — 플러그인이 `kordoc@4.24.59`(실전 점검을 통과한 최신판)를 띄운다. `~/.codex/config.toml`에 `[mcp_servers.kordoc]`을
+   직접 등록해 두었다면 그쪽이 우선하니 같은 판으로 맞춘다.
+4. **라이브 리뷰어** — 서버를 세션과 떼어 띄우므로 Codex가 샌드박스 밖 실행 승인을 묻는다. 다 쓰면 `$report-review 끄기`.
+
+갱신은 `codex plugin marketplace upgrade report-harness` → `codex plugin add report-harness@report-harness`. 자세한 차이는
+[설치 문서 §1-2](docs/install-harness.md#1-2-codex에-설치).
+
 더 들어가려면 — [의존성과 라이선스](docs/licenses.md)에 원작자 고지 전문이,
 [개발자용](docs/developing.md)에 로컬 검증·패키징·테스트가 있다.
 
@@ -362,7 +391,7 @@ MIT © 2026 bcchung81, 전문은 [LICENSE](LICENSE). 하네스가 만든 **보�
 | 저작물 | 원작자 | 라이선스 | 구분 |
 |---|---|---|---|
 | `humanizer` | [DaleSeo](https://github.com/DaleSeo) | MIT | 번들 (LICENSE 동봉) |
-| `kordoc` | [chrisryugj](https://github.com/chrisryugj) | MIT | 실행 시 npx (`kordoc@4.15.3` 고정 — 새 판은 실전 점검 뒤 올림) |
+| `kordoc` | [chrisryugj](https://github.com/chrisryugj) | MIT | 실행 시 npx (`kordoc@4.24.59` 고정 — 새 판은 실전 점검 뒤 올림) |
 | `korean-law-mcp` | [chrisryugj](https://github.com/chrisryugj) | MIT | 실행 시 npx |
 | `insane-search` | [fivetaku](https://github.com/fivetaku) | MIT | 별도 설치 |
 | `python-hwpx` | [airmang](https://github.com/airmang) | Apache-2.0 | 별도 설치 (선택) |
