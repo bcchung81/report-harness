@@ -36,24 +36,20 @@ from postprocess_hwpx import (                                  # noqa: E402  (�
     TRANSITIONS, BLOCK_BOUNDARY_HEIGHT, HIERARCHY_SPACES, HIERARCHY_HANG,
     FORM_SIZES_PT, TITLE_BOX_SIZE_PT, TITLE_TEXT_WIDTH_HU, fit_title, SENDER_SIZE_PT, HIGHLIGHT_SHADE, PAGE_MARGINS,
     LINE_FIT_KINDS, fit_line, word_lens, _weighted_len, MIN_RATIO, MIN_SPACING, transition_for, column_shares,
+    md_fit_verdict, BODY_FIT, BODY_FIT_DEFAULT, A4_WIDTH_HU,
     HEADER_SPLIT, DITTO, LABEL_FILL, FIT_PAGE_SLACK, QUOTE_FACE, QUOTE_SIZE_PT, QUOTE_LINE_SPACING,
     QUOTE_FILL, QUOTE_BORDER, curly, _weighted_len, ROW_LINE_HU, ROW_PAD_HU, BANNER_ROW_HEIGHT,
-    TITLE_BOX_BAND_HEIGHT, TITLE_BOX_TITLE_HEIGHT, _cell_width_hu, image_pixels, figure_display)
+    TITLE_BOX_BAND_HEIGHT, TITLE_BOX_TITLE_HEIGHT, _cell_width_hu, cell_lines, image_pixels, figure_display)
 import render_diagram                                           # noqa: E402  (도식 조각 단독 출처)
 import diagram_table                                            # noqa: E402  (표 도식 격자 단독 출처 — R089)
 from lint_md_profile import FENCE                               # noqa: E402  (인용 블록 경계 단독 출처)
+from to_kordoc_input import table_alignment                     # noqa: E402  (표 열 정렬 해석 단독 출처)
 
 TABLE_PT = 12            # 캡션·표 셀 12pt (R023 — apply_caption_table_font 기본값)
 EMBED_LIMIT = 1_500_000  # 그림 data URI 누적 상한(바이트) — 리뷰 도구의 로컬 파일 상한 2MiB 이내
 LINE_SPACING = 160       # 편집용지 줄간격 160% (R008 line_spacing)
 HU_PER_PT = 100
-# 한글 산출물 본문 글자의 장평·자간 시작값 — kordoc 보고서 프리셋이 계층 문단 본문 charPr에 넣는 값.
-# '26.9.24 시험 변환 실측: □·-·※는 100/0 그대로 두고(26건 중 22건), ㅇ만 kordoc 자체 조판으로
-# 95~100/-11~0 사이로 조인다(r02 인도본·시험본 중앙값 95~97/-8). 후처리 apply_line_fit이 이 값에서
-# 출발해 2줄에 맞추므로, 리뷰도 같은 값에서 출발해야 줄 수가 같다.
-BODY_FIT = {"yo": (95, -8)}
-BODY_FIT_DEFAULT = (100, 0)
-A4_WIDTH_HU = 59528
+# 계층 문단의 장평·자간 시작값(BODY_FIT)·A4 폭은 후처리 모듈이 단독 출처다 — 린트·리뷰·후처리가 같은 줄 판정(md_fit_verdict)을 쓴다.
 TEXT_WIDTH_PT = (A4_WIDTH_HU - int(PAGE_MARGINS["left"]) - int(PAGE_MARGINS["right"])) / HU_PER_PT
 
 SENDING = re.compile(r"^<\s*'?\d.*>$")
@@ -71,7 +67,6 @@ ANNEX = re.compile(r"^(붙\s*임\s*\d*|참고\s*\d*)$")
 BOLD = re.compile(r"\*\*(.+?)\*\*")
 HIGHLIGHT = re.compile(r"==(.+?)==")
 
-SHORT_CELL = 8          # 이 글자 수 이하 셀은 가운데 정렬
 # 표 칸 — kordoc 산출 실측(표 안여백 좌우 510·상하 141 HWPUNIT, 셀 문단 줄간격 130%). 열 폭은 후처리와 같은
 # column_shares로 나눈다 — 브라우저 자동 배치로 두면 열 폭이 최대 6%p 달라 행 높이·쪽수가 달라졌다('26.9.24).
 CELL_PAD_PT = (1.41, 5.1)
@@ -118,17 +113,19 @@ def parse(text):
             i = j + 1
             continue
         elif TABLE.match(raw):
-            rows = []
+            rows, align = [], None
             while i < len(lines) and TABLE.match(lines[i]):
                 if not SEPARATOR.match(lines[i].replace("|", "", 1)):
                     rows.append(split_row(lines[i]))
+                elif align is None:
+                    align = table_alignment(lines[i])      # 열 정렬(LEFT·RIGHT) — 후처리 table_column_align과 같은 해석
                 i += 1
             kind = "table"
             if rows and len(rows[0]) >= 2 and ANNEX.match(rows[0][0]):
                 kind = "banner"
             elif len(rows) == 1 and len(rows[0]) == 1:
                 kind = "formula"
-            blocks.append({"kind": kind, "line": no, "rows": rows})
+            blocks.append({"kind": kind, "line": no, "rows": rows, "align": align})
             continue
         elif SENDING.match(body):
             blocks.append({"kind": "sending", "line": no, "text": body})
@@ -208,7 +205,7 @@ def gap_pt(prev, kind):
     return t[1] / HU_PER_PT if t else 0
 
 
-def render_table(rows, formula=False):
+def render_table(rows, formula=False, align=None):
     """GFM 표 → HTML. 후처리와 같은 병합 표기를 그린다 — 머리글 `A > B`는 2단 머리행, 본문 `〃`는
     위 칸과 세로 병합, 첫 열 본문이 모두 **굵게**면 라벨 열 음영(postprocess `apply_table_merge`)."""
     if formula:
@@ -258,7 +255,10 @@ def render_table(rows, formula=False):
             if not spans[ri][ci]:
                 continue
             rs = f' rowspan="{spans[ri][ci]}"' if spans[ri][ci] > 1 else ""
-            cls = "lab" if (label and ci == 0) else ("c" if len(c) <= SHORT_CELL else "l")
+            # 본문 칸은 한글 산출물처럼 가운데가 기본(후처리 center_cells) — 구분행에 `:---`·`---:`를 쓴 열만 왼쪽·오른쪽.
+            # 종전에는 8자 넘는 칸을 왼쪽으로 그려 리뷰와 인도본 정렬이 달랐다('26.9.25 lesson f42)
+            side = (align or [None] * len(r))[ci] if ci < len(align or []) else None
+            cls = "lab" if (label and ci == 0) else {"LEFT": "l", "RIGHT": "r"}.get(side, "c")
             cells.append(f'<td class="{cls}"{rs}>{inline(c)}</td>')
         out.append("<tr>" + "".join(cells) + "</tr>")
     out.append("</tbody></table>")
@@ -273,12 +273,10 @@ def fit_style(kind, text):
     if kind not in LINE_FIT_KINDS:
         return "", False, 1.0
     plain = curly(BOLD.sub(r"\1", HIGHLIGHT.sub(r"\1", text)))
-    wl = _weighted_len(plain)                 # 앞 공백·부호는 내어쓰기 칸에 들어간다(후처리 _body_len과 같음)
-    size = FORM_SIZES_PT.get(kind, FORM_SIZES_PT["yo"])
     hang = HIERARCHY_HANG.get(kind, 0) / HU_PER_PT
-    chosen = fit_line(wl, TEXT_WIDTH_PT - hang, size, *BODY_FIT.get(kind, BODY_FIT_DEFAULT), words=word_lens(plain))
-    over = chosen is None
-    ratio, spacing = chosen or (MIN_RATIO, MIN_SPACING)
+    v = md_fit_verdict(kind, plain)           # 린트·후처리와 같은 판정(앞 공백·부호는 내어쓰기 칸 — 후처리 _body_len과 같음)
+    over = not v["fits"]
+    ratio, spacing = v["ratio"], v["spacing"]
     r = ratio / 100
     style = (f"box-sizing:border-box;letter-spacing:{spacing / 100:g}em;transform:scaleX({r:g});transform-origin:0 0;"
              f"width:{100 / r:.3f}%;padding-left:{hang / r:.2f}pt;text-indent:-{hang / r:.2f}pt")
@@ -309,7 +307,7 @@ def render_block(b, prev):
     if k == "quote":                       # 원문 인용 — 줄 그대로, 해석하지 않는다(한글: 회색 상자·고정폭)
         return f'{head}<pre class="quote">{html.escape(chr(10).join(b["lines"]))}</pre></div>'
     if k in ("table",):
-        return f"{head}{render_table(b['rows'])}</div>"
+        return f"{head}{render_table(b['rows'], align=b.get('align'))}</div>"
     if k == "formula":
         return f"{head}{render_table(b['rows'], formula=True)}</div>"
     if k == "banner":
@@ -432,7 +430,7 @@ mark {{ background:var(--mark); font-weight:700; }}
 table {{ width:100%; table-layout:fixed; border-collapse:collapse; font-family:"맑은 고딕","Malgun Gothic","Apple SD Gothic Neo",sans-serif; font-size:{TABLE_PT}pt; line-height:{TABLE_LINE}; border-top:2px solid #222; border-bottom:2px solid #222; }}
 th, td {{ border:1px solid #666; padding:{CELL_PAD_PT[0]}pt {CELL_PAD_PT[1]}pt; vertical-align:middle; overflow-wrap:anywhere; }}
 th {{ background:var(--head); text-align:center; font-weight:700; border-bottom:3px double #444; }}
-td.c {{ text-align:center; }} td.l {{ text-align:left; }}
+td.c {{ text-align:center; }} td.l {{ text-align:left; }} td.r {{ text-align:right; }}
 td.lab {{ background:{LABEL_FILL}; text-align:center; font-weight:700; }}
 pre.quote {{ margin:0; padding:2.83pt 5.67pt; background:{QUOTE_FILL}; border:0.12mm solid {QUOTE_BORDER}; font-family:"{QUOTE_FACE}","GulimChe","D2Coding","Menlo",monospace; font-size:{QUOTE_SIZE_PT}pt; line-height:{QUOTE_LINE_SPACING}%; white-space:pre-wrap; word-break:break-all; }}
 table.formula {{ border:0.4mm solid #000; background:#DFE6F7; }} table.formula td {{ text-align:center; padding:6pt; font-weight:700; border:0.4mm solid #000; }}
@@ -490,7 +488,7 @@ def _table_rows_height(rows, width_hu):
         for ci, c in enumerate(r[:len(widths)]):
             if c == DITTO or not c:
                 continue
-            need = max(need, math.ceil(_cell_width_hu(c) / widths[ci]))
+            need = max(need, cell_lines(c, widths[ci]))      # 어절 단위 — 후처리 행 높이와 같은 셈
         total += ROW_PAD_HU + ROW_LINE_HU * need
     return total / 100.0, len(header_rows) + len(plain) - 1
 
@@ -573,21 +571,25 @@ def estimate_layout(blocks, work_dir=None):
         size = TEXT_KIND_PT.get(k, float(FORM_SIZES_PT.get(k, FORM_SIZES_PT["yo"])))
         indent = HIERARCHY_HANG.get(TEXT_KIND_HANG.get(k, ""), 0) / HU_PER_PT
         wl = _weighted_len(text)
-        ratio, spacing = 100, 0
-        if k in LINE_FIT_KINDS:
-            ratio, spacing = fit_line(wl, width - indent, size, 100, 0, words=word_lens(text)) or (MIN_RATIO, MIN_SPACING)
-        adv = size * (ratio / 100.0 + spacing / 100.0)
-        n = math.ceil(wl / max(1.0, (width - indent) / max(adv, 0.1)))
+        if k in LINE_FIT_KINDS:               # fit_style·후처리와 같은 판정 — 넘침 표시와 통계가 어긋나지 않게(astra A10)
+            v = md_fit_verdict(k, text)
+            n = v["lines"]
+            over = not v["fits"]
+        else:
+            n = math.ceil(wl / max(1.0, (width - indent) / max(size, 0.1)))
+            over = False
         lines += n
         line_h = max(line_h, size)
-        if k in LINE_FIT_KINDS and n > 2:
+        if over:
             over2 += 1
     marks = [(0, 0.0)] + parts + [(lines, tbl_h)]
     by_part = [max(1, math.ceil(((l1 - l0) * line_h * LAYOUT_LINE_SPACING + (t1 - t0)) / LAYOUT_BLOCK_PT))
                for (l0, t0), (l1, t1) in zip(marks, marks[1:])]
     return {"est_pt": round(lines * line_h * LAYOUT_LINE_SPACING + tbl_h), "est_pages": sum(by_part),
             "pages_by_part": by_part, "paragraph_lines": lines, "table_rows": rows, "over_two_lines": over2,
-            "figures_estimated": guessed}
+            "figures_estimated": guessed,
+            # 붙임은 건마다 1쪽 이내(R028) — 넘친 붙임 번호. 규칙만 있고 검사가 없어 4회 반복됐다('26.9.6~11.14)
+            "annex_over_one_page": [i for i, n in enumerate(by_part[1:], 1) if n > 1]}
 
 
 def render_parts(text, work_dir=None):

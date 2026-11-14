@@ -478,6 +478,9 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
   (R087) — `qa_report.py --postprocess … --structural … --compare … -o {판본폴더}/40_qa.md`가
   각 단계 JSON에서 찍는다. **손으로 쓰지 않는다** — 손글씨였을 때 건마다 1.7~12KB로
   들쭉날쭉했고 0바이트인 건도 있었는데 아무도 눈치채지 못했다.
+- **인도 판정은 `qa_report.py`의 exit 코드로 한다** — `--hwpx {인도본}`을 함께 넘기고 exit 0일 때만 인도한다. 후처리·구조·
+  대조 결과가 빠졌거나, 구조 오류·내용 불일치·근거 없는 수치가 있거나, 인도본이 없으면 exit 1(기록 끝 '인도 판정'에
+  사유). 줄 넘침(line_fit overflow)은 승인본을 줄이지 않는 원칙대로 막지 않고 '인도 때 알릴 조판 사항'에 남긴다.
 - 1회 변환(재시도 0회)으로 통과한 경우가 표준 경로 — 초안 단계 lint가 이미 변환 가능
   프로파일만 통과시켰기 때문에 재변환 루프는 예외 처리다.
 
@@ -493,7 +496,7 @@ python3 "$SKILL_DIR/scripts/validate_hwpx.py" \
 | `validate_hwpx.py numbers` | `validate_hwpx.py numbers <draft.md> <research_dir>` | 초안 수치 전부 근거 있음(`issues:[]`) | 근거 없는 수치 발견(`numbers-unsourced`) | 인자 부족 |
 | `to_kordoc_input.py` | `to_kordoc_input.py <prepared.md> -o <out.md> [--figure 슬러그=파일\|캡션]` | 변환 성공 | 매핑 없는 도식 마커 잔존 | 파일 접근·인자 오류 |
 | `diagram_table.py` | `diagram_table.py <file.hwpx> --work-dir <작업폴더> --figures-json <41_figures.json>` | 처리 완료(JSON `replaced`·`kept_image`·`missing`) | — (사용 안 함) | 인자·파일·zip/xml 오류 |
-| `qa_report.py` | `qa_report.py [--postprocess/--structural/--compare/--numbers <json>] -o 40_qa.md` | 기록 생성(구조 오류 없음) | 구조 검증 errors 존재 | JSON 파싱·파일 오류 |
+| `qa_report.py` | `qa_report.py [--postprocess/--structural/--compare/--numbers <json>] --hwpx <인도본> -o 40_qa.md` | 인도 가능(필수 결과 있음·오류·불일치 0·인도본 있음) | 인도 보류(사유는 기록 끝 '인도 판정') | JSON 파싱·파일 오류 |
 | `archive_revision.py` | `archive_revision.py snapshot\|begin\|status\|migrate\|flatten <work_dir>` | 수행 완료(JSON 보고) | — (사용 안 함) | 파일 접근 오류 |
 | `validate_hwpx.py freshness` | `validate_hwpx.py freshness <draft.md> <prepared.md>` | 대응 일치 | `prepared-stale`(초안이 앞섬) | 인자 부족 |
 | `check_image_size.py` | `check_image_size.py <img> [--max-w-mm 169] [--max-h-mm 90]` | 실효 해상도 150dpi 이상(`sharp:true`) | 미만(`sharp:false` — 인쇄 시 뭉개짐) | 파일·형식 오류 |

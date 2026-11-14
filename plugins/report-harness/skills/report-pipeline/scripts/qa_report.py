@@ -9,6 +9,11 @@
     qa_report.py --postprocess post.json --structural st.json --compare cmp.json \\
                  --numbers num.json --title "보고서 제목" --hwpx final/r01_….hwpx -o 40_qa.md
 없는 단계는 생략하면 '실행 안 함'으로 기록된다 — 빠진 것이 기록에 드러나야 한다.
+
+**인도 판정**(exit 코드): 후처리·구조 검증·내용 대조 결과가 모두 있고, 구조 오류·내용 불일치·근거 없는 수치가
+없으며, 인도본 hwpx가 실제로 있을 때만 exit 0이다. 종전에는 구조 오류만 exit 1이라 내용 대조 실패나 단계 누락이
+'성공'으로 읽혔다(astra 검토 A14). Codex에는 안전망 훅이 없으므로 이 판정이 실행기 공통 인도 게이트다.
+줄 넘침(line_fit overflow)은 승인본을 임의로 줄이지 않는 원칙(SKILL ④-3)에 따라 막지 않고 기록·고지만 한다.
 """
 import sys
 import json
@@ -101,7 +106,38 @@ def render(title, hwpx, results, revision=None, now=None):
         lines += ["", "## 4. 실행하지 않은 단계", "",
                   "> 기록에 남겨 둔다 — 빠뜨린 검증이 조용히 사라지지 않게 한다.", ""]
         lines += [f"- {m}" for m in missing]
+
+    over = ((post or {}).get("line_fit") or {}).get("overflow_detail") or []
+    layout = (post or {}).get("layout") or {}
+    if over or layout:
+        lines += ["", "## 5. 인도 때 알릴 조판 사항", ""]
+        if layout:
+            lines.append(f"- 예상 쪽수: {layout.get('pages_by_part')} (추정 {layout.get('est_pt')}pt)")
+        for o in over:
+            lines.append(f"- 2줄 넘침(하한까지 조임): \"{o.get('text', '')}…\" — {o.get('lines')}줄 추정")
+
+    ok, reasons = deliverable(results, hwpx)
+    lines += ["", "## 인도 판정", "", "인도 가능" if ok else "**인도 보류** — " + " · ".join(reasons)]
     return "\n".join(lines) + "\n"
+
+
+REQUIRED = ("postprocess", "structural", "compare")
+
+
+def deliverable(results, hwpx):
+    """인도 가능 여부와 보류 사유 — 필수 단계 결과 존재, 구조 오류·내용 불일치·근거 없는 수치 0, 인도본 존재."""
+    reasons = [f"{label} 결과 없음" for key, label, _ in STAGES if key in REQUIRED and results.get(key) is None]
+    if (results.get("structural") or {}).get("errors"):
+        reasons.append("구조 오류")
+    if (results.get("compare") or {}).get("issues"):
+        reasons.append("내용 대조 불일치")
+    if (results.get("numbers") or {}).get("issues"):
+        reasons.append("근거 없는 수치")
+    if not hwpx:
+        reasons.append("인도본 경로 미지정")
+    elif not pathlib.Path(hwpx).is_file():
+        reasons.append("인도본 파일 없음")
+    return not reasons, reasons
 
 
 def main(argv=None):
@@ -121,8 +157,10 @@ def main(argv=None):
         print(args.out)
     else:
         sys.stdout.write(text)
-    st = results.get("structural")
-    return 1 if (st and st.get("errors")) else 0
+    ok, reasons = deliverable(results, args.hwpx)
+    if not ok:
+        print("인도 보류: " + " · ".join(reasons), file=sys.stderr)
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

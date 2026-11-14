@@ -76,6 +76,38 @@ def test_begin_allocates_revision_folder(tmp_path):
     assert not list((wd / "history/drafts").glob("*.md"))
 
 
+def test_begin_keeps_live_review_session_in_place(tmp_path):
+    """리뷰가 떠 있으면 연결·임대 파일은 그대로 두고 진행 기록은 복사만 한다 — 옮기면 CLI가 서버를 잃어
+    convert done·stop이 '실행 중인 서버 없음'으로 실패한다('26.10.7 기록 → '26.11.14 재발)."""
+    wd = build(tmp_path)
+    ar.snapshot(wd, "승인직후")
+    wip = wd / "history/drafts"
+    (wip / ".review_server.json").write_text('{"port": 3333}', encoding="utf-8")
+    (wip / ".review_owner.json").write_text('{"pid": 1}', encoding="utf-8")
+    (wip / "26_review.20261114-0800.jsonl").write_text('{"type":"feedback"}\n', encoding="utf-8")
+    (wip / "25_review.html").write_text("<html></html>", encoding="utf-8")
+    out = ar.begin(wd)
+    holder = pathlib.Path(out["dir"]) / "drafts"
+    for name in (".review_server.json", ".review_owner.json", "26_review.20261114-0800.jsonl", "25_review.html"):
+        assert (wip / name).is_file(), f"{name}이 판본으로 옮겨졌다"
+    assert (holder / "26_review.20261114-0800.jsonl").is_file() and (holder / "25_review.html").is_file()
+    assert not (holder / ".review_server.json").exists() and not (holder / ".review_owner.json").exists()
+    assert not list(wip.glob("20_draft.*.md")), "초안 스냅샷은 종전대로 판본으로 내려가야 한다"
+    assert set(out["review_copied"]) == {"25_review.html", "26_review.20261114-0800.jsonl"}
+
+
+def test_begin_moves_review_record_when_no_review_is_live(tmp_path):
+    """리뷰가 닫힌 뒤라면(연결 파일 없음) 기록은 종전대로 그 판본으로 내려간다."""
+    wd = build(tmp_path)
+    wip = wd / "history/drafts"
+    wip.mkdir(parents=True)
+    (wip / "26_review.20261114-0800.jsonl").write_text('{"type":"feedback"}\n', encoding="utf-8")
+    out = ar.begin(wd)
+    assert not (wip / "26_review.20261114-0800.jsonl").exists()
+    assert (pathlib.Path(out["dir"]) / "drafts/26_review.20261114-0800.jsonl").is_file()
+    assert "review_copied" not in out
+
+
 def test_begin_counts_from_delivered_hwpx(tmp_path):
     """다음 판본 번호는 final/ 인도본에서 읽는다 — 이력이 지워져도 어긋나지 않는다."""
     wd = build(tmp_path, hwpx="r03_20260910_보고.hwpx")
@@ -95,7 +127,9 @@ def test_begin_leaves_root_clean(tmp_path):
 def test_status_reports_draft_ahead(tmp_path):
     """초안을 고치고 재변환을 안 하면 인도본이 낡는다 — 이력 지문으로 판정한다."""
     wd = build(tmp_path)
-    ar.begin(wd)
+    out = ar.begin(wd)
+    assert ar.status(wd)["state"] == "in_progress"           # 판본 폴더만 있고 인도본은 아직 없다
+    (wd / "final" / f"{out['hwpx_prefix']}보고.hwpx").write_bytes(b"PK")
     assert ar.status(wd)["state"] == "current"
     (wd / "20_draft.md").write_text("□ 개 요\n\n ㅇ 고친 판\n", encoding="utf-8")
     st = ar.status(wd)

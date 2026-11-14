@@ -93,3 +93,12 @@ def test_outline_title_that_wraps_is_warned_without_failing(tmp_path, capsys):
     assert cc.main(["outline", str(tmp_path)]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["ok"] is True and out["warnings"][0].startswith("title-two-lines")
+
+
+def test_title_alternatives_below_are_not_measured_as_title(tmp_path):
+    """제목 칸 아래 들여쓴 '- 대안:' 줄은 제목이 아니다 — 한 줄 제목을 대안까지 합쳐 2줄로 오판하던 결함('26.11.13)."""
+    with_alt = OUTLINE_OK.replace(
+        "검수 시간을 포함한 AI 성과 측정 체계 마련 방안",
+        "검수 시간을 포함한 AI 성과 측정 체계 마련 방안\n  - 대안: 작성 시간 단축 효과를 확인한 AI 문서 초안 도우미 시범운영 결과 보고")
+    assert with_alt != OUTLINE_OK
+    assert cc.warnings("outline", _w(tmp_path, "10_outline.md", with_alt)) == []

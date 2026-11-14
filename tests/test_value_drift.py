@@ -242,3 +242,11 @@ def test_diagram_card_hang_matches_profile():
     dt = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(dt)
     assert int(m.group(1)) == dt.CARD_HANG, f"프로파일 {m.group(1)} ↔ diagram_table {dt.CARD_HANG}"
+
+
+def test_table_to_body_gap_matches_code():
+    """표 → ㅇ/대시/다음 표 간격이 프로파일과 TRANSITIONS에서 같다('26.11.14 — ※ 없이 이어진 ㅇ이 표에 붙어 그려짐)."""
+    gaps = _hwpunits_from_gap_table()
+    key = next(k for k in gaps if k.startswith("표 → ㅇ"))
+    for nxt in ("yo", "dash", "table"):
+        assert ph.TRANSITIONS[("table", nxt)][1] == gaps[key]

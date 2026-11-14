@@ -1,6 +1,9 @@
 """md-profile 결정론 린트 (spec §6 4단방어-①, AI 티 3중장치-①). stdlib-only.
 개조식 기호(□ㅇ○-※＊)는 항목 '선두'에서만 합법. 그 외 위치의 마크다운 기호는 위반."""
-import sys, json, re
+import sys, json, re, pathlib
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from postprocess_hwpx import md_fit_verdict, curly       # noqa: E402  (줄 판정 단일 출처 — 리뷰·후처리와 같은 답)
 
 ARROW = "\u2192"        # 수치 변화 표기 → (R065)
 # 완성형(cp949) 미수용 유사 기호 — hwpx는 UTF-8이라 파일은 멀쩡하지만 본문을 완성형으로
@@ -15,7 +18,9 @@ FORMULA = re.compile(r"[^|]*=\s*[^=]*(?:[×÷−]|\s-\s)")  # 계층 문구 안 
 # 빼기는 하이픈 표기가 정본(md-profile §1-3-2 — U+2212는 완성형 미수용)이라
 # 공백으로 감싼 하이픈도 산식 표지로 인정한다. U+2212는 구 문서 호환으로 남긴다.
 LINE_CHARS = 35          # 휴먼명조 15pt·장평 95·본문폭 170mm 실측 1줄 글자수 (R062)
-MAX_BODY_CHARS = 90      # 자간 -10·장평 90까지 조여 2줄에 들어가는 상한 (R062)
+MAX_BODY_CHARS = 90      # 옛 글자 수 상한(R062) — 이제 판정은 md_fit_verdict(실측 폭·내어쓰기·어절)가 한다.
+                         # 글자 수만 보면 84자 대시가 통과하고 한글에서 3줄이 됐다('26.10.7 기록 → '26.11.14 재발).
+BODY_KIND = {"□": "dae", "ㅇ": "yo", "○": "yo", "-": "dash"}
 LEAD = re.compile(r"^\s*(□|ㅇ|○|-|※|＊|\d+\.|\[\d+\])\s")   # 항목 선두 허용 기호 (반각 * 제외 — 각주는 전각 ＊만 합법)
 HIGHLIGHT_TOKEN = re.compile(r"==")  # `==특히 강조==` 하이라이트 마커(R040) — 짝수 개만 합법
 TABLE = re.compile(r"^\s*\|")
@@ -186,8 +191,9 @@ def lint_text(text):
             _plain = _b.replace("**", "").replace("==", "")
             if FORMULA.search(_plain):
                 out.append({"line": i, "rule": "formula-inline", "text": _b[:80]})
-            if len(_plain) > MAX_BODY_CHARS:
-                out.append({"line": i, "rule": "body-line-overflow", "text": _b[:80]})
+            _v = md_fit_verdict(BODY_KIND[_b[0]], curly(_plain[1:].strip()))
+            if not _v["fits"]:
+                out.append({"line": i, "rule": "body-line-overflow", "lines": _v["lines"], "text": _b[:80]})
             # 수치 변화(→)는 항목명 뒤 괄호 안에 넣는다 (R065) — 괄호 밖 화살표를 검출
             _depth, _bare = 0, False
             for _c in _plain:

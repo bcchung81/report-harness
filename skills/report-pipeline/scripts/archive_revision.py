@@ -44,6 +44,11 @@ REVISION_SET = ("20_draft.md", "40_prepared.md", "43_convert_input.md",
                 "40_roundtrip.md", "40_qa.md")
 HISTORY = "history"
 DRAFTS = "drafts"
+# 라이브 리뷰(review_server.py)가 history/drafts/에 두는 세션 파일. begin이 이것까지 판본으로 옮기면 CLI가
+# 서버를 잃어 convert done·stop이 '실행 중인 서버 없음'으로 실패한다('26.10.7 기록 → '26.11.14 재발).
+# 점(.)으로 시작하는 연결·임대 파일은 옮기지 않고, 리뷰가 떠 있으면 진행 기록은 복사만 한다.
+REVIEW_CONN = ".review_server.json"
+REVIEW_SESSION_PREFIXES = ("25_review.", "26_review.")
 INDEX = "index.jsonl"
 # final/ 인도본 접두어 — rNN_YYYYMMDD_. 접두어가 곧 판본이라 정렬만으로 최신이 드러난다.
 VERSIONED = re.compile(r"^r(\d{2,})_(\d{8})_")
@@ -144,22 +149,32 @@ def begin(work_dir, now=None):
     dst.mkdir(parents=True, exist_ok=True)
 
     wip = _history(work_dir) / DRAFTS
-    moved = []
+    moved, copied = [], []
     if wip.is_dir():
         holder = dst / DRAFTS
+        live = (wip / REVIEW_CONN).is_file()
         for q in sorted(wip.iterdir()):
-            if q.is_file():
-                holder.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(q), str(holder / q.name))
-                moved.append(q.name)
+            if not q.is_file() or q.name.startswith("."):
+                continue                          # 리뷰 연결·임대 파일 — 판본이 아니라 세션 것이다
+            holder.mkdir(parents=True, exist_ok=True)
+            if live and q.name.startswith(REVIEW_SESSION_PREFIXES):
+                shutil.copy2(str(q), str(holder / q.name))   # 진행 중 리뷰 기록은 제자리에서 이어 쓴다
+                copied.append(q.name)
+                continue
+            shutil.move(str(q), str(holder / q.name))
+            moved.append(q.name)
 
     draft = work_dir / "20_draft.md"
     fp = content_fingerprint(draft.read_text(encoding="utf-8")) if draft.is_file() else None
     row = {"kind": "revision", "rev": rev, "at": at, "dir": dst.name,
            "drafts": moved, "fingerprint": fp}
+    if copied:
+        row["review_copied"] = copied
     append_index(work_dir, row)
-    return {"rev": rev, "dir": str(dst), "drafts": moved,
-            "hwpx_prefix": version_prefix(rev, now)}
+    out = {"rev": rev, "dir": str(dst), "drafts": moved, "hwpx_prefix": version_prefix(rev, now)}
+    if copied:
+        out["review_copied"] = copied
+    return out
 
 
 def status(work_dir):
@@ -178,10 +193,15 @@ def status(work_dir):
         return {"state": "never_exported", "rev": None, "fingerprint": fp}
     last = revs[-1]
     same = last.get("fingerprint") == fp
-    return {"state": "current" if same else "draft_ahead",
-            "rev": last.get("rev"), "at": last.get("at"), "dir": last.get("dir"),
-            "detail": None if same else
-                      "20_draft가 마지막 변환 이후 바뀌었다 — 재변환해야 인도본이 초안과 맞는다"}
+    rev = last.get("rev")
+    final = work_dir / "final"
+    delivered = rev is not None and final.is_dir() and any(final.glob(f"r{int(rev):02d}_*.hwpx"))
+    # begin만 하고 인도본이 없으면(변환 실패·중단) current가 아니다 — 종전에는 지문만 봐 재개 판단을 흐렸다(astra A15)
+    state = ("current" if delivered else "in_progress") if same else "draft_ahead"
+    detail = {"current": None,
+              "in_progress": f"r{int(rev):02d} 판본 폴더는 있으나 인도본이 없다 — 변환이 끝나지 않았다(같은 판본으로 이어서 변환)",
+              "draft_ahead": "20_draft가 마지막 변환 이후 바뀌었다 — 재변환해야 인도본이 초안과 맞는다"}[state] if rev is not None else None
+    return {"state": state, "rev": rev, "at": last.get("at"), "dir": last.get("dir"), "detail": detail}
 
 
 # --- 기존 작업폴더 1회 정리 -------------------------------------------------

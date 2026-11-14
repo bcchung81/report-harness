@@ -96,3 +96,30 @@ def test_installed_copy_check_flags_old_command_copies_that_became_skills(tmp_pa
     (tmp_path / "commands" / "report-draft.md").write_text("옛 커맨드", encoding="utf-8")
     out = doctor.installed_copy_check(repo, inst, files)
     assert out["상태"] == doctor.WARN and "스킬로 옮겨 감" in out["값"] and "지운다" in out["조치"]
+
+
+def test_lessons_status_normalizes_three_promotion_marks_and_finds_repeats(tmp_path):
+    """승격 표시 세 갈래(promoted·rule·resolved_by R번호)를 하나로 읽고, 같은 topic·기록자 '재발' 표시를 반복 후보로 묶는다
+    ('26.11.14 하네스 검토 — kind 교훈 101줄 중 승격 0건, 반복을 세는 도구 없음)."""
+    import lessons_status as ls
+    rows = [
+        {"date": "2026-10-01", "kind": "content", "feedback": "개수 언급", "promoted": True},
+        {"date": "2026-10-02", "kind": "content", "feedback": "x", "rule": "R095"},
+        {"date": "2026-10-03", "kind": "content", "feedback": "y", "resolved_by": "R096"},
+        {"date": "2026-10-04", "kind": "defect", "feedback": "z", "resolved_by": "abc1234"},
+        {"date": "2026-10-05", "kind": "content", "feedback": "표 칸 줄 수가 들쭉날쭉", "topic": "table-rows"},
+        {"date": "2026-10-06", "kind": "content", "feedback": "근거 칸이 길다", "topic": "table-rows"},
+        {"date": "2026-10-07", "kind": "content", "feedback": "'여섯 질문'이 안 보인다 — 같은 지적의 재발"},
+        {"date": "2026-10-08", "kind": "preference", "feedback": "문안은 Fable"},
+    ]
+    assert [ls.state(r) for r in rows[:4]] == ["promoted", "promoted", "promoted", "resolved"]
+    s = ls.summarize(rows)
+    assert s["by_kind"]["content"] == {"open": 3, "resolved": 0, "promoted": 3}
+    whys = sorted(g["why"] for g in s["repeat_candidates"])
+    assert whys == ["topic·핵심어", "기록자 표시(재발)"]
+    p = tmp_path / "lessons.jsonl"
+    p.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
+    out = doctor.rule_candidates_check(p)
+    assert out["상태"] == doctor.WARN and "반복 후보 2묶음" in out["값"] and "preference 1건" in out["값"]
+    p.write_text(json.dumps(rows[0], ensure_ascii=False) + "\n", encoding="utf-8")
+    assert doctor.rule_candidates_check(p)["상태"] == doctor.OK

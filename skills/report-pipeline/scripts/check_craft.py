@@ -81,7 +81,9 @@ def warnings(kind, work_dir):
     if kind != "outline":
         return []
     got = fields(block((pathlib.Path(work_dir) / OUTLINE[0]).read_text(encoding="utf-8"), OUTLINE[1]) or "")
-    title = re.sub(r"[*`]", "", got.get("제목(결론)", "")).strip()
+    # 제목 칸 아래 들여쓴 '- 대안: …' 줄은 제목이 아니다 — 첫 줄(주 제목)만 잰다('26.11.13 오판: 한 줄 제목을 대안까지
+    # 합쳐 2줄로 경고). fields()가 하위 목록을 합치는 것은 So What처럼 여러 줄이 값인 칸 때문이라 그대로 둔다.
+    title = re.sub(r"[*`]", "", got.get("제목(결론)", "").splitlines()[0] if got.get("제목(결론)") else "").strip()
     if not title or PLACEHOLDER.match(title):
         return []
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))

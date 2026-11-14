@@ -992,9 +992,13 @@ def make_server(work_dir, port=0):
             if name == "decision" and body.get("decision") in ("approved",) and body.get("factcheck", "경량") in FACTCHECK:
                 if not perm["approve"]:
                     return self._json(403, {"error": "승인은 리뷰 중인 건의 초안에서만"})
+                if not (pathlib.Path(case.wd) / DRAFT).is_file():
+                    # 문서 이름을 빼고 보내면 기본값이 초안이라, 초안이 아직 없는 게이트①에서도 승인이 기록됐다('26.11.10 lesson)
+                    return self._json(409, {"error": "초안(20_draft.md)이 아직 없습니다 — 아웃라인은 코멘트로 승인 의사를 남겨 주세요"})
                 case.seq["decision"] += 1
                 e = append_event(case.log, {"type": "decision", "id": f"d{case.seq['decision']}", "decision": body["decision"],
-                                            "factcheck": body.get("factcheck", "경량"), "note": str(body.get("note", ""))[:2000]})
+                                            "doc": doc, "factcheck": body.get("factcheck", "경량"),
+                                            "note": str(body.get("note", ""))[:2000]})
                 case.send_items()
                 return self._json(200, {"id": e["id"]})
             if name == "edit":                          # 리뷰 화면 직접 수정 — 문서 한 줄만 바꾸고 곧바로 다시 그린다
@@ -1615,9 +1619,12 @@ def stop(work_dir):
     if not st:
         print(json.dumps({"stopped": False, "reason": "실행 중인 서버 없음"}, ensure_ascii=False))
         return 1
-    _ping(work_dir, "api/deactivate")
+    reached = _ping(work_dir, "api/deactivate")
     (_drafts(work_dir) / STATE).unlink(missing_ok=True)
-    print(json.dumps({"stopped": True}, ensure_ascii=False))
+    # 연결 파일은 있었는데 서버가 응답하지 않았으면 그 사실을 함께 알린다 — 종전에는 무조건 stopped:true여서
+    # 허브가 이미 죽었거나 다른 포트로 옮겨 간 경우를 '정상 종료'로 오인했다(astra 검토 A11).
+    print(json.dumps({"stopped": True} if reached else {"stopped": True, "server_reached": False},
+                     ensure_ascii=False))
     return 0
 
 

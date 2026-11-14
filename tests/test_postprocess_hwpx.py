@@ -1,4 +1,4 @@
-import sys, pathlib, zipfile, io, re, json
+import sys, pathlib, zipfile, io, re, json, math
 import xml.etree.ElementTree as ET
 import pytest
 
@@ -2645,3 +2645,86 @@ def test_body_charpr_sums_characters_per_charpr():
     mk = lambda cid: ET.Element("run", {"charPrIDRef": cid})
     runs = [(mk("15"), "가" * 12), (mk("13"), "나" * 18), (mk("15"), "다" * 12)]
     assert ph._body_charpr(runs) == "15"
+
+
+def test_line_fit_overflow_still_tightens_to_floor():
+    """하한으로도 2줄에 못 넣는 문단도 하한(장평 90·자간 -10)까지는 조인다 — 종전에는 손대지 않아 100/0 그대로
+    한글에서 3줄이 됐다('26.11.14 인도본 넘침 2건). 넘침 보고는 그대로 하고, 재실행은 무변경."""
+    header, sec = _line_fit_case(40)
+    r = ph.apply_line_fit(header, [sec])
+    assert r["overflow"] == 1 and r["fitted"] == 0
+    runs = list(sec.iter(ph.qn("hp", "run")))[1:]
+    assert [ph._charpr_metrics(header, run.get("charPrIDRef"))[1:] for run in runs] == [(100, 0), (90, -10), (90, -10)]   # 부호 칸은 그대로
+    before = [run.get("charPrIDRef") for run in sec.iter(ph.qn("hp", "run"))]
+    ph.apply_line_fit(header, [sec])
+    assert [run.get("charPrIDRef") for run in sec.iter(ph.qn("hp", "run"))] == before
+
+
+def test_estimate_layout_counts_fit_paragraph_like_line_fit():
+    """쪽 추정의 계층 문단 줄 수는 줄 맞춤과 같은 셈(어절·여유 3%)이다 — 넘침 문단이 over_two_lines에 잡힌다."""
+    header, sec = _line_fit_case(40)
+    ph.apply_line_fit(header, [sec])
+    assert ph.estimate_layout(header, [sec])["over_two_lines"] == 1
+    header, sec = _line_fit_case(20)
+    ph.apply_line_fit(header, [sec])
+    assert ph.estimate_layout(header, [sec])["over_two_lines"] == 0
+
+
+def test_cell_lines_wraps_by_word_and_keeps_dot_compounds():
+    """표 칸은 어절 단위로 줄을 바꾸고 가운뎃점 묶음은 쪼개지 않는다('26.11.14 이음오피스 실측 — 글자 폭 합으로 세면
+    1쪽 표 칸 4줄을 3줄로, 붙임 표 8줄을 6~7줄로 잡아 3쪽 예상 문서가 4쪽으로 나갔다)."""
+    text = "게시·점검·신고는 KCA, 명령·심의·단속은 이관"
+    width = ph._cell_width_hu("명령·심의·단속은") + 300        # 가장 긴 어절이 겨우 들어가는 칸
+    char_lines = math.ceil(ph._cell_width_hu(text) / width)
+    assert char_lines == 3 and ph.cell_lines(text, width) == 4      # 게시·점검·신고는 / KCA, / 명령·심의·단속은 / 이관
+    assert ph.cell_lines("", 5000) == 1 and ph.cell_lines("짧음", 5000) == 1
+    assert ph.cell_lines("가" * 20, ph._cell_width_hu("가" * 10)) == 2     # 칸보다 긴 어절은 글자로 쪼갠다
+
+
+def test_protected_words_round_trip_through_kordoc_marks():
+    """kordoc이 지우는 'MCP'(앞 낱말까지)·바꾸는 줄 머리 ＊는 변환 입력에서 대체 표지로 넘기고 후처리 첫 단계가 되돌린다.
+
+    '26.11.14 kordoc 4.24.59 재현: '사내 MCP 서버' → '서버', '＊ MCP : …' → '※ : …'. 표지(ⓜⓒⓟ·⊛)는 kordoc이 그대로 둔다."""
+    import to_kordoc_input as tk
+    out, _ = tk.convert("제목\n\n□ 개 요\n\n ㅇ **(도구)** 사내 MCP 서버\n\n＊ MCP : 규약\n")
+    assert "MCP" not in out and "사내 ⓜⓒⓟ 서버" in out and "\n⊛ ⓜⓒⓟ : 규약" in out
+    sec = ET.fromstring(
+        f'<hs:sec xmlns:hs="{NS["hs"]}" xmlns:hp="{NS["hp"]}">'
+        '<hp:p><hp:run><hp:t> 사내 ⓜⓒⓟ 서버</hp:t></hp:run></hp:p>'
+        '<hp:p><hp:run><hp:t>-<hp:tab width="700"/>ⓜⓒⓟ는 규약</hp:t></hp:run></hp:p>'
+        '<hp:p><hp:run><hp:t>⊛ ⓜⓒⓟ : 규약</hp:t></hp:run></hp:p></hs:sec>')
+    r = ph.apply_restore_protected([sec])
+    texts = ["".join(t.itertext()) for t in sec.iter(ph.qn("hp", "t"))]
+    assert r["restored"] == 3 and texts == [" 사내 MCP 서버", "-MCP는 규약", "＊ MCP : 규약"]
+    assert ph.apply_restore_protected([sec])["restored"] == 0          # 멱등
+
+
+def test_table_column_alignment_survives_kordoc():
+    """GFM 구분행 `:---`·`---:`로 정한 열 정렬이 인도본까지 간다 — kordoc은 열 정렬을 무시하고 칸을 모두 가운데로 만들어
+    ('26.11.14 실측), 머리글 칸 표지(⒧·⒭)로 넘기고 후처리가 가운데 정렬 뒤 그 열 본문 칸에 준다('26.9.25 lesson f42)."""
+    import to_kordoc_input as tk
+    out, _ = tk.convert("제목\n\n□ 개 요\n\n| 구 분 | 설명 | 값 |\n|---|:---|---:|\n| 가 | 긴 설명 | 1 |\n")
+    assert "| 설명⒧ | 값⒭ |" in out and tk.table_alignment("|:---:|---|") == [None, None]
+
+    def tc(row, col, text):
+        return (f'<hp:tc><hp:cellAddr colAddr="{col}" rowAddr="{row}"/><hp:subList>'
+                f'<hp:p paraPrIDRef="0"><hp:run><hp:t>{text}</hp:t></hp:run></hp:p></hp:subList></hp:tc>')
+    body = ('<hp:p paraPrIDRef="0"><hp:run><hp:t>□ 개 요</hp:t></hp:run></hp:p>'          # 첫 □ 앞 표는 제목 박스로 본다
+            '<hp:p paraPrIDRef="0"><hp:run><hp:tbl rowCnt="2" colCnt="3">'
+            f'<hp:tr>{tc(0, 0, "구 분")}{tc(0, 1, "설명 ⒧")}{tc(0, 2, "값⒭")}</hp:tr>'
+            f'<hp:tr>{tc(1, 0, "가")}{tc(1, 1, "긴 설명")}{tc(1, 2, "1")}</hp:tr>'
+            '</hp:tbl></hp:run></hp:p>')
+    header = ET.fromstring(HEADER_XML.encode("utf-8"))
+    sec = _fit_section(body)
+    ctx = {}
+    r = ph.read_table_alignment([sec], ctx)
+    assert r == {"tables": 1, "columns": 2}
+    texts = ["".join(t.itertext()) for t in sec.iter(ph.qn("hp", "t"))]
+    assert texts[2:5] == ["구 분", "설명", "값"]            # 머리글 칸 표지는 지워진다(앞 두 문단은 발신·□)
+    assert ph.apply_table_column_align(header, ctx)["cells"] == 2
+    aligns = {}
+    for pp in header.iter(ph.qn("hh", "paraPr")):
+        a = pp.find(f".//{ph.qn('hh', 'align')}")
+        aligns[pp.get("id")] = a.get("horizontal") if a is not None else None
+    got = [aligns[p.get("paraPrIDRef")] for p in sec.iter(ph.qn("hp", "p"))][-3:]
+    assert got[1:] == ["LEFT", "RIGHT"]

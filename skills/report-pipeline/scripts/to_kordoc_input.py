@@ -31,6 +31,53 @@ TABLE = re.compile(r"^\s*\|")
 DEPTH = (("□ ", "- "), ("ㅇ ", "  - "), ("○ ", "  - "))
 DASH = re.compile(r"^-\s+")
 QUOTE_MARK = "\u2060"                             # 원문 인용 줄 표식(보이지 않는 WORD JOINER — kordoc이 보존, '26.9.24 실측)
+# kordoc generate_document가 지우거나 바꾸는 글자 — 대체 표지로 넘기고 후처리 `apply_restore_protected`가 되돌린다.
+# '26.11.14 4.24.59 재현: 'MCP'를 도구 언급으로 보고 앞 낱말까지 지우고('사내 MCP 서버' → '서버'), 줄 머리 ＊ 각주를 ※로
+# 바꾼다('26.9.29·10.27 기록 → 고정판에서도 그대로). 표지는 kordoc이 그대로 두는 것을 같은 날 확인했다.
+PROTECT = (("MCP", "\u24dc\u24d2\u24df"),)        # ⓜⓒⓟ
+STAR_LEAD, STAR_MARK = "＊", "\u229b"               # 줄 머리 ＊ → ⊛
+# 표 열 정렬 — kordoc은 GFM `:---`·`---:`를 무시하고 칸을 모두 가운데로 만든다('26.11.14 실측). 명시한 왼쪽·오른쪽 열만
+# 머리글 칸 끝에 표지를 달아 넘기고, 후처리 table_align_read/apply가 표지를 지우며 그 열 본문 칸을 정렬한다.
+ALIGN_MARK = {"LEFT": "\u24a7", "RIGHT": "\u24ad"}  # ⒧ ⒭
+SEP_CELL = re.compile(r"^\s*(:?)-{1,}(:?)\s*$")
+
+
+def _split(line):
+    body = line.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|"):
+        body = body[:-1]
+    return body.split("|")
+
+
+def table_alignment(sep_line):
+    """GFM 구분행 → 열별 정렬(LEFT·RIGHT만 — 기본·가운데는 None: 후처리 기본이 가운데다)."""
+    out = []
+    for cell in _split(sep_line):
+        m = SEP_CELL.match(cell)
+        if not m:
+            return None
+        left, right = bool(m.group(1)), bool(m.group(2))
+        out.append("LEFT" if left and not right else "RIGHT" if right and not left else None)
+    return out
+
+
+def mark_table_alignment(lines):
+    """표마다 구분행의 왼쪽·오른쪽 정렬을 머리글 칸 끝 표지로 옮긴다(표지가 없는 표는 그대로)."""
+    out = list(lines)
+    for i in range(1, len(out)):
+        if not (TABLE.match(out[i]) and TABLE.match(out[i - 1])):
+            continue
+        if i >= 2 and TABLE.match(out[i - 2]):
+            continue                                  # 구분행은 표의 둘째 줄뿐
+        aligns = table_alignment(out[i])
+        if not aligns or not any(aligns):
+            continue
+        head = _split(out[i - 1])
+        head = [c.rstrip() + ALIGN_MARK[a] + " " if a and c.strip() else c for c, a in zip(head, aligns)] + head[len(aligns):]
+        out[i - 1] = "|" + "|".join(head) + "|"
+    return out
 
 
 def convert(text, figures=None):
@@ -39,7 +86,7 @@ def convert(text, figures=None):
     out, used, missing = [], [], []
     title_done = False
     in_quote = False
-    for raw in text.splitlines():
+    for raw in mark_table_alignment(text.splitlines()):
         line = raw.rstrip()
         body = line.strip()
 
@@ -81,7 +128,19 @@ def convert(text, figures=None):
                 out.append("    - " + DASH.sub("", body))
             else:
                 out.append(line)
+    out = [ln if ln.startswith("```") else protect(ln) for ln in out]
     return "\n".join(out) + "\n", {"figures_substituted": used, "figures_missing": missing}
+
+
+def protect(line):
+    """kordoc이 손대는 글자를 대체 표지로 — 후처리 apply_restore_protected와 짝(표지 표는 postprocess_hwpx.PROTECTED)."""
+    for word, mark in PROTECT:
+        line = line.replace(word, mark)
+    stripped = line.lstrip()
+    if stripped.startswith(STAR_LEAD):
+        cut = len(line) - len(stripped)
+        line = line[:cut] + STAR_MARK + stripped[len(STAR_LEAD):]
+    return line
 
 
 def parse_figure(spec):

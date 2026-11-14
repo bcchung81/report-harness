@@ -256,3 +256,43 @@ def test_render_cli_reports_estimated_pages(tmp_path, capsys):
     assert rr.main([str(d), "-o", str(tmp_path / "r.html")]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["est_pages"] == 1 and out["pages_by_part"] == [1]
+
+
+def test_lint_review_and_postprocess_share_one_line_verdict():
+    """'2줄 이내' 판정은 린트·리뷰 화면(fit_style·estimate_layout)·후처리가 같은 함수(md_fit_verdict)로 한다.
+
+    '26.10.7 기록 → '26.11.14 재발: 린트는 글자 수 90자, 리뷰 통계는 글자 폭 합(어절 무시), 후처리는 어절 단위로
+    따로 재서 84자 대시가 '린트 통과·화면 2줄·후처리 넘침'으로 갈렸다."""
+    import lint_md_profile as lint
+    real = ("AI 전환(AX) 협의체가 전파혼신 유발 정보·유해 방송영상 제작법·분야 가짜뉴스 위험과 "
+            "AI안전연구소 대응을 검토, 총괄은 AI디지털심화팀·정보보호팀")
+    cases = [("dash", real)] + [("yo", ("가나다 " * n).strip()) for n in (10, 18, 19, 20, 21, 24, 30)]
+    for kind, body in cases:
+        mark = {"yo": " ㅇ ", "dash": "   - "}[kind]
+        verdict = ph.md_fit_verdict(kind, rr.curly(body))
+        draft = "제목\n\n□ 개 요\n\n" + mark + body + "\n"
+        linted = any(v["rule"] == "body-line-overflow" for v in lint.lint_text(draft))
+        over = rr.fit_style(kind, body)[1]
+        stats = rr.estimate_layout(rr.parse(draft))["over_two_lines"] == 1
+        assert linted == over == stats == (not verdict["fits"]), (kind, len(body), verdict)
+    assert not ph.md_fit_verdict("dash", rr.curly(real))["fits"], "실전 84자 대시는 넘침으로 잡혀야 한다"
+
+
+def test_annex_over_one_page_is_flagged():
+    """붙임은 건마다 1쪽 이내(R028) — 넘친 붙임 번호를 리뷰 출력에 싣는다('26.9.6~11.14 4회 반복, 검사 코드가 없었다)."""
+    long_annex = "\n".join(f" ㅇ **(항목 {i})** " + "가나다라 " * 15 for i in range(40))
+    draft = ("제목\n\n< '26. 11. 14.(금), 본부 팀 >\n\n□ 개 요\n\n ㅇ **(요지)** 본문 한 줄\n\n"
+             "| 붙 임 | | 긴 붙임 |\n\n" + long_annex + "\n")
+    est = rr.estimate_layout(rr.parse(draft))
+    assert est["pages_by_part"][1] > 1 and est["annex_over_one_page"] == [1]
+    short = rr.estimate_layout(rr.parse(draft.split("| 붙 임")[0] + "| 붙 임 | | 짧은 붙임 |\n\n ㅇ **(항목)** 한 줄\n"))
+    assert short["annex_over_one_page"] == []
+
+
+def test_review_table_cells_follow_output_alignment():
+    """리뷰 화면 표 칸은 인도본처럼 가운데가 기본이고, 구분행으로 정한 열만 왼쪽·오른쪽 — 종전에는 8자 넘는 칸을 왼쪽으로
+    그려 리뷰와 한글 산출물 정렬이 달랐다('26.9.25 lesson f42)."""
+    doc, _ = rr.render("제목\n\n□ 개 요\n\n| 구 분 | 설명 | 값 |\n|---|:---|---:|\n| 가 | 아주 긴 설명 문장입니다 | 1 |\n")
+    assert '<td class="c">가</td>' in doc and '<td class="l">아주 긴 설명 문장입니다</td>' in doc and '<td class="r">1</td>' in doc
+    doc, _ = rr.render("제목\n\n□ 개 요\n\n| 구 분 | 설명 |\n|---|---|\n| 가 | 아주 긴 설명 문장입니다 |\n")
+    assert '<td class="c">아주 긴 설명 문장입니다</td>' in doc

@@ -1078,3 +1078,56 @@ def test_is_wait_reads_long_command_lines_in_full():
         assert len(rs._cmdline(p.pid)) > 80
     finally:
         p.kill()
+
+
+def test_approval_to_delivery_survives_revision_begin(tmp_path, capsys):
+    """승인 → convert start → archive begin → convert done → stop 정규 순서가 끝까지 서버에 닿는다.
+
+    '26.10.7 기록·'26.11.14 재발: begin이 history/drafts의 연결 파일까지 판본으로 옮겨 done·stop이
+    '실행 중인 서버 없음'으로 실패했다. 단위 테스트는 각 명령만 봐서 이 순서의 끊김을 못 잡았다.
+    """
+    import archive_revision as ar
+    srv, base = _start(tmp_path)
+    try:
+        port = srv.server_address[1]
+        (rs._drafts(tmp_path) / rs.STATE).write_text(json.dumps(
+            {"url": base + "/", "hub": base + "/", "port": port, "log": str(srv.log_path)}), encoding="utf-8")
+        _post(base + "/api/decision", {"decision": "approved", "note": "팩트체크 경량"})
+        assert rs.convert(tmp_path, "start") == 0
+        ar.snapshot(tmp_path, "승인직후")
+        ar.begin(tmp_path)
+        assert (rs._drafts(tmp_path) / rs.STATE).is_file(), "begin이 연결 파일을 옮겼다"
+        assert rs.convert(tmp_path, "done", "r01 인도") == 0
+        phases = [e.get("phase") for e in map(json.loads, pathlib.Path(srv.log_path).read_text(encoding="utf-8").splitlines())
+                  if e.get("type") == "convert"]
+        assert phases == ["start", "done"]
+        capsys.readouterr()
+        assert rs.stop(tmp_path) == 0
+        out = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+        assert out == {"stopped": True}
+    finally:
+        srv.shutdown(); srv.server_close()
+
+
+def test_approval_is_refused_before_the_draft_exists(tmp_path):
+    """초안이 없는 게이트①(아웃라인만)에서는 '승인 · 변환'이 기록되지 않는다 — 문서 이름 없이 보내면 기본값이 초안이라
+    통과하던 결함('26.11.10 lesson). 초안이 생기면 같은 요청이 받아들여지고 기록에 doc이 남는다."""
+    (tmp_path / "10_outline.md").write_text("# 아웃라인\n\n## 설계 점검\n- 제목(결론): 시험\n", encoding="utf-8")
+    srv = rs.make_server(tmp_path)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        req = urllib.request.Request(base + "/api/decision", data=json.dumps({"decision": "approved"}).encode(),
+                                     method="POST", headers={"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(req, timeout=5)
+            assert False, "초안 없이 승인이 통과했다"
+        except urllib.error.HTTPError as e:
+            assert e.code in (400, 403, 409)            # 문서 해석 실패(400)·권한(403)·초안 없음(409) 어느 쪽이든 막힌다
+        assert not [x for x in rs.collect_pending(srv.log_path) if x.get("type") == "decision"]
+        (tmp_path / "20_draft.md").write_text(DRAFT, encoding="utf-8")
+        _post(base + "/api/decision", {"decision": "approved", "doc": "20_draft.md"})
+        got = [x for x in rs.collect_pending(srv.log_path) if x.get("type") == "decision"]
+        assert got and got[0]["doc"] == "20_draft.md"
+    finally:
+        srv.shutdown(); srv.server_close()

@@ -85,6 +85,11 @@ TRANSITIONS = {
     ("yo", "arrow"): ("yo_to_arrow", 300),
     ("dash", "arrow"): ("dash_to_arrow", 300),
     ("table", "arrow"): ("table_to_arrow", 300),
+    # 표 뒤 ㅇ·대시·다음 표(캡션 내장)로 바로 이어지는 전환 — 실측 전환이 없어 그림 뒤 복귀(FIGURE_AFTER_GAP)와 같은
+    # 6pt를 쓴다. 표 아래 ※ 단서를 지운 원장 보고에서 ㅇ이 표 아래 테두리에 붙어 그려졌다('26.11.14 이음오피스 실측)
+    ("table", "yo"): ("table_to_yo", 600),
+    ("table", "dash"): ("table_to_dash", 600),
+    ("table", "table"): ("table_to_table", 600),
 }
 BLOCK_BOUNDARY_HEIGHT = 800  # 두 번째 이후 □ 상단 8pt (R060 — 종전 1500)
 FIGURE_AFTER_GAP = 600       # 그림 → ㅇ·대시·표 6pt (R088 — X→ㅇ 전환 정합값, 산식 박스와도 띄운다)
@@ -1698,6 +1703,36 @@ def fit_line(wl, avail, h, ratio0, sp0, max_lines=2, words=None):
     return None
 
 
+def fit_verdict(wl, avail, h, ratio0, sp0, words=None, max_lines=2):
+    """줄 맞춤 판정의 단일 출처 — 린트·리뷰 화면·후처리가 같은 답을 쓴다.
+
+    {장평, 자간, 줄 수, 맞춤 성공}. 못 맞추면 하한(장평 90·자간 -10)에서의 줄 수를 돌려준다. '26.10.7 기록 →
+    '26.11.14 재발: 린트는 글자 수 90자, 리뷰 화면은 글자 폭 합(어절 무시), 후처리는 어절 단위로 따로 재서
+    '린트 통과·화면 2줄·한글 3줄'이 함께 성립했다(astra 검토 A3·A10)."""
+    chosen = fit_line(wl, avail, h, ratio0, sp0, max_lines, words)
+    ratio, spacing = chosen or (MIN_RATIO, MIN_SPACING)
+    return {"ratio": ratio, "spacing": spacing, "fits": chosen is not None,
+            "lines": lines_at(wl, avail * FIT_SLACK, h, ratio, spacing, words)}
+
+
+# 마크다운 단계(린트·리뷰 화면)가 한글 산출물의 줄 맞춤을 미리 잴 때 쓰는 출발값 — kordoc 보고서 프리셋이
+# 계층 문단 본문 charPr에 넣는 값. '26.9.24 시험 변환 실측: □·-·※는 100/0 그대로 두고(26건 중 22건), ㅇ만 kordoc
+# 자체 조판으로 95~100/-11~0 사이로 조인다(r02 인도본·시험본 중앙값 95~97/-8). 후처리 apply_line_fit이 이 값에서
+# 출발해 2줄에 맞추므로 린트·리뷰도 같은 값에서 출발해야 줄 수가 같다.
+BODY_FIT = {"yo": (95, -8)}
+BODY_FIT_DEFAULT = (100, 0)
+A4_WIDTH_HU = 59528
+
+
+def md_fit_verdict(kind, plain):
+    """마크다운 계층 문단 하나(부호 뒤 본문, 마크업 제거)의 줄 맞춤 판정 — 린트·리뷰 화면 공용(fit_verdict)."""
+    size = FORM_SIZES_PT.get(kind, FORM_SIZES_PT["yo"])
+    width = (A4_WIDTH_HU - int(PAGE_MARGINS["left"]) - int(PAGE_MARGINS["right"])) / 100.0
+    hang = HIERARCHY_HANG.get(kind, 0) / 100.0
+    return fit_verdict(_weighted_len(plain), width - hang, size, *BODY_FIT.get(kind, BODY_FIT_DEFAULT),
+                       words=word_lens(plain))
+
+
 def apply_line_fit(header_root, section_roots, max_lines=2):
     """계층 서술 문단이 max_lines(기본 2줄)를 넘으면 자간·장평을 조여 맞춘다 (R062).
 
@@ -1732,10 +1767,13 @@ def apply_line_fit(header_root, section_roots, max_lines=2):
             chosen = fit_line(wl, avail, h, ratio0, sp0, max_lines, words)
             if chosen == (ratio0, sp0):
                 continue
-            if chosen is None:
+            fits = chosen is not None
+            if not fits:
                 overflow.append({"text": text[:40], "chars": len(text),
-                                 "lines": lines_at(wl, avail, h, MIN_RATIO, MIN_SPACING, words)})
-                continue
+                                 "lines": lines_at(wl, avail * FIT_SLACK, h, MIN_RATIO, MIN_SPACING, words)})
+                # 못 맞춰도 하한까지는 조인다 — 종전에는 손대지 않고 넘겨 100/0 그대로 한글에서 3줄이 됐다
+                # ('26.11.14 인도본: 넘침 2건이 압축 없이 나감). 줄 수는 그만큼 줄거나 같고 늘지 않는다.
+                chosen = (MIN_RATIO, MIN_SPACING)          # 이미 하한인 run은 아래에서 그대로 둔다(재실행 무변경)
             # 모든 글자 run과 본문 사이 요소 run(nbSpace 등)을 조이되, 이미 더 조인 run은 그대로 둔다
             for run in [r for r, _ in runs] + _element_runs(child):
                 cid = run.get("charPrIDRef")
@@ -1743,7 +1781,8 @@ def apply_line_fit(header_root, section_roots, max_lines=2):
                 target = (min(r0, chosen[0]), min(s0, chosen[1]))
                 if target != (r0, s0):
                     run.set("charPrIDRef", ensure_charpr_fitted(header_root, cid, target[0], target[1], cache))
-            fitted.append({"text": text[:30], "ratio": chosen[0], "spacing": chosen[1]})
+            if fits:
+                fitted.append({"text": text[:30], "ratio": chosen[0], "spacing": chosen[1]})
     return {"scanned": scanned, "fitted": len(fitted), "overflow": len(overflow),
             "overflow_detail": overflow[:10], "min_spacing": MIN_SPACING, "min_ratio": MIN_RATIO}
 
@@ -1801,8 +1840,12 @@ def estimate_layout(header_root, section_roots):
             line_h = max(line_h, h)
             indent = _para_indent_pt(header_root, child.get("paraPrIDRef") or "")
             avail = width - indent
-            adv = h * (ratio / 100.0 + sp / 100.0)
-            n = math.ceil(_body_len(text, indent) / max(1.0, avail / max(adv, 0.1)))
+            if kind in LINE_FIT_KINDS:            # 줄 맞춤과 같은 셈(어절·여유 3%) — 리뷰 화면 estimate_layout과 같은 답
+                words = word_lens(MARK_LEAD.sub("", text, count=1) if indent else text)
+                n = lines_at(_body_len(text, indent), avail * FIT_SLACK, h, ratio, sp, words)
+            else:
+                adv = h * (ratio / 100.0 + sp / 100.0)
+                n = math.ceil(_body_len(text, indent) / max(1.0, avail / max(adv, 0.1)))
             lines += n
             if kind in LINE_FIT_KINDS and n > 2:
                 over2 += 1
@@ -2491,6 +2534,36 @@ ROW_LINE_HU = 1600          # 표 12pt·줄간격 130% 한 줄(kordoc 산출 실
 ROW_PAD_HU = 282            # 1줄 행 = 줄 높이 + 상하 안여백(141×2)
 
 
+def cell_lines(text, width_hu, size=12.0):
+    """표 칸 글자가 폭 width_hu(HWPUNIT, 안여백을 뺀 값)에서 차지하는 줄 수 — 어절(띄어쓰기) 단위로 채운다.
+
+    '26.11.14 이음오피스 실측: 표 칸은 어절 단위로 줄을 바꾸고 '게시·점검·신고는'처럼 가운뎃점으로 이은 묶음은
+    쪼개지 않는다. 종전에는 글자 폭 합을 칸 폭으로 나눠 세어(줄 끝 빈자리 무시) 1쪽 표 칸 3줄이 실제 4줄, 붙임 표
+    6~7줄이 8줄 이상이 되어 3쪽 예상 문서가 4쪽으로 나갔다. 리뷰 화면 쪽 추정과 후처리 행 높이가 함께 쓴다."""
+    scale = size / 12.0
+    cap = max(float(width_hu), 1.0)
+    words = (text or "").split()
+    if not words:
+        return 1
+    space = COL_FIT_SPACE_HU * scale
+    lines, cur = 1, 0.0
+    for w in words:
+        ww = _cell_width_hu(w) * scale
+        need = ww if cur == 0 else cur + space + ww
+        if need <= cap:
+            cur = need
+            continue
+        if cur:                                   # 어절째 다음 줄로
+            lines += 1
+        if ww > cap:                              # 칸보다 긴 어절만 글자로 쪼개진다
+            extra = math.ceil(ww / cap) - 1
+            lines += extra
+            cur = ww - extra * cap
+        else:
+            cur = ww
+    return lines
+
+
 def _cell_need_lines(header_root, tc, margin_lr):
     width = int(tc.find(qn("hp", "cellSz")).get("width")) - margin_lr
     lines = 0
@@ -2498,8 +2571,7 @@ def _cell_need_lines(header_root, tc, margin_lr):
         text = "".join(t.text or "" for t in par.iter(qn("hp", "t"))).strip()
         run = par.find(qn("hp", "run"))
         size = _charpr_metrics(header_root, run.get("charPrIDRef"))[0] if run is not None else 12.0
-        need = _cell_width_hu(text) * size / 12.0
-        lines += max(1, math.ceil(need / max(width, 1)))
+        lines += cell_lines(text, width, size)
     return max(lines, 1)
 
 
@@ -3560,7 +3632,97 @@ def _banner_effect(r):
     return bool(r.get("injected") or geo.get("linespacing_fixed") or geo.get("textwidth_fixed"))
 
 
+# to_kordoc_input.protect가 넘긴 대체 표지 → 원래 글자. 표지는 kordoc이 지우거나 바꾸는 글자를 피하려는 것이다
+# ('26.11.14 4.24.59 재현: 'MCP'와 앞 낱말 삭제, 줄 머리 ＊ → ※). 다른 단계보다 먼저 되돌려야 ＊ 각주 단계가 대상을 찾는다.
+PROTECTED = (("\u24dc\u24d2\u24df", "MCP"),)       # ⓜⓒⓟ → MCP
+STAR_MARK = "\u229b"                                  # ⊛ → ＊ (문단 머리)
+
+
+def apply_restore_protected(section_roots):
+    """변환 입력에서 씌운 대체 표지를 원래 글자로 되돌린다(멱등 — 표지가 없으면 무변경)."""
+    def fix(text):
+        if not text:
+            return text
+        for mark, word in PROTECTED:
+            text = text.replace(mark, word)
+        return text.replace(STAR_MARK, "＊")
+
+    restored = 0
+    for sec in section_roots:
+        for t in sec.iter(qn("hp", "t")):
+            new = fix(t.text)
+            if new != t.text:
+                restored += 1
+                t.text = new
+            for child in t:                      # 탭·줄바꿈 요소 뒤 글자(tail)도 본다
+                new = fix(child.tail)
+                if new != child.tail:
+                    restored += 1
+                    child.tail = new
+    return {"restored": restored}
+
+
+ALIGN_MARKS = {"\u24a7": "LEFT", "\u24ad": "RIGHT"}     # to_kordoc_input.ALIGN_MARK와 짝(⒧ ⒭)
+
+
+def read_table_alignment(section_roots, ctx):
+    """머리글 칸 끝의 정렬 표지를 지우고 {표: {열 번호: LEFT|RIGHT}}를 ctx["col_align"]에 남긴다 — 적용은 가운데 정렬
+    단계(center_cells) 뒤 apply_table_column_align이 한다. kordoc은 GFM 열 정렬을 무시한다('26.11.14 실측)."""
+    found = {}
+    for tbl, is_title in _iter_content_tables(section_roots):
+        if is_title or _is_banner_table(tbl):
+            continue
+        trs = tbl.findall(qn("hp", "tr"))
+        if not trs:
+            continue
+        cols = {}
+        for ci, tc in enumerate(trs[0].findall(qn("hp", "tc"))):
+            addr = tc.find(qn("hp", "cellAddr"))
+            col = int(addr.get("colAddr", ci)) if addr is not None else ci
+            for t in tc.iter(qn("hp", "t")):
+                for el in [t] + list(t):            # 글자(text)와 탭 등 요소 뒤 글자(tail)
+                    attr = "text" if el is t else "tail"
+                    val = getattr(el, attr)
+                    if not val:
+                        continue
+                    hit = [side for mark, side in ALIGN_MARKS.items() if mark in val]
+                    if hit:
+                        cols[col] = hit[0]
+                        for mark in ALIGN_MARKS:
+                            val = val.replace(mark, "")
+                        setattr(el, attr, val.rstrip())
+        if cols:
+            found[id(tbl)] = (tbl, cols)
+    ctx["col_align"] = found
+    return {"tables": len(found), "columns": sum(len(c) for _, c in found.values())}
+
+
+def apply_table_column_align(header_root, ctx):
+    """read_table_alignment가 남긴 열 정렬을 그 열의 본문 칸(머리글 행 제외) 문단에 준다."""
+    cache, cells = {}, 0
+    for tbl, cols in (ctx.get("col_align") or {}).values():
+        for tc in tbl.iter(qn("hp", "tc")):
+            addr = tc.find(qn("hp", "cellAddr"))
+            if addr is None or int(addr.get("rowAddr", "0")) == 0:
+                continue
+            side = cols.get(int(addr.get("colAddr", "-1")))
+            if not side:
+                continue
+            for par in tc.iter(qn("hp", "p")):
+                base = par.get("paraPrIDRef")
+                if base is not None:
+                    par.set("paraPrIDRef", ensure_aligned_clone(header_root, base, side, cache))
+            cells += 1
+    return {"cells": cells}
+
+
 STAGES = (
+    ("restore_protected", "always",
+     lambda c: apply_restore_protected(c["secs"]),
+     None, lambda r: r["restored"] > 0),
+    ("table_align_read", "always",
+     lambda c: read_table_alignment(c["secs"], c),
+     None, lambda r: r["columns"] > 0),
     ("star_footnote", "star",
      lambda c: apply_star_footnote(c["header"], c["secs"]),
      lambda r: r["stars_found"] > 0, lambda r: r["runs_changed"] > 0),
@@ -3608,6 +3770,9 @@ STAGES = (
     ("center_cells", "zero",
      lambda c: apply_center_cell_text(c["header"], c["secs"]),
      lambda r: r["tables"] > 0, lambda r: r["paragraphs"] > 0),
+    ("table_column_align", "always",
+     lambda c: apply_table_column_align(c["header"], c),
+     None, lambda r: r["cells"] > 0),
     ("title_box_form", "zero",
      lambda c: apply_title_box_form(c["header"], c["secs"]),
      lambda r: bool(r["restored"]), lambda r: bool(r["restored"])),

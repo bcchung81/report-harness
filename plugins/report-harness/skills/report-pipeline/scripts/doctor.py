@@ -121,6 +121,8 @@ def checks():
 
     # ⑧ 조치 예고된 미승격 lesson — 잊히는 경로를 눈에 보이게 한다
     out.append(pending_lessons_check())
+    # ⑨ 규칙 승격 후보 — 열린 내용·선호 교훈과 반복 묶음(결함·기능만 세면 '2회 반복 → R0NN'이 멈춘 것이 안 보인다)
+    out.append(rule_candidates_check())
 
     # ⑩ 설치 사본 신선도 — 저장소 체크아웃에서 돌릴 때만(개발 노트북: 스킬을 ~/.claude/skills 사본으로 쓰는 경우)
     cp = installed_copy_check()
@@ -231,6 +233,30 @@ def classify_lessons(rows):
         elif kind is None and any(k in (row.get("fix") or "") for k in PLEDGE):
             legacy.append(row)
     return open_, legacy
+
+
+def rule_candidates_check(path=None):
+    """열린 content·preference 교훈과 반복 후보 묶음을 센다 — lessons_status.py가 단독 출처다.
+
+    '26.11.14 하네스 검토(Fable F3): kind가 붙은 교훈 101줄 중 승격 0건이었는데 자가진단이 결함·기능만 세어
+    드러나지 않았다. 반복 후보가 있으면 경고하고, 승격·통합·기각 판단은 사람이 한다."""
+    import lessons_status as ls                      # noqa: E402  (같은 scripts/ 폴더)
+    try:
+        p = pathlib.Path(path) if path else ls.default_path()
+    except Exception:
+        return {"항목": "규칙 승격 후보", "상태": OK, "값": "확인 불가 — 설정 해석 실패", "조치": ""}
+    if not p.exists():
+        return {"항목": "규칙 승격 후보", "상태": OK, "값": "축적본 없음 — 신규 설치", "조치": ""}
+    s = ls.summarize(ls.load(p))
+    k = s["by_kind"]
+    content = k.get("content", {}).get("open", 0)
+    pref = k.get("preference", {}).get("open", 0)
+    groups = len(s["repeat_candidates"])
+    val = f"열린 content {content}건 · preference {pref}건 · 반복 후보 {groups}묶음"
+    if not groups:
+        return {"항목": "규칙 승격 후보", "상태": OK, "값": val, "조치": ""}
+    return {"항목": "규칙 승격 후보", "상태": WARN, "값": val,
+            "조치": "lessons_status.py로 묶음을 보고 승격(sync_rules.py --next-id)·통합·기각을 정한 뒤 promoted·resolved_by를 단다"}
 
 
 def pending_lessons_check(path=None):

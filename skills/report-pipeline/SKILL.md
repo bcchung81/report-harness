@@ -72,6 +72,11 @@ MCP 도구명(`mcp__kordoc__…`)은 같고, 아래만 실행기 도구에 맞�
    grep -F "[export]" {state_dir}/rules.md | grep -vF "[draft]"
    ```
 
+   `[postprocess]` 규칙(31건 — 간격·정렬·폰트·배너·표 폭·패키지 등)은 변환 스크립트(`to_kordoc_input`·`postprocess_hwpx`)가
+   매번 강제하므로 프리플라이트로 읽지 않는다 — 인도본이 규칙과 달라 보일 때만 `grep -F "[postprocess]"`와 `hwpx-recipe.md`
+   §3.5(플래그↔R번호)를 읽는다. `[harness]`(드리프트 테스트·규칙 통폐합·자가진단)는 하네스를 고칠 때만 읽는다('26.11.14 —
+   종전에는 변환 단계가 매번 19,258자를 읽었고 그 46%가 스크립트가 이미 하는 일이었다).
+
 이 절차를 매 단계 시작마다 반복하지 않는다 — 한 요청 안에서 여러 단계를 이어 붙일 때는 최초
 1회만 수행하고 같은 `work_dir`을 계속 쓴다.
 
@@ -334,13 +339,14 @@ python3 "$SKILL_DIR/scripts/render_review_html.py" {work_dir}/20_draft.md
 출력의 `est_pages`·`pages_by_part`(본문·붙임별)는 변환 뒤 후처리가 보고하는 예상 쪽수(R067)와 같은 식이다(실변환
 짝 대조 — 쪽수 일치, pt 오차 0~3%). **게이트⓪ 분량을 넘으면 게이트② 제시 때 1줄로 알리고 줄일 곳(절·표 지정 / 붙임
 이관 / 그대로 둠)을 선택지로 묻는다** — 승인 뒤에는 줄이지 않는다(④ 인도 참조). 리뷰 서버 없이 정적 페이지만 쓸 때
-분량 초과를 변환 뒤에야 알던 것을 당긴다('26.9.25 하네스 실전 점검). `figures_estimated`가 1 이상이면 그림으로 그리는
+분량 초과를 변환 뒤에야 알던 것을 당긴다('26.9.25 하네스 실전 점검). `annex_over_one_page`(1쪽을 넘는 붙임 번호)가 비어 있지 않으면 같은 자리에서 1줄로 알리고 줄일 곳을 묻는다(R028 — 붙임 건마다
+1쪽, 규칙만 있고 검사가 없어 '26.9.6~11.14 4회 반복). `figures_estimated`가 1 이상이면 그림으로 그리는
 도식 높이를 기본값으로 셌다는 뜻이다.
 
 **라이브 리뷰 서버로 보여 준다**('26.9.24 사용자 선택) — 창 하나를 끝까지 열어 두고, 코멘트를 여러 번
 보내도 잠기지 않으며, 초안을 고치면 브라우저가 스크롤을 유지한 채 다시 그리고 바뀐 항목을 표시한다.
 127.0.0.1 전용·표준 라이브러리·외부 전송 없음. 게이트 밖에서 사용자가 직접 열 때는 `/report-review [작업폴더|건명|all|닫기]`
-커맨드가 같은 절차(serve → wait → 게이트② 처리)를 시작한다('26.9.25 사용자 지시). 허브 상태·재시작·끄기는
+스킬이 같은 절차(serve → wait → 게이트② 처리)를 시작한다('26.9.25 사용자 지시). 허브 상태·재시작·끄기는
 `/report-review 상태|재시작|끄기`('26.9.27).
 
 **허브 — 보고서 바꾸기와 모든 md**('26.9.25 사용자 선택): 3333 하나에 여러 건이 뜨되 **목록 화면은 따로 두지
@@ -482,12 +488,16 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 `43_convert_input`·`40_roundtrip`·`40_qa`)은 전부 그 폴더 안에 쓴다 — 작업폴더 루트에 두지
 않는다.** 루트에 두면 초안만 고쳤을 때 넷이 함께 낡고, 실제로 '26.9.10 전수 측정에서 10건 중
 4건이 그 상태였다(최대 201조각·12일 차이). 인도본만 `final/{hwpx_prefix}{제목}.hwpx`로 나간다.
+`begin`은 `history/drafts/`의 초안 스냅샷만 판본으로 옮기고, 라이브 리뷰의 연결·임대 파일(점 파일)은 두며 진행 중
+리뷰 기록(`25_review.html`·`26_review.*`)은 복사만 한다(출력 `review_copied`) — 종전에는 이것까지 옮겨 인도 신호·
+`stop`이 '실행 중인 서버 없음'으로 실패했다('26.10.7 기록 → '26.11.14 재발).
 **리뷰 화면이 열려 있으면 진행을 알린다** — 승인 때 보낸 `convert --phase start`로 알약이 '변환 중'이고, 인도 뒤
 `convert --phase done --note "{예상 쪽수 등 1줄}"`이면 알약이 **'인도본 받기 rNN'**으로 바뀌어 화면에서 hwpx를 내려받는다
 (`{건 주소}/final/{파일}`, 서랍 '인도본' 목록도 같다). 변환을 끝내지 못하면 `--phase fail --note "{사유}"` — 초안은 그대로 인도.
 서버가 없으면 신호는 exit 1로 알리기만 하고 변환은 계속한다. 신호를 다 보낸 뒤 `review_server.py stop {work_dir}`.
 **변환 동안은 하네스 잠금을 잡는다** — `review_server.py lock acquire --why "변환 {건}"`, 인도 뒤 `lock release`
-(여러 건을 함께 열었을 때 다른 건의 규칙·코드 수정이 변환 도중에 끼지 않게 — 게이트② '여러 보고서' 절).
+(여러 건을 함께 열었을 때 다른 건의 규칙·코드 수정이 변환 도중에 끼지 않게 — 게이트② '여러 보고서' 절). 잠금은 마지막 신호 뒤
+30분(`LEASE_SEC`)이 지나면 풀린다 — 재변환 루프 등으로 오래 걸리면 같은 명령을 다시 불러 갱신한다(같은 세션은 제 잠금을 갱신).
 
 1. **팩트체크(게이트②에서 선택된 값대로) ∥ 회귀검사(`rules.md` `[export]` 태그 +
    `md-profile.md`)를 한 메시지 다중 Agent로 동시 스폰**한다. 전수는 독립 서브에이전트가
@@ -497,7 +507,7 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
    (에이전트 스폰 불필요). 생략이면 이 항목은 건너뛴다. 팩트체크가 전수로 선택됐는데
    불합격 항목이 나오면 수정 후 게이트②를 간이 재확인한다(사실이 바뀌면 사용자가 다시 봐야
    한다) — 이 경우에만 사용자 개입이 생긴다.
-2. 둘 다 통과하면 `skills/report-pipeline/references/hwpx-recipe.md` recipe 절차(생성→이미지
+2. 둘 다 통과하면 `"$SKILL_DIR/references/hwpx-recipe.md"` recipe 절차(생성→이미지
    규격판정·주입→**후처리**→검증) 그대로 실행: prep 정규화(`prep_report_md.py`, exit 2면 사유·줄
    번호 보고 후 20_draft.md 수정부터 재시도, 출력은 `{판본폴더}/40_prepared.md`) →
    `figures/`가 있으면 **`render_diagram.py --work-dir {work_dir} --out-dir {판본폴더}/figures`**로
@@ -518,7 +528,8 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
    재직렬화·제목 `#`·따옴표 차이·1칸 상자는 스스로 걸러 내므로 XML을 열어 무해 판정하지 않는다 — 진짜 기호 잔재는
    `--hwpx`의 `literal-markup`이 인도본 글자에서 센다(recipe §4-3).
    **개정 건은 착수 전에 `archive_revision.py status {work_dir}`로 초안↔인도본 대응을
-   확인한다(R085·R087)** — `draft_ahead`면 인도본이 지금 초안과 다른 판이라는 뜻이므로
+   확인한다(R085·R087)** — `in_progress`면 판본 폴더만 있고 인도본이 없다(지난 변환이 끝나지 않음 — 같은 판본으로 이어서 변환),
+   `draft_ahead`면 인도본이 지금 초안과 다른 판이라는 뜻이므로
    재변환이 필요하다. 이 검사를 건너뛰면 초안만 고치고 인도본은 옛 판인 상태가 조용히 남는다.
 
    ### 2-1. 양식 정합 후처리 — 생략 금지 (recipe §3.5)
@@ -529,7 +540,7 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 
    ```
    python3 "$SKILL_DIR/scripts/postprocess_hwpx.py" \
-       {work_dir}/final/{제목}.hwpx --all
+       {work_dir}/final/r{NN}_{YYYYMMDD}_{제목}.hwpx --all
    ```
 
    - **실행 위치**: `generate_document`(그림 임베드 포함) **후**, `validate_hwpx.py structural` **전**. 스크립트가 zip을
@@ -547,7 +558,7 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
      결과가 규칙과 어긋나 보이면 그 절을 읽고 판정한다(여기서는 중복 서술하지 않는다).
    - `--star-indent`는 R019에서 폐기돼 **CLI에서 제거됐다** — 지금 넘기면 exit 2로 거부된다.
      계층 내어쓰기는 `--spacing` 묶음의 `apply_space_hierarchy`가 담당한다.
-3. **인도**: `final/r{NN}_{YYYYMMDD}_{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다. 리뷰 화면이 열려 있으면
+3. **인도**: `qa_report.py … --hwpx {인도본} -o {판본폴더}/40_qa.md`가 **exit 0일 때만** `final/r{NN}_{YYYYMMDD}_{제목}.hwpx`를 파일 첨부로 전송(SendUserFile류)한다(exit 1이면 §5 재변환 루프 → 그래도 보류면 사유를 보고하고 초안 md를 인도). 리뷰 화면이 열려 있으면
    `review_server.py convert {work_dir} --phase done --note "…"` → `review_server.py stop {work_dir}` 순으로 화면에 '인도본
    받기'를 띄우고 리뷰를 닫는다(위 ④ 머리 — stop을 먼저 부르면 CLI가 서버를 못 찾아 신호가 가지 않는다). 미검증 사실(팩트체크
    생략/경량 선택 시)·잔존 QA 이슈가 있으면 **1줄로만** 고지한다 — 장황한 나열 금지.
@@ -583,6 +594,11 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 `"resolved_by":"{커밋 해시 또는 R0NN}"`을 단다 — `doctor.py`가 resolved_by 없는 결함·기능만 '미조치'로 센다.
 옛 `"harness_defect": true`는 `kind:"defect"`와 같게 읽는다.
 
+같은 지적이 다시 나오면 앞 교훈과 같은 `"topic":"{짧은 슬러그}"`를 달고, 의미상 재발이면 feedback에 '재발'이라고 적는다 —
+낱말이 달라도 반복으로 묶이게 하려는 것이다('26.11.14 — kind 교훈 101줄 중 승격 0건, '여섯 질문'·'5개 안건'처럼 표현이 다른
+같은 지적은 묶이지 않았다). 반복 묶음·열린 내용·선호 교훈은 `python3 "$SKILL_DIR/scripts/lessons_status.py"`가 센다(자가진단
+'규칙 승격 후보'와 같은 출처). 게이트② 종료 때 이 출력의 묶음을 승격·통합·기각 선택지로 묻는다.
+
 `gate`는 이 6값 enum 중 하나만 쓴다. `rules.md`의 `[research]`/`[analyze]`/`[draft]`/`[export]`
 같은 **단계 태그는 rules.md 항목 표기 전용**이며 `feedback` 문자열 안에 중복 삽입하지 않는다 —
 두 체계를 섞지 않는다. **게이트①(아웃라인) 피드백은 `gate:"outline"`, 게이트②(초안)는
@@ -616,7 +632,7 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
 
 - `references/style-guide.md` — 기관보고서 양식 성문화(제목·계층·서술량·톤앤매너·맺음말).
   집필·스타일 감사 시점에 읽는다.
-- `references/md-profile.md` — 변환 가능 마크다운 서브셋 + 린트 룰 8종. 집필·lint 시점에
+- `references/md-profile.md` — 변환 가능 마크다운 서브셋 + 린트 룰 목록(§3 표). 집필·lint 시점에
   읽는다.
 - `references/hwpx-recipe.md` — 변환 절차·부록 스크립트 시그니처 표. export 단계 진입 시
   읽는다.
@@ -635,8 +651,8 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   §B 이미지 차용 기준(게이트① 이미지 배치 판정 시). 해당 시점에 읽는다.
 - `references/format-profile.kca.md` — KCA 기본 양식 프로파일(폰트·계층·줄바꿈). 프리플라이트·
   변환 시점에 읽는다. `state_dir`에 기관별 프로파일이 있으면 그것이 우선.
-- `references/rules-seed.md` — `state_dir/rules.md` 첫 실행 시드(§0-4에서 1회만 복사, 이후는
-  `state_dir/rules.md` 자체를 읽는다).
+- `references/rules-seed.md` — `state_dir/rules.md` 배포 시드(§0-4 — 없으면 복사, 있으면 매 실행 `sync_rules.py --apply`가
+  시드에만 있는 규칙을 덧붙인다. 단계 실행은 `state_dir/rules.md`를 태그로 걸러 읽는다).
 - `scripts/harness_config.py` — 설정 로드(`load_config`)·작업폴더 규약(`work_dir`)·
   상태 경로(`state_paths`). 모든 단계 진입 시 §0 절차로 먼저 실행.
 - `scripts/lint_md_profile.py <md>` — 결정론 린트. JSON 출력, exit 0(통과)/1(위반).
@@ -665,8 +681,12 @@ AskUserQuestion 선택지(브라우저를 쓸 수 없거나 plannotator가 `dism
   `migrate`·`flatten`은 구 구조 1회 정리(기본 계획 출력, `--apply`로 수행).
 - `scripts/to_kordoc_input.py <prepared.md> -o <convert_input.md> [--figure 슬러그=파일|캡션]`
   — 개조식 표기를 kordoc 입력 마크다운으로 되돌린다. 미치환 도식 마커가 남으면 exit 1.
-- `scripts/qa_report.py --postprocess … --structural … --compare … -o 40_qa.md` — 각 단계
-  JSON을 모아 변환 QA 기록을 찍는다. 손으로 쓰지 않는다(빠뜨려도 드러나지 않기 때문).
+- `scripts/lessons_status.py [--path lessons.jsonl] [--json]` — 교훈 처리 현황(kind × 열림·조치·승격 — 승격 표시 세 갈래를
+  하나로 읽음)과 열린 content의 반복 후보 묶음(같은 topic·핵심어 3개 이상·기록자 '재발' 표시). 판단은 사람이 한다.
+- `scripts/qa_report.py --postprocess … --structural … --compare … --hwpx … -o 40_qa.md` — 각 단계
+  JSON을 모아 변환 QA 기록을 찍는다. 손으로 쓰지 않는다(빠뜨려도 드러나지 않기 때문). **exit 0일 때만 인도한다** —
+  후처리·구조·대조 결과 누락, 구조 오류·내용 불일치·근거 없는 수치, 인도본 없음이면 exit 1(인도 보류, 사유는 기록 끝
+  '인도 판정'). 줄 넘침은 막지 않고 '인도 때 알릴 조판 사항'으로 남긴다. Codex에는 훅이 없어 이 판정이 공통 게이트다.
 - `scripts/validate_hwpx.py structural|compare|numbers|freshness` — 구조 검증/왕복 대조(문장 단위 포함)/경량 팩트체크/산출물 신선도(초안↔prepared 대응, R085).
   시그니처는 `hwpx-recipe.md` 부록 표 참조(중복 서술 안 함).
 - `scripts/check_image_size.py <img> [--max-w-mm MM] [--max-h-mm MM]` — 그림 표시 크기·실효
